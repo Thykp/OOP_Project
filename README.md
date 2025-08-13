@@ -2,7 +2,7 @@
 
 ## Prerequisite
 VScode or IntelliJ (Your Choice) <br>
-Java 17 <br>
+Java 21 <br>
 Maven 3.6+ <br>
 Node.js <br>
 Database Credentials <br>
