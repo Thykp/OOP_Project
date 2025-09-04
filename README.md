@@ -7,6 +7,22 @@ Maven 3.6+ <br>
 Node.js <br>
 Database Credentials <br>
 
+## Folder Structure (Spring Boot)
+```bash
+.
+├── HELP.md
+├── mvnw
+├── mvnw.cmd
+├── pom.xml
+└── src
+    ├── main
+    │   ├── java
+    │   └── resources
+    └── test
+        ├── java
+        └── resources
+```
+
 ## Instructions
 
 Switch to your branch before starting to code:
