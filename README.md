@@ -33,6 +33,10 @@ Switch to your branch before starting to code:
 ```
 
 ## Solution Architecture (Draft)
+### Technical Architecture
+<img width="546" height="743" alt="Screenshot 2025-09-04 at 6 19 34 PM" src="https://github.com/user-attachments/assets/46bc4d5e-2306-476f-9631-8f37ae179b50" />
+
+
 ### MVC Architecture
 <img width="853" height="438" alt="Screenshot 2025-07-22 at 5 18 01 PM" src="https://github.com/user-attachments/assets/0ffc5bb7-eb66-4eca-a817-d3bbfd392e6c" />
 <p>
