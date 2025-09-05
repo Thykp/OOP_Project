@@ -21,7 +21,7 @@ export function Navigation({ variant = "landing" }: NavigationProps) {
     { href: "#contact", label: "Contact" },
   ]
 
-  const isAuthPage = pathname === "/signin" || pathname === "/signup"
+//   const isAuthPage = pathname === "/signin" || pathname === "/signup"
 
   return (
     <header className="border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 sticky top-0 z-50">
