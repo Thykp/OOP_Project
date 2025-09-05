@@ -3,7 +3,7 @@ import { Navigation } from "./navigation"
 
 interface PageLayoutProps {
   children: React.ReactNode
-  variant?: "landing" | "auth"
+  variant?: "landing" | "auth" | "dashboard"
   className?: string
 }
 

@@ -108,7 +108,7 @@ export default function PatientDashboard() {
   }
 
   return (
-    <PageLayout>
+    <PageLayout variant="dashboard">
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
         <div className="container mx-auto px-4 py-8">
           {/* Header */}

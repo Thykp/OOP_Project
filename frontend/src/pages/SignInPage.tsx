@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -10,17 +10,57 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Eye, EyeOff } from "lucide-react"
 import { PageLayout } from "@/components/page-layout"
+import { useAuth } from "@/context/auth-context"
+import { supabase } from "@/lib/supabase"
 
 export default function SignInPage() {
+  const navigate = useNavigate()
+  const { signInWithPassword } = useAuth()
+
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false)
+  const [loadingGoogle, setLoadingGoogle] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: Implement Supabase authentication
-    console.log("Sign in attempt:", { email, password, rememberMe })
+    setError(null)
+    setLoading(true)
+
+    // Note: "remember me" is controlled by the Supabase client option `persistSession`
+    // configured in src/lib/supabase.ts. It isn't a per-login toggle. You can read the
+    // value here if you want to store a user preference.
+    const { error } = await signInWithPassword({ email, password })
+
+    setLoading(false)
+    if (error) {
+      setError(error.message)
+      return
+    }
+    navigate("/dashboard")
+  }
+
+  const handleGoogle = async () => {
+    setError(null)
+    setLoadingGoogle(true)
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/dashboard`,
+        // If you want refresh tokens in web, uncomment:
+        // queryParams: { access_type: "offline", prompt: "consent" },
+      },
+    })
+    // For OAuth, Supabase will redirect the browser. If there's an immediate error,
+    // we can show it; otherwise the redirect takes over.
+    if (error) {
+      setLoadingGoogle(false)
+      setError(error.message)
+    }
   }
 
   return (
@@ -81,7 +121,7 @@ export default function SignInPage() {
                     <Checkbox
                       id="remember"
                       checked={rememberMe}
-                      onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                      onCheckedChange={(checked) => setRememberMe(!!checked)}
                     />
                     <Label htmlFor="remember" className="text-sm text-gray-600">
                       Remember me
@@ -92,8 +132,14 @@ export default function SignInPage() {
                   </Link>
                 </div>
 
-                <Button type="submit" className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium">
-                  Sign In
+                {error && <p className="text-sm text-red-600">{error}</p>}
+
+                <Button
+                  type="submit"
+                  className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                  disabled={loading}
+                >
+                  {loading ? "Signing in..." : "Sign In"}
                 </Button>
               </form>
 
@@ -112,8 +158,10 @@ export default function SignInPage() {
                   type="button"
                   variant="outline"
                   className="w-full h-11 border-gray-300 text-gray-700 hover:bg-gray-50 bg-transparent"
+                  onClick={handleGoogle}
+                  disabled={loadingGoogle}
                 >
-                  <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" aria-hidden="true">
                     <path
                       fill="currentColor"
                       d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -131,15 +179,16 @@ export default function SignInPage() {
                       d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                     />
                   </svg>
-                  Continue with Google
+                  {loadingGoogle ? "Redirecting…" : "Continue with Google"}
                 </Button>
 
                 <Button
                   type="button"
                   variant="outline"
                   className="w-full h-11 border-gray-300 text-gray-700 hover:bg-gray-50 bg-transparent"
+                  onClick={() => alert("SingPass sign-in is not configured. (Needs custom OIDC)")}
                 >
-                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.174-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.097.118.112.221.083.343-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.402.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.357-.629-2.746-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24.009 12.017 24c6.624 0 11.99-5.367 11.99-11.987C24.007 5.367 18.641.001 12.017.001z" />
                   </svg>
                   Continue with SingPass

@@ -7,7 +7,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Calendar, Menu } from "lucide-react"
 
 interface NavigationProps {
-  variant?: "landing" | "auth"
+  variant?: "landing" | "auth" | "dashboard"
 }
 
 export function Navigation({ variant = "landing" }: NavigationProps) {
