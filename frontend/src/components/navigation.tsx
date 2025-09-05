@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Link, useLocation, useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Calendar, Menu } from "lucide-react"
@@ -14,8 +14,8 @@ interface NavigationProps {
 
 export function Navigation({ variant = "landing" }: NavigationProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const location = useLocation()
-  const pathname = location.pathname
+  // const location = useLocation()
+  // const pathname = location.pathname
   const navigate = useNavigate()
   const { user, isLoading, signOut } = useAuth()
 

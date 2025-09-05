@@ -89,7 +89,7 @@ export default function PatientDashboard() {
   const [selectedTime, setSelectedTime] = useState("")
   const [isCheckedIn, setIsCheckedIn] = useState(false)
   const [queueNumber, setQueueNumber] = useState(15)
-  const [currentNumber, setCurrentNumber] = useState(12)
+  const [currentNumber] = useState(12)
 
   const handleBookAppointment = () => {
     if (selectedDoctor && selectedClinic && selectedDate && selectedTime) {
