@@ -1,10 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { Link, useLocation } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Calendar, Menu } from "lucide-react"
+import { useAuth } from "@/context/auth-context"
+import { UserMenu } from "@/components/user-menu"
 
 interface NavigationProps {
   variant?: "landing" | "auth" | "dashboard"
@@ -14,6 +16,8 @@ export function Navigation({ variant = "landing" }: NavigationProps) {
   const [isOpen, setIsOpen] = useState(false)
   const location = useLocation()
   const pathname = location.pathname
+  const navigate = useNavigate()
+  const { user, isLoading, signOut } = useAuth()
 
   const navLinks = [
     { href: "#features", label: "Features" },
@@ -21,7 +25,11 @@ export function Navigation({ variant = "landing" }: NavigationProps) {
     { href: "#contact", label: "Contact" },
   ]
 
-//   const isAuthPage = pathname === "/signin" || pathname === "/signup"
+  const handleLogout = async () => {
+    await signOut()
+    setIsOpen(false)
+    navigate("/signin", { replace: true })
+  }
 
   return (
     <header className="border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 sticky top-0 z-50">
@@ -34,7 +42,7 @@ export function Navigation({ variant = "landing" }: NavigationProps) {
           <span className="text-xl font-semibold text-gray-900">SingHealth Clinic</span>
         </Link>
 
-        {/* Desktop Navigation */}
+        {/* Desktop Navigation (marketing) */}
         {variant === "landing" && (
           <nav className="hidden md:flex items-center space-x-6">
             {navLinks.map((link) => (
@@ -45,28 +53,46 @@ export function Navigation({ variant = "landing" }: NavigationProps) {
           </nav>
         )}
 
-        {/* Auth Navigation for auth pages */}
+        {/* Back link on auth pages */}
         {variant === "auth" && (
           <Link to="/" className="flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-colors">
             <span>Back to Home</span>
           </Link>
         )}
 
-        {/* Desktop Auth Buttons */}
+        {/* Desktop right actions */}
         {variant === "landing" && (
           <div className="hidden md:flex items-center space-x-3">
-            <Link to="/signin">
-              <Button variant="ghost" className="text-gray-600 hover:text-blue-600">
-                Sign In
-              </Button>
-            </Link>
-            <Link to="/signup">
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white">Get Started</Button>
-            </Link>
+            {!isLoading && user ? (
+              <UserMenu />
+            ) : (
+              <>
+                <Link to="/signin">
+                  <Button variant="ghost" className="text-gray-600 hover:text-blue-600">
+                    Sign In
+                  </Button>
+                </Link>
+                <Link to="/signup">
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white">Get Started</Button>
+                </Link>
+              </>
+            )}
           </div>
         )}
 
-        {/* Mobile Menu */}
+        {variant === "dashboard" && (
+          <div className="hidden md:flex items-center space-x-3">
+            {!isLoading && user ? <UserMenu /> : (
+              <Link to="/signin">
+                <Button variant="ghost" className="text-gray-600 hover:text-blue-600">
+                  Sign In
+                </Button>
+              </Link>
+            )}
+          </div>
+        )}
+
+        {/* Mobile Menu (landing) */}
         {variant === "landing" && (
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild className="md:hidden">
@@ -76,7 +102,6 @@ export function Navigation({ variant = "landing" }: NavigationProps) {
             </SheetTrigger>
             <SheetContent side="right" className="w-[300px] sm:w-[400px]">
               <div className="flex flex-col space-y-6 mt-6">
-                {/* Mobile Logo */}
                 <div className="flex items-center space-x-2">
                   <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                     <Calendar className="w-5 h-5 text-white" />
@@ -84,7 +109,6 @@ export function Navigation({ variant = "landing" }: NavigationProps) {
                   <span className="text-xl font-semibold text-gray-900">SingHealth Clinic</span>
                 </div>
 
-                {/* Mobile Navigation Links */}
                 <nav className="flex flex-col space-y-4">
                   {navLinks.map((link) => (
                     <Link
@@ -98,20 +122,49 @@ export function Navigation({ variant = "landing" }: NavigationProps) {
                   ))}
                 </nav>
 
-                {/* Mobile Auth Buttons */}
                 <div className="flex flex-col space-y-3 pt-6 border-t">
-                  <Link to="/signin" onClick={() => setIsOpen(false)}>
-                    <Button variant="ghost" className="w-full justify-start text-gray-600 hover:text-blue-600">
-                      Sign In
-                    </Button>
-                  </Link>
-                  <Link to="/signup" onClick={() => setIsOpen(false)}>
-                    <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">Get Started</Button>
-                  </Link>
+                  {!isLoading && user ? (
+                    <>
+                      <Link to="/dashboard" onClick={() => setIsOpen(false)}>
+                        <Button variant="ghost" className="w-full justify-start text-gray-700 hover:text-blue-600">
+                          Dashboard
+                        </Button>
+                      </Link>
+                      <Button className="w-full" variant="outline" onClick={handleLogout}>
+                        Log out
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Link to="/signin" onClick={() => setIsOpen(false)}>
+                        <Button variant="ghost" className="w-full justify-start text-gray-600 hover:text-blue-600">
+                          Sign In
+                        </Button>
+                      </Link>
+                      <Link to="/signup" onClick={() => setIsOpen(false)}>
+                        <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">Get Started</Button>
+                      </Link>
+                    </>
+                  )}
                 </div>
               </div>
             </SheetContent>
           </Sheet>
+        )}
+
+        {/* Mobile (dashboard): simple button */}
+        {variant === "dashboard" && (
+          <div className="md:hidden">
+            {!isLoading && user ? (
+              <Button variant="outline" size="sm" onClick={handleLogout}>
+                Log out
+              </Button>
+            ) : (
+              <Link to="/signin">
+                <Button variant="ghost" size="sm">Sign In</Button>
+              </Link>
+            )}
+          </div>
         )}
       </div>
     </header>
