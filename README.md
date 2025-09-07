@@ -65,7 +65,7 @@ Switch to your branch before starting to code:
 
 ## Solution Architecture (Draft)
 ### Technical Architecture
-<img width="546" height="743" alt="Screenshot 2025-09-04 at 6 19 34 PM" src="https://github.com/user-attachments/assets/46bc4d5e-2306-476f-9631-8f37ae179b50" />
+<img width="473" height="628" alt="Screenshot 2025-09-08 at 1 47 37 AM" src="https://github.com/user-attachments/assets/963c05d0-d13a-44e9-9343-1f6755c89838" />
 
 
 ### MVC Architecture
