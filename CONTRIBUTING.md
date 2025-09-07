@@ -104,8 +104,8 @@ Step-by-Step:
 
 ## Code Style & Formatting
 
-Java 21
-Constructor injection (no field injection).
-Method length: keep focused and small.
-Naming: UserController, UserService, UserRepository, UserDto, CreateUserDto.
+Java 21 <br>
+Constructor injection (no field injection). <br>
+Method length: keep focused and small. <br>
+Naming: UserController, UserService, UserRepository, UserDto, CreateUserDto. <br>
 
