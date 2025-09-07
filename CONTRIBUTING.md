@@ -7,7 +7,7 @@ This README explains **how the project is structured**, **where to add code**, a
 ## Quick Start
 
 **Requirements**
-- Java **17+**
+- Java **21+**
 - Maven (`./mvnw`)
 - Docker
 
