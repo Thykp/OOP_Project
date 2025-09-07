@@ -39,6 +39,7 @@ Switch to your branch before starting to code:
   mvn clean install
   mvn spring-boot:run
 ```
+
 <br>
 
 2. Open another terminal and run the following command:
@@ -46,6 +47,20 @@ Switch to your branch before starting to code:
   cd frontend
   npm i
   npm run dev
+```
+
+<br>
+3. Setting up Kafka + Zookeeper
+
+- Currently Kafka only has a sample file called `KafkaQueueEventConsumer` that consumer the queue created by the `KafkaQueueEventProducer`
+- `ClinicService` contains a sample file showing how it can be extended potentially
+- calling the GET`/test-kafka` end point should show the word 
+  - `Sending message to Kafka: Hello-Kafka`
+  - `Received message from Kafka: Hello-Kafka`
+
+```bash
+    cd backend
+    docker-compose up -d
 ```
 
 ## Solution Architecture (Draft)
