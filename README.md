@@ -32,7 +32,7 @@ Switch to your branch before starting to code:
 
 <br>
 
-> Local Setup
+> Local Setup (Spring Application Only)
 1. Open a terminal and run the following command:
 ```bash
   cd backend
@@ -62,6 +62,21 @@ Switch to your branch before starting to code:
     cd backend
     docker-compose up -d
 ```
+---
+
+> Local Setup (Spring + Kafka + Redis)
+1. Open a terminal and run the following command:
+```bash
+cd backend
+mvn clean install
+docker-compose up -d
+```
+
+To shut down:
+```bash
+docker compose down
+```
+
 
 ## Solution Architecture (Draft)
 ### Technical Architecture
