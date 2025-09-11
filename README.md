@@ -63,6 +63,11 @@ docker compose down
   - `Sending message to Kafka: Hello-Kafka`
   - `Received message from Kafka: Hello-Kafka`
 
+> Example Query
+```bash
+GET http://localhost:8080/test-kafka?message=HelloWorld
+```
+
 ---
 
 
