@@ -1,0 +1,58 @@
+# VCS
+.git
+.git/*
+.gitignore
+.gitattributes
+
+# IDE / project files
+.idea/
+.vscode/
+*.iml
+.project
+.classpath
+.settings/
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Build output (from local builds)
+target/
+
+# Logs & temp
+*.log
+logs/
+tmp/
+temp/
+*.swp
+*~
+hs_err_pid*.log
+replay_pid*.log
+
+# Env & secrets
+.env
+.env.*
+*.pem
+*.key
+*.crt
+secrets/
+**/*.secret
+**/*.credentials
+
+# Maven wrapper (not needed since you use maven:... image)
+mvnw
+mvnw.cmd
+.mvn/
+
+# Node/Frontend stuff if present in repo
+node_modules/
+dist/
+build/
+
+# Docker files themselves (optional to ignore)
+Dockerfile
+.dockerignore
+
+# Docs / misc (optional)
+docs/
+README.md
