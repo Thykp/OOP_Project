@@ -9,8 +9,11 @@ import com.is442.backend.repository.SpecialistClinicRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 
+import com.is442.backend.dto.GpClinicDto;
+import com.is442.backend.dto.SpecialistClinicDto;
+import com.is442.backend.model.GpClinic;
+import com.is442.backend.model.SpecialistClinic;
 @Service
 public class ClinicService {
 
