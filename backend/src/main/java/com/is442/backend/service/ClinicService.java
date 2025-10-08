@@ -1,6 +1,12 @@
 package com.is442.backend.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import com.is442.backend.dto.GpClinicDto;
+import com.is442.backend.dto.SpecialistClinicDto;
+import com.is442.backend.model.GpClinic;
+import com.is442.backend.model.SpecialistClinic;
+import com.is442.backend.repository.GpClinicRepository;
+import com.is442.backend.repository.SpecialistClinicRepository;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 
@@ -11,21 +17,38 @@ import com.is442.backend.model.SpecialistClinic;
 @Service
 public class ClinicService {
 
-    @Autowired
-    private KafkaQueueEventProducer queueEventProducer;
+    private final GpClinicRepository gpRepo;
+    private final SpecialistClinicRepository spRepo;
+    private final KafkaQueueEventProducer queueEventProducer;
 
-    // other dependencies (e.g., repository, redis service)
+    public ClinicService(
+            GpClinicRepository gpRepo,
+            SpecialistClinicRepository spRepo,
+            KafkaQueueEventProducer queueEventProducer
+    ) {
+        this.gpRepo = gpRepo;
+        this.spRepo = spRepo;
+        this.queueEventProducer = queueEventProducer;
+    }
+
+    public List<GpClinicDto> getGpClinics(int limit) {
+        return gpRepo.findAll(PageRequest.of(0, limit))
+                .stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    public List<SpecialistClinicDto> getSpecialistClinics(int limit) {
+        return spRepo.findAll(PageRequest.of(0, limit))
+                .stream()
+                .map(this::toDto)
+                .toList();
+    }
 
     public void patientCheckIn(String patientId) {
-        // 1. Update the patient's status in the database.
-        // patientRepository.updateStatus(patientId, "checked_in");
-
-        // 2. Update the queue number in Redis for fast access.
-        // int newQueueNumber = redisService.incrementQueue();
+        // TODO: replace with real DB/Redis logic
         int newQueueNumber = 1;
 
-        // 3. Publish an event to Kafka.
-        // This is a key part of your business logic.
         String message = "Patient " + patientId + " checked in. New queue number is " + newQueueNumber;
         queueEventProducer.sendQueueUpdate(message);
     }

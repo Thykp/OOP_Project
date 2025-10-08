@@ -1,30 +1,34 @@
-
+// ClinicController.java
 package com.is442.backend.controller;
 
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import com.is442.backend.dto.GpClinicDto;
+import com.is442.backend.dto.SpecialistClinicDto;
+import com.is442.backend.service.ClinicService;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
+@Validated
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/clinics")
 public class ClinicController {
-    private final JdbcTemplate jdbcTemplate;
+    private final ClinicService clinicService;
 
-    public ClinicController(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
-    }
+    public ClinicController(ClinicService clinicService) { this.clinicService = clinicService; }
 
     @GetMapping("/gp")
-    public List<Map<String, Object>> getGpClinics() {
-        return jdbcTemplate.queryForList("SELECT * FROM \"gp_clinic\" LIMIT 5");
+    public ResponseEntity<List<GpClinicDto>> getGpClinics(
+            @RequestParam(defaultValue = "5") @Min(1) @Max(100) int limit) {
+        return ResponseEntity.ok(clinicService.getGpClinics(limit));
     }
 
     @GetMapping("/specialist")
-    public List<Map<String, Object>> getSpecialistClinics() {
-        return jdbcTemplate.queryForList("SELECT * FROM \"specialist_clinic\" LIMIT 5");
+    public ResponseEntity<List<SpecialistClinicDto>> getSpecialistClinics(
+            @RequestParam(defaultValue = "5") @Min(1) @Max(100) int limit) {
+        return ResponseEntity.ok(clinicService.getSpecialistClinics(limit));
     }
 }

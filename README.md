@@ -32,12 +32,17 @@ Switch to your branch before starting to code:
 
 <br>
 
-> Local Setup
+> Local Setup (Spring + Kafka + Redis)
 1. Open a terminal and run the following command:
 ```bash
-  cd backend
-  mvn clean install
-  mvn spring-boot:run
+cd backend
+mvn clean install
+docker-compose up -d
+```
+
+To shut down:
+```bash
+docker compose down
 ```
 
 <br>
@@ -58,10 +63,13 @@ Switch to your branch before starting to code:
   - `Sending message to Kafka: Hello-Kafka`
   - `Received message from Kafka: Hello-Kafka`
 
+> Example Query
 ```bash
-    cd backend
-    docker-compose up -d
+GET http://localhost:8080/test-kafka?message=HelloWorld
 ```
+
+---
+
 
 ## Solution Architecture (Draft)
 ### Technical Architecture
