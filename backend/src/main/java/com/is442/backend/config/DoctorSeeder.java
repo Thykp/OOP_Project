@@ -42,8 +42,11 @@ public class DoctorSeeder implements CommandLineRunner {
 
         System.out.println("Running DoctorSeeder...");
 
-        // deleteAllTimeSlots();
-        // deleteAllDoctors();
+
+        if (isAlreadySeeded()) {
+            System.out.println("DoctorSeeder skipped — tables already populated.");
+            return;
+        }
 
         resetTables(); 
 
@@ -51,6 +54,22 @@ public class DoctorSeeder implements CommandLineRunner {
         generateDoctorsForClinics("specialist_clinic", true);
 
         System.out.println(" DoctorSeeder completed successfully!");
+    }
+
+private boolean isAlreadySeeded() {
+        try {
+            List<Map<String, Object>> doctors = supabaseClient.get()
+                    .uri("/doctor?select=id&limit=1") // only need to check one row
+                    .retrieve()
+                    .bodyToFlux(new ParameterizedTypeReference<Map<String, Object>>() {})
+                    .collectList()
+                    .block();
+
+            return doctors != null && !doctors.isEmpty();
+        } catch (Exception e) {
+            System.err.println(" Failed to check doctor table: " + e.getMessage());
+            return false; 
+        }
     }
 
 private void resetTables() {
@@ -61,9 +80,9 @@ private void resetTables() {
                 .bodyToMono(String.class)
                 .block();
 
-        System.out.println("🧹 Truncated doctor & time_slot tables (IDs reset to 1)");
+        System.out.println("Truncated doctor & time_slot tables (IDs reset to 1)");
     } catch (Exception e) {
-        System.err.println("⚠️ Failed to truncate tables via RPC: " + e.getMessage());
+        System.err.println("Failed to truncate tables via RPC: " + e.getMessage());
     }
 }
 
