@@ -34,19 +34,19 @@ public class Appointment {
     public LocalDateTime getCreatedAt(){
         return createdAt;
     }
-    public UUID userId(){
+    public UUID getUserId(){
         return userId;
     }
-    public String doctor(){
+    public String getDoctor(){
         return doctor;
     }
-    public String clinic(){
+    public String getClinic(){
         return clinic;
     }
-    public LocalDate date(){
+    public LocalDate getDate(){
         return date;
     }
-    public LocalTime time(){
+    public LocalTime getTime(){
         return time;
     }
 
