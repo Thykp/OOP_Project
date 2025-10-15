@@ -71,4 +71,7 @@ public class Appointment {
     public void setTime(LocalTime time){
         this.time= time;
     }
+
+    public Appointment(){}
+    // public Appointment()
 }
