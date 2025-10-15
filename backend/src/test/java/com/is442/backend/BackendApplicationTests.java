@@ -6,7 +6,8 @@ import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest(
 		classes = BackendApplication.class,
-		webEnvironment = SpringBootTest.WebEnvironment.NONE
+		webEnvironment= SpringBootTest.WebEnvironment.MOCK
+
 )
 @ActiveProfiles("test")
 class BackendApplicationTests {
