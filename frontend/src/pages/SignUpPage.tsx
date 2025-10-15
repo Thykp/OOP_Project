@@ -74,71 +74,43 @@ export default function SignUpPage() {
 
     setLoading(true)
     try {
-      const fullName = `${formData.firstName} ${formData.lastName}`.trim();
+      const fullName = `${formData.firstName} ${formData.lastName}`.trim()
 
-      // Step 1: Sign up user in Supabase Auth
-      const { data: signupData, error: signupError } = await supabase.auth.signUp({
+      // Use Auth Context (stores metadata in user_metadata)
+      const { error } = await signUpWithPassword({
         email: formData.email,
         password: formData.password,
-        options: {
-          data: {
-            role: formData.role,
-            fullName,
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            phone: formData.phone,
-            dateOfBirth: formData.dateOfBirth,
-            gender: formData.gender,
-            marketingOptIn: formData.agreeToMarketing,
-          },
-        },
-      });
-
-      if (signupError) throw signupError;
-
-      // Step 2: Get Supabase user id
-      const supabaseUser = signupData.user;
-      if (!supabaseUser) throw new Error("Signup failed — no Supabase user returned.");
-
-      // Step 3: Register in your backend
-      const backendResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL|| "http://localhost:8080"}/api/auth/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-
-        body: JSON.stringify({
-          supabaseUserId: supabaseUser.id,
-          email: formData.email,
+        data: {
+          role: formData.role,
+          fullName,
           firstName: formData.firstName,
           lastName: formData.lastName,
-          role: formData.role,
           phone: formData.phone,
+          dateOfBirth: formData.dateOfBirth,
           gender: formData.gender,
-          dateOfBirth: formData.dateOfBirth, 
-        }),
-      });
+          marketingOptIn: formData.agreeToMarketing,
+        },
+      })
+      if (error) throw error
 
-      if (!backendResponse.ok) {
-        const text = await backendResponse.text();
-        throw new Error(text || "Backend registration failed");
-      }
-
-      // Step 4 Confirm email or go to dashboard
-      const { data: sessionData } = await supabase.auth.getSession();
-      const session = sessionData.session;
+      // Check if a session exists (depends on email confirmation setting)
+      const { data } = await supabase.auth.getSession()
+      const session = data.session
 
       if (!session) {
-        setServerMsg("Check your inbox to confirm your email before logging in.");
-        return;
+        setServerMsg("Check your inbox to confirm your email. You can sign in after confirming.")
+        // Optional: route to /signin right away
+        // nav("/signin", { replace: true })
+        return
       }
 
-      nav("/dashboard", { replace: true });
+      // If confirmations are disabled, you'll be signed in now; send to dashboard.
+      nav("/dashboard", { replace: true })
     } catch (err: any) {
-      setServerErr(err?.message ?? "Sign up failed");
+      setServerErr(err?.message ?? "Sign up failed")
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-
-
   }
 
   const signInWithGoogle = async () => {

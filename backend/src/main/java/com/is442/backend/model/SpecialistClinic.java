@@ -6,7 +6,7 @@ import jakarta.persistence.*;
 
 @Entity
 @Table(name = "specialist_clinic")
-public class SpecialistClinic extends Clinic {
+public class SpecialistClinic {
 
     @Id
     @Column(name = "\"S_n\"")
@@ -20,6 +20,15 @@ public class SpecialistClinic extends Clinic {
 
     @Column(name = "\"Area\"")
     private String area;
+
+    @Column(name = "\"Clinic_name\"", nullable = false)
+    private String clinicName;
+
+    @Column(name = "\"Address\"", columnDefinition = "text", nullable = false)
+    private String address;
+
+    @Column(name = "\"Telephone_num\"")
+    private String telephoneNum;
 
     @Column(name = "\"Mon_to_fri_am\"")
     private String monToFriAm;
@@ -60,20 +69,8 @@ public class SpecialistClinic extends Clinic {
     @Column(name = "\"Remarks\"", columnDefinition = "text")
     private String remarks;
 
-    @Column(name = "Speciality")
+    @Column(name = "\"Speciality\"")
     private String speciality;
-
-    public SpecialistClinic() {}
-
-    public SpecialistClinic(Integer sn, String clinicName, String address, String telephoneNum,
-                            String ihpClinicId, String region, String area, String speciality) {
-        super(clinicName, address, telephoneNum); 
-        this.sn = sn;
-        this.ihpClinicId = ihpClinicId;
-        this.region = region;
-        this.area = area;
-        this.speciality = speciality;
-    }
 
     public Integer getSn() { return sn; }
     public void setSn(Integer sn) { this.sn = sn; }
@@ -86,6 +83,15 @@ public class SpecialistClinic extends Clinic {
 
     public String getArea() { return area; }
     public void setArea(String area) { this.area = area; }
+
+    public String getClinicName() { return clinicName; }
+    public void setClinicName(String clinicName) { this.clinicName = clinicName; }
+
+    public String getAddress() { return address; }
+    public void setAddress(String address) { this.address = address; }
+
+    public String getTelephoneNum() { return telephoneNum; }
+    public void setTelephoneNum(String telephoneNum) { this.telephoneNum = telephoneNum; }
 
     public String getMonToFriAm() { return monToFriAm; }
     public void setMonToFriAm(String monToFriAm) { this.monToFriAm = monToFriAm; }
@@ -128,5 +134,4 @@ public class SpecialistClinic extends Clinic {
 
     public String getSpeciality() { return speciality; }
     public void setSpeciality(String speciality) { this.speciality = speciality; }
- 
 }
