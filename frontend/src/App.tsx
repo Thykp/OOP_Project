@@ -3,6 +3,7 @@ import LandingPage from './pages/LandingPage'
 import SignInPage from './pages/SignInPage'
 import SignUpPage from './pages/SignUpPage'
 import PatientDashboard from './pages/PatientDashboard'
+import ViewAppointment from './pages/ViewAppointment'
 import { ProtectedRoute } from './context/auth-context'
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+      <Route path="/viewappointment" element={<ViewAppointment/>}></Route>
     </Routes>
   )
 }
