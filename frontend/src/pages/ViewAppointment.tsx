@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, User, Clock, ArrowRight } from "lucide-react"
+import { Calendar, User, ArrowRight } from "lucide-react"
 import { PageLayout } from "@/components/page-layout"
 
 interface Appointment {
