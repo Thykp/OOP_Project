@@ -37,7 +37,7 @@ Switch to your branch before starting to code:
 ```bash
 cd backend
 mvn clean install
-docker-compose up -d
+docker-compose up -d --build
 ```
 
 To shut down:
