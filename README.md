@@ -55,18 +55,11 @@ docker compose down
 ```
 
 <br>
-3. Setting up Kafka + Zookeeper
-
-- Currently Kafka only has a sample file called `KafkaQueueEventConsumer` that consumer the queue created by the `KafkaQueueEventProducer`
-- `ClinicService` contains a sample file showing how it can be extended potentially
-- calling the GET`/test-kafka` end point should show the word 
-  - `Sending message to Kafka: Hello-Kafka`
-  - `Received message from Kafka: Hello-Kafka`
-
-> Example Query
+3. Kafka Topics:
 ```bash
-GET http://localhost:8080/test-kafka?message=HelloWorld
+docker exec -it kafka bash -lc 'kafka-topics --bootstrap-server localhost:9092 --list'
 ```
+You should see the Kafka Topics listed out
 
 ---
 
