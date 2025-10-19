@@ -54,10 +54,9 @@ docker compose down
   npm run dev
 ```
 
-<br>
 3. Kafka Topics:
 ```bash
-docker exec -it kafka bash -lc 'kafka-topics --bootstrap-server localhost:9092 --list'
+  docker exec -it kafka bash -lc 'kafka-topics --bootstrap-server localhost:9092 --list'
 ```
 You should see the Kafka Topics listed out
 
