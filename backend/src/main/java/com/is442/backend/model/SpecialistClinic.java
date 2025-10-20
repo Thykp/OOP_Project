@@ -7,60 +7,59 @@ import jakarta.persistence.*;
 @Entity
 @Table(name = "specialist_clinic")
 public class SpecialistClinic extends Clinic {
-
     @Id
-    @Column(name = "\"S_n\"")
+    @Column(name = "s_n")
     private Integer sn;
 
-    @Column(name = "\"Ihp_clinic_id\"", nullable = false)
+    @Column(name = "ihp_clinic_id", nullable = false)
     private String ihpClinicId;
 
-    @Column(name = "\"Region\"")
+    @Column(name = "region")
     private String region;
 
-    @Column(name = "\"Area\"")
+    @Column(name = "area")
     private String area;
 
-    @Column(name = "\"Mon_to_fri_am\"")
+    @Column(name = "mon_to_fri_am")
     private String monToFriAm;
 
-    @Column(name = "\"Mon_to_fri_pm\"")
+    @Column(name = "mon_to_fri_pm")
     private String monToFriPm;
 
-    @Column(name = "\"Mon_to_fri_night\"")
+    @Column(name = "mon_to_fri_night")
     private String monToFriNight;
 
-    @Column(name = "\"Sat_am\"")
+    @Column(name = "sat_am")
     private String satAm;
 
-    @Column(name = "\"Sat_pm\"")
+    @Column(name = "sat_pm")
     private String satPm;
 
-    @Column(name = "\"Sat_night\"")
+    @Column(name = "sat_night")
     private String satNight;
 
-    @Column(name = "\"Sun_am\"")
+    @Column(name = "sun_am")
     private String sunAm;
 
-    @Column(name = "\"Sun_pm\"")
+    @Column(name = "sun_pm")
     private String sunPm;
 
-    @Column(name = "\"Sun_night\"")
+    @Column(name = "sun_night")
     private String sunNight;
 
-    @Column(name = "\"Public_holiday_am\"")
+    @Column(name = "public_holiday_am")
     private String publicHolidayAm;
 
-    @Column(name = "\"Public_holiday_pm\"")
+    @Column(name = "public_holiday_pm")
     private String publicHolidayPm;
 
-    @Column(name = "\"Public_holiday_night\"")
+    @Column(name = "public_holiday_night")
     private String publicHolidayNight;
 
-    @Column(name = "\"Remarks\"", columnDefinition = "text")
+    @Column(name = "remarks", columnDefinition = "text")
     private String remarks;
 
-    @Column(name = "Speciality")
+    @Column(name = "speciality")
     private String speciality;
 
     public SpecialistClinic() {}

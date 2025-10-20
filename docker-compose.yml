@@ -2,6 +2,7 @@ version: '3'
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.0.1
+    platform: linux/amd64
     container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
@@ -11,7 +12,13 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.0.1
+    platform: linux/amd64
     container_name: kafka
+    healthcheck:
+      test: [ "CMD", "bash", "-lc", "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     depends_on:
       - zookeeper
     ports:
@@ -30,8 +37,8 @@ services:
       dockerfile: Dockerfile
     container_name: backend
     depends_on:
-      - kafka
-      - zookeeper
+      kafka:
+        condition: service_healthy
     ports:
       - "8080:8080"
     env_file:

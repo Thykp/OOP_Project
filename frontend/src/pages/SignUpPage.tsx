@@ -11,14 +11,12 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Eye, EyeOff, Check, X } from "lucide-react"
 import { PageLayout } from "@/components/page-layout"
-import { useAuth } from "@/context/auth-context"
 import { supabase } from "@/lib/supabase"
 
 type Role = "ROLE_PATIENT" | "ROLE_STAFF" | "ROLE_DOCTOR" | "ROLE_ADMIN"
 
 export default function SignUpPage() {
   const nav = useNavigate()
-  const { signUpWithPassword } = useAuth()
 
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -76,7 +74,6 @@ export default function SignUpPage() {
     try {
       const fullName = `${formData.firstName} ${formData.lastName}`.trim();
 
-      // Step 1: Sign up user in Supabase Auth
       const { data: signupData, error: signupError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -96,11 +93,9 @@ export default function SignUpPage() {
 
       if (signupError) throw signupError;
 
-      // Step 2: Get Supabase user id
       const supabaseUser = signupData.user;
       if (!supabaseUser) throw new Error("Signup failed — no Supabase user returned.");
 
-      // Step 3: Register in your backend
       const backendResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL|| "http://localhost:8080"}/api/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -122,7 +117,6 @@ export default function SignUpPage() {
         throw new Error(text || "Backend registration failed");
       }
 
-      // Step 4 Confirm email or go to dashboard
       const { data: sessionData } = await supabase.auth.getSession();
       const session = sessionData.session;
 

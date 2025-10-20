@@ -7,10 +7,10 @@ import jakarta.persistence.*;
 public class GpClinic extends Clinic {
 
     @Id
-    @Column(name = "\"S/N\"")  
+    @Column(name = "s_n")
     private Integer sn;
 
-    @Column(name = "\"PCN\"")
+    @Column(name = "pcn")
     private String pcn;
 
     public GpClinic() {}
