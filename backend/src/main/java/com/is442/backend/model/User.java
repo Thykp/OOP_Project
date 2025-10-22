@@ -33,6 +33,9 @@ public abstract class User {
     @Column(name = "role")
     private String role;
 
+    @Column(name = "phone")
+    private String phone;
+
 
      public User() {
     }
@@ -92,6 +95,10 @@ public abstract class User {
     public void setRole(String role) {
         this.role = role;
     }
+
+    public String getPhone() {return phone;}
+
+    public void setPhone(String phone) {this.phone = phone;}
 }
 
 

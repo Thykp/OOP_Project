@@ -1,5 +1,14 @@
 version: '3'
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.0.1
     platform: linux/amd64
@@ -42,4 +51,7 @@ services:
     ports:
       - "8080:8080"
     env_file:
-      ./backend/.env
+      - ./backend/.env
+
+volumes:
+  redis_data:
