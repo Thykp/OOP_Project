@@ -58,6 +58,18 @@ docker compose down
 ```bash
   docker exec -it kafka bash -lc 'kafka-topics --bootstrap-server localhost:9092 --list'
 ```
+
+4. Redis Queues
+```bash
+  docker exec -it redis redis-cli
+  
+  # find all queue 
+  keys clinic:*:queue
+  
+  get clinic:123:nowServing
+  get clinic:123:seq
+```
+
 You should see the Kafka Topics listed out
 
 ---

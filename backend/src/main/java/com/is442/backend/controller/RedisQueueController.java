@@ -16,7 +16,7 @@ public class RedisQueueController {
 
     // contructor
     public RedisQueueController(RedisQueueService redisQueueService,
-                                KafkaQueueEventProducer events) {
+            KafkaQueueEventProducer events) {
         this.redisQueueService = redisQueueService;
         this.events = events;
     }
@@ -25,20 +25,19 @@ public class RedisQueueController {
     @PostMapping("/checkin")
     public Map<String, Object> checkin(@RequestBody Map<String, Object> body) {
         String clinicId = String.valueOf(body.get("clinicId"));
-        String appointmentId = String.valueOf(body.get("appointmentId"));
+        Object appointmentIdObj = body.get("appointmentId");
+        String appointmentId = (appointmentIdObj != null && !String.valueOf(appointmentIdObj).equals("null")
+                && !String.valueOf(appointmentIdObj).isEmpty())
+                        ? String.valueOf(appointmentIdObj)
+                        : UUID.randomUUID().toString();
         String patientId = String.valueOf(body.get("patientId"));
-
-        appointmentId = (appointmentId != null && !appointmentId.isEmpty())
-                ? appointmentId
-                : UUID.randomUUID().toString();
 
         int position = redisQueueService.checkIn(clinicId, appointmentId, patientId);
 
         // Publish real-time event
         events.publishQueueEvent(new QueueEvent(
                 "POSITION_CHANGED", clinicId, appointmentId, patientId, position,
-                System.currentTimeMillis()
-        ));
+                System.currentTimeMillis()));
 
         return Map.of("status", "ok", "position", position);
     }
@@ -53,8 +52,7 @@ public class RedisQueueController {
         // Publish real-time event
         events.publishQueueEvent(new QueueEvent(
                 "NOW_SERVING", clinicId, result.getAppointmentId(),
-                result.getPatientId(), result.getPosition(), System.currentTimeMillis()
-        ));
+                result.getPatientId(), result.getPosition(), System.currentTimeMillis()));
 
         return Map.of("status", "ok", "nowServing", result.getPosition(),
                 "appointmentId", result.getAppointmentId());
@@ -76,5 +74,12 @@ public class RedisQueueController {
         return Map.of("clinicId", status.getClinicId(),
                 "nowServing", status.getNowServing(),
                 "totalWaiting", status.getTotalWaiting());
+    }
+
+    // Reset Queue Number
+    @GetMapping("/reset/{clinicId}")
+    public Map<String, Object> resetQnumber(@PathVariable String clinicId) {
+        redisQueueService.resetQnumber(clinicId);
+        return Map.of("status", "ok");
     }
 }

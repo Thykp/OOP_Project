@@ -15,7 +15,8 @@ import java.util.*;
 
 /**
  * Queue semantics:
- * - Enqueue: INCR seq, ZADD queue member=appointmentId score=seq, HSET patient:{appointmentId} {..., seq}
+ * - Enqueue: INCR seq, ZADD queue member=appointmentId score=seq, HSET
+ * patient:{appointmentId} {..., seq}
  * - Position = ZRANK(queue, appointmentId) + 1
  * - Call next: Lua script does ZPOPMIN + HGETALL + DEL + XADD (atomic)
  * - nowServing = last served seq (stored in clinic:{id}:nowServing)
@@ -24,23 +25,42 @@ import java.util.*;
 public class RedisQueueService {
 
     private static final String KEY_CLINICS = "clinics";
+
     // Sequence Queue => track what number it is based on which clinic
-    private static String kSeq(String clinicId)        { return "clinic:" + clinicId + ":seq"; }
-    private static String kQueue(String clinicId)      { return "clinic:" + clinicId + ":queue"; }
-    private static String kEvents(String clinicId)     { return "clinic:" + clinicId + ":events"; }
-    private static String kNowServing(String clinicId) { return "clinic:" + clinicId + ":nowServing"; }
+    private static String kSeq(String clinicId) {
+        return "clinic:" + clinicId + ":seq";
+    }
+
+    // Queue => track the queue of patients
+    private static String kQueue(String clinicId) {
+        return "clinic:" + clinicId + ":queue";
+    }
+
+    // Events => track the events of the queue
+    private static String kEvents(String clinicId) {
+        return "clinic:" + clinicId + ":events";
+    }
+
+    // Now Serving => track the last served patient
+    private static String kNowServing(String clinicId) {
+        return "clinic:" + clinicId + ":nowServing";
+    }
+
     // Stores appointment meta data
-    private static String kPatient(String appointmentId)      { return "patient:" + appointmentId; }
-    private final StringRedisTemplate strTpl;                // strings & ZSET ops
-    private final RedisTemplate<String, Object> jsonTpl;     // JSON values (optional use)
-    private final DefaultRedisScript<List> dequeueScript;    // injected Lua dequeue
+    private static String kPatient(String appointmentId) {
+        return "patient:" + appointmentId;
+    }
+
+    private final StringRedisTemplate strTpl; // strings & ZSET ops
+    private final RedisTemplate<String, Object> jsonTpl; // JSON values (optional use)
+    private final DefaultRedisScript<List> dequeueScript; // injected Lua dequeue
 
     @Autowired
     private UserService userService;
 
     public RedisQueueService(StringRedisTemplate strTpl,
-                             RedisTemplate<String, Object> jsonTpl,
-                             DefaultRedisScript<List> dequeueScript) {
+            RedisTemplate<String, Object> jsonTpl,
+            DefaultRedisScript<List> dequeueScript) {
         this.strTpl = strTpl;
         this.jsonTpl = jsonTpl;
         this.dequeueScript = dequeueScript;
@@ -132,6 +152,12 @@ public class RedisQueueService {
         return new PositionSnapshot(clinicId, position, nowServing);
     }
 
+    public void resetQnumber(String clinicId) {
+        Objects.requireNonNull(clinicId, "clinicId cannot be null");
+        // Reset the sequence counter to 0 for the specified clinic
+        strTpl.opsForValue().set(kSeq(clinicId), "0");
+    }
+
     /** Aggregate status for a clinic queue. */
     public QueueStatus getQueueStatus(String clinicId) {
         Objects.requireNonNull(clinicId, "clinicId");
@@ -142,14 +168,17 @@ public class RedisQueueService {
         return new QueueStatus(clinicId, nowServing, waiting == null ? 0 : waiting.intValue());
     }
 
-    //Helper Functions
+    // Helper Functions
     private long getNowServingSeqSafe(String clinicId) {
         String val = strTpl.opsForValue().get(kNowServing(clinicId));
         return parseLongSafe(val, 0L);
     }
 
     private long parseLongSafe(String s, long dflt) {
-        try { return (s == null) ? dflt : Long.parseLong(s); }
-        catch (NumberFormatException e) { return dflt; }
+        try {
+            return (s == null) ? dflt : Long.parseLong(s);
+        } catch (NumberFormatException e) {
+            return dflt;
+        }
     }
 }
