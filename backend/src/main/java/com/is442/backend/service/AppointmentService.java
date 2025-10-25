@@ -103,16 +103,19 @@ public class AppointmentService {
 
                     Optional<Doctor> docOpt = doctorRepository.findByDoctorId(appointment.getDoctorId());
                     String doctorName;
+                    String clinicName;
                     if (docOpt.isPresent()) {
                         Doctor doc = docOpt.get();
                         doctorName = (doc.getDoctorName() != null) ? doc.getDoctorName() : "Unknown";
+                        clinicName = (doc.getclinicName() != null) ? doc.getclinicName() : "Unknown";
                         System.out.println("Doctor name: " + doctorName);
                     } else {
                         doctorName = "Unknown";
+                        clinicName = "Unknown";
                         System.out.println("Doctor not found for id: " + appointment.getDoctorId());
                     }
 
-                    return new AppointmentResponse(appointment, doctorName);
+                    return new AppointmentResponse(appointment, doctorName, clinicName);
                 })
                 .collect(Collectors.toList());
     }
