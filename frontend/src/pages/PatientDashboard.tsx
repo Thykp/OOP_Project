@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect} from "react"
+import { useState, useEffect } from "react"
 import { Calendar, Clock, User, Bell, History, CheckCircle } from "lucide-react"
 import { PageLayout } from "../components/page-layout"
 import { Button } from "@/components/ui/button"
@@ -13,10 +13,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Link } from "react-router-dom"
 
+
 interface Appointment {
   appointment_id: string
   booking_date: string
   clinic_id: string
+  clinic_name: string
   created_at: string
   doctor_id: string
   doctor_name: string
@@ -97,6 +99,8 @@ const mockPastAppointments = [
   },
 ]
 
+
+
 export default function PatientDashboard() {
   const [selectedDoctor, setSelectedDoctor] = useState("")
   const [selectedClinic, setSelectedClinic] = useState("")
@@ -107,27 +111,37 @@ export default function PatientDashboard() {
   const [currentNumber] = useState(12)
 
   const [appointments, setAppointments] = useState<Appointment[]>([])
-    const [loading, setLoading] = useState(true)
-  
-    useEffect(() => {
-      fetch("http://localhost:8080/api/appointments/patient/76e76b69-96c5-4b62-89b4-318f55c7d05c/upcoming")
-        .then(response => {
-          if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`)
-          }
-          return response.json()
-        })
-        .then(data => {
-          setAppointments(data)
-          console.log("Fetched data:", data); // now you can see your JSON
-        })
-        .catch(err => {
-          console.error("Error fetching appointments:", err)
-        })
-        .finally(() => setLoading(false))
-    }, [])
-  
-    if (loading) return <div>Loading...</div>
+  const [loading, setLoading] = useState(true)
+
+
+  let userId = null;
+  const firstKey = localStorage.key(0)
+  if (firstKey) {
+    const value = localStorage.getItem(firstKey);
+    if (value) {  // ✅ Check that value is not null
+      const jsonValue = JSON.parse(value);
+      userId = jsonValue.user.id
+    }
+  }
+
+  useEffect(() => {
+    fetch("http://localhost:8080/api/appointments/patient/"+ userId +"/upcoming")
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`)
+        }
+        return response.json()
+      })
+      .then(data => {
+        setAppointments(data)
+      })
+      .catch(err => {
+        console.error("Error fetching appointments:", err)
+      })
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) return <div>Loading...</div>
 
   const handleBookAppointment = () => {
     if (selectedDoctor && selectedClinic && selectedDate && selectedTime) {
@@ -139,6 +153,30 @@ export default function PatientDashboard() {
       setSelectedTime("")
     }
   }
+
+  // Helper function to format date as dd/mm/yyyy
+  const formatDate = (dateString: string | number | Date) => {
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  // Helper function to format time as hh:mm AM/PM
+  const formatTime = (timeString: string) => {
+    // If timeString is just "HH:MM:SS" format
+    const [hours24, minutes] = timeString.split(':');
+    let hours = parseInt(hours24);
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+
+    // Convert to 12-hour format
+    hours = hours % 12;
+    hours = hours ? hours : 12; // 0 should be 12
+
+    return `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
+  };
+
 
   const handleCheckIn = () => {
     setIsCheckedIn(true)
@@ -240,11 +278,11 @@ export default function PatientDashboard() {
                     <CardDescription>Your scheduled appointments</CardDescription>
                   </div>
                   {/* Button on the right */}
-                  <Link to="/ViewAppointment">
+                  {/* <Link to="/ViewAppointment">
                     <Button size="sm" className="bg-blue-600 text-white">
                       View All Appointments
                     </Button>
-                  </Link>
+                  </Link> */}
                 </CardHeader>
                 <CardContent>
 
@@ -257,13 +295,13 @@ export default function PatientDashboard() {
                           </div>
                           <div>
                             <h3 className="font-semibold">{appointment.doctor_name}</h3>
-                            <p className="text-sm text-gray-600">{appointment.clinic_id} Clinic Name</p>
+                            <p className="text-sm text-gray-600">{appointment.clinic_name}</p>
                             {/* <p className="text-sm text-gray-500">{appointment.type}</p> */}
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="font-semibold">{appointment.booking_date}</p>
-                          <p className="text-sm text-gray-600">{appointment.start_time}</p>
+                          <p className="font-semibold">{formatDate(appointment.booking_date)}</p>
+                          <p className="text-sm text-gray-600">{formatTime(appointment.start_time)}</p>
                           <div className="flex gap-2 mt-2">
                             <Button size="sm" variant="outline">
                               Reschedule
