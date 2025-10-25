@@ -16,31 +16,22 @@ public class Doctor {
 
     @Column(name = "doctor_id")
     @JsonProperty("doctor_id")
-
-    
     private String doctorId; 
     
     @Column(name = "doctor_name")
     @JsonProperty("doctor_name")
-
-
     private String doctorName;
 
     @Column(name = "clinic_name")
     @JsonProperty("clinic_name")
-
-
     private String clinicName;
 
     @Column(name = "clinic_address")
     @JsonProperty("clinic_address")
-
-
     private String clinicAddress;
 
     @Column(name = "speciality")
     @JsonProperty("speciality")
-
     private String speciality;
 
     public Doctor() {}
