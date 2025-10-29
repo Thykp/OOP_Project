@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Calendar, Clock, User, Bell, History, CheckCircle } from "lucide-react"
 import { PageLayout } from "../components/page-layout"
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,23 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Link } from "react-router-dom"
+
+
+interface Appointment {
+  appointment_id: string
+  booking_date: string
+  clinic_id: string
+  clinic_name: string
+  created_at: string
+  doctor_id: string
+  doctor_name: string
+  end_time: string
+  patient_id: string
+  start_time: string
+  status: string
+  updated_at: string
+}
 
 // Mock data
 const mockDoctors = [
@@ -42,24 +59,24 @@ const mockTimeSlots = [
   "04:30 PM",
 ]
 
-const mockUpcomingAppointments = [
-  {
-    id: 1,
-    doctor: "Dr. Sarah Lim",
-    clinic: "SingHealth Polyclinic - Bedok",
-    date: "2024-01-15",
-    time: "10:00 AM",
-    type: "General Consultation",
-  },
-  {
-    id: 2,
-    doctor: "Dr. Michael Tan",
-    clinic: "Singapore General Hospital",
-    date: "2024-01-22",
-    time: "02:30 PM",
-    type: "Cardiology Follow-up",
-  },
-]
+// const mockUpcomingAppointments = [
+//   {
+//     id: 1,
+//     doctor: "Dr. Sarah Lim",
+//     clinic: "SingHealth Polyclinic - Bedok",
+//     date: "2024-01-15",
+//     time: "10:00 AM",
+//     type: "General Consultation",
+//   },
+//   {
+//     id: 2,
+//     doctor: "Dr. Michael Tan",
+//     clinic: "Singapore General Hospital",
+//     date: "2024-01-22",
+//     time: "02:30 PM",
+//     type: "Cardiology Follow-up",
+//   },
+// ]
 
 const mockPastAppointments = [
   {
@@ -82,6 +99,8 @@ const mockPastAppointments = [
   },
 ]
 
+
+
 export default function PatientDashboard() {
   const [selectedDoctor, setSelectedDoctor] = useState("")
   const [selectedClinic, setSelectedClinic] = useState("")
@@ -90,6 +109,39 @@ export default function PatientDashboard() {
   const [isCheckedIn, setIsCheckedIn] = useState(false)
   const [queueNumber, setQueueNumber] = useState(15)
   const [currentNumber] = useState(12)
+
+  const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [loading, setLoading] = useState(true)
+
+
+  let userId = null;
+  const firstKey = localStorage.key(0)
+  if (firstKey) {
+    const value = localStorage.getItem(firstKey);
+    if (value) {  // ✅ Check that value is not null
+      const jsonValue = JSON.parse(value);
+      userId = jsonValue.user.id
+    }
+  }
+
+  useEffect(() => {
+    fetch("http://localhost:8080/api/appointments/patient/"+ userId +"/upcoming")
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`)
+        }
+        return response.json()
+      })
+      .then(data => {
+        setAppointments(data)
+      })
+      .catch(err => {
+        console.error("Error fetching appointments:", err)
+      })
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) return <div>Loading...</div>
 
   const handleBookAppointment = () => {
     if (selectedDoctor && selectedClinic && selectedDate && selectedTime) {
@@ -101,6 +153,30 @@ export default function PatientDashboard() {
       setSelectedTime("")
     }
   }
+
+  // Helper function to format date as dd/mm/yyyy
+  const formatDate = (dateString: string | number | Date) => {
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  // Helper function to format time as hh:mm AM/PM
+  const formatTime = (timeString: string) => {
+    // If timeString is just "HH:MM:SS" format
+    const [hours24, minutes] = timeString.split(':');
+    let hours = parseInt(hours24);
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+
+    // Convert to 12-hour format
+    hours = hours % 12;
+    hours = hours ? hours : 12; // 0 should be 12
+
+    return `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
+  };
+
 
   const handleCheckIn = () => {
     setIsCheckedIn(true)
@@ -195,27 +271,37 @@ export default function PatientDashboard() {
             {/* Upcoming Appointments */}
             <TabsContent value="appointments">
               <Card>
-                <CardHeader>
-                  <CardTitle>Upcoming Appointments</CardTitle>
-                  <CardDescription>Your scheduled appointments</CardDescription>
+                <CardHeader className="flex items-center justify-between">
+                  {/* Title and description on the left */}
+                  <div>
+                    <CardTitle>Upcoming Appointments</CardTitle>
+                    <CardDescription>Your scheduled appointments</CardDescription>
+                  </div>
+                  {/* Button on the right */}
+                  {/* <Link to="/ViewAppointment">
+                    <Button size="sm" className="bg-blue-600 text-white">
+                      View All Appointments
+                    </Button>
+                  </Link> */}
                 </CardHeader>
                 <CardContent>
+
                   <div className="space-y-4">
-                    {mockUpcomingAppointments.map((appointment) => (
-                      <div key={appointment.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    {appointments.map((appointment) => (
+                      <div key={appointment.appointment_id} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center gap-4">
                           <div className="bg-blue-100 p-2 rounded-full">
                             <User className="h-5 w-5 text-blue-600" />
                           </div>
                           <div>
-                            <h3 className="font-semibold">{appointment.doctor}</h3>
-                            <p className="text-sm text-gray-600">{appointment.clinic}</p>
-                            <p className="text-sm text-gray-500">{appointment.type}</p>
+                            <h3 className="font-semibold">{appointment.doctor_name}</h3>
+                            <p className="text-sm text-gray-600">{appointment.clinic_name}</p>
+                            {/* <p className="text-sm text-gray-500">{appointment.type}</p> */}
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="font-semibold">{appointment.date}</p>
-                          <p className="text-sm text-gray-600">{appointment.time}</p>
+                          <p className="font-semibold">{formatDate(appointment.booking_date)}</p>
+                          <p className="text-sm text-gray-600">{formatTime(appointment.start_time)}</p>
                           <div className="flex gap-2 mt-2">
                             <Button size="sm" variant="outline">
                               Reschedule
