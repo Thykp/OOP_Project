@@ -114,8 +114,9 @@ export default function PatientDashboard() {
   const [loading, setLoading] = useState(true)
 
 
+  // Getting the userId from Localstorage
   let userId = null;
-  const firstKey = localStorage.key(0)
+  const firstKey = localStorage.key(1)
   if (firstKey) {
     const value = localStorage.getItem(firstKey);
     if (value) {  // ✅ Check that value is not null
