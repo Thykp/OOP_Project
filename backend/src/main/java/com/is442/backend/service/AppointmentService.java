@@ -2,21 +2,28 @@ package com.is442.backend.service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.is442.backend.dto.AppointmentRequest;
 import com.is442.backend.dto.AppointmentResponse;
 import com.is442.backend.model.Appointment;
+import com.is442.backend.model.Doctor;
 import com.is442.backend.repository.AppointmentRepository;
+import com.is442.backend.repository.DoctorRepository;
 
 @Service
 @Transactional
 public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
+
+    @Autowired // needed so springboot know to inject this
+    private DoctorRepository doctorRepository;
 
     public AppointmentService(AppointmentRepository appointmentRepository) {
         this.appointmentRepository = appointmentRepository;
@@ -24,24 +31,22 @@ public class AppointmentService {
 
     public AppointmentResponse createAppointment(AppointmentRequest request) {
         List<Appointment> conflicts = appointmentRepository.findConflictingAppointments(
-            request.getDoctorId(),
-            request.getBookingDate(),
-            request.getStartTime(),
-            request.getEndTime()
-        );
+                request.getDoctorId(),
+                request.getBookingDate(),
+                request.getStartTime(),
+                request.getEndTime());
 
         if (!conflicts.isEmpty()) {
             throw new RuntimeException("Doctor already has an appointment during this time slot");
         }
 
         Appointment appointment = new Appointment(
-            request.getPatientId(),
-            request.getDoctorId(),
-            request.getClinicId(),
-            request.getBookingDate(),
-            request.getStartTime(),
-            request.getEndTime()
-        );
+                request.getPatientId(),
+                request.getDoctorId(),
+                request.getClinicId(),
+                request.getBookingDate(),
+                request.getStartTime(),
+                request.getEndTime());
 
         Appointment saved = appointmentRepository.save(appointment);
         return new AppointmentResponse(saved);
@@ -50,57 +55,75 @@ public class AppointmentService {
     @Transactional(readOnly = true)
     public List<AppointmentResponse> getAllAppointments() {
         return appointmentRepository.findAll().stream()
-            .map(AppointmentResponse::new)
-            .collect(Collectors.toList());
+                .map(AppointmentResponse::new)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public AppointmentResponse getAppointmentById(UUID id) {
         Appointment appointment = appointmentRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Appointment not found with id: " + id));
+                .orElseThrow(() -> new RuntimeException("Appointment not found with id: " + id));
         return new AppointmentResponse(appointment);
     }
 
     @Transactional(readOnly = true)
     public List<AppointmentResponse> getAppointmentsByPatient(String patientId) {
         return appointmentRepository.findByPatientId(patientId).stream()
-            .map(AppointmentResponse::new)
-            .collect(Collectors.toList());
+                .map(AppointmentResponse::new)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<AppointmentResponse> getAppointmentsByDoctor(String doctorId) {
         return appointmentRepository.findByDoctorId(doctorId).stream()
-            .map(AppointmentResponse::new)
-            .collect(Collectors.toList());
+                .map(AppointmentResponse::new)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<AppointmentResponse> getAppointmentsByClinic(String clinicId) {
         return appointmentRepository.findByClinicId(clinicId).stream()
-            .map(AppointmentResponse::new)
-            .collect(Collectors.toList());
+                .map(AppointmentResponse::new)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<AppointmentResponse> getAppointmentsByStatus(String status) {
         return appointmentRepository.findByStatus(status).stream()
-            .map(AppointmentResponse::new)
-            .collect(Collectors.toList());
+                .map(AppointmentResponse::new)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<AppointmentResponse> getUpcomingAppointments(String patientId) {
         LocalDate today = LocalDate.now();
         return appointmentRepository.findUpcomingAppointmentsByPatient(patientId, today).stream()
-            .map(AppointmentResponse::new)
-            .collect(Collectors.toList());
+                .map(appointment -> {
+                    System.out.println("Looking up doctor for appointment " + appointment.getDoctorId());
+
+                    Optional<Doctor> docOpt = doctorRepository.findByDoctorId(appointment.getDoctorId());
+                    String doctorName;
+                    String clinicName;
+                    if (docOpt.isPresent()) {
+                        Doctor doc = docOpt.get();
+                        doctorName = (doc.getDoctorName() != null) ? doc.getDoctorName() : "Unknown";
+                        clinicName = (doc.getclinicName() != null) ? doc.getclinicName() : "Unknown";
+                        System.out.println("Doctor name: " + doctorName);
+                    } else {
+                        doctorName = "Unknown";
+                        clinicName = "Unknown";
+                        System.out.println("Doctor not found for id: " + appointment.getDoctorId());
+                    }
+
+                    return new AppointmentResponse(appointment, doctorName, clinicName);
+                })
+                .collect(Collectors.toList());
     }
 
     public AppointmentResponse updateAppointmentStatus(UUID id, String status) {
         Appointment appointment = appointmentRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Appointment not found with id: " + id));
-        
+                .orElseThrow(() -> new RuntimeException("Appointment not found with id: " + id));
+
         appointment.setStatus(status);
         Appointment updated = appointmentRepository.save(appointment);
         return new AppointmentResponse(updated);

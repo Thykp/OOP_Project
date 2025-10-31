@@ -3,38 +3,47 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Calendar, User, ArrowRight } from "lucide-react"
 import { PageLayout } from "@/components/page-layout"
+import React, { useEffect, useState } from "react"
+
+
 
 interface Appointment {
-  id: number
-  patient: string
-  doctor: string
-  date: string
-  time: string
-  location: string
-  notes?: string
+  appointment_id: string
+  booking_date: string
+  clinic_id: string
+  created_at: string
+  doctor_id: string
+  end_time: string
+  patient_id: string
+  start_time: string
+  status: string
+  updated_at: string
 }
 
-const appointments: Appointment[] = [
-  {
-    id: 1,
-    patient: "John Tan",
-    doctor: "Dr. Lim",
-    date: "2025-09-29",
-    time: "09:00",
-    location: "SingHealth Clinic, Room 204",
-    notes: "Bring previous reports"
-  },
-  {
-    id: 2,
-    patient: "Sarah Lee",
-    doctor: "Dr. Cheng",
-    date: "2025-09-30",
-    time: "15:30",
-    location: "SingHealth Clinic, Room 210"
-  }
-]
-
 export default function UpcomingAppointmentPage() {
+
+  const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch("http://localhost:8080/api/appointments")
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`)
+        }
+        return response.json()
+      })
+      .then(data => {
+        setAppointments(data)
+        console.log("Fetched data:", data); // now you can see your JSON
+      })
+      .catch(err => {
+        console.error("Error fetching appointments:", err)
+      })
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) return <div>Loading...</div>
   return (
     <PageLayout>
       {/* Hero */}
@@ -81,32 +90,32 @@ export default function UpcomingAppointmentPage() {
             {appointments.length === 0 ? (
               <div className="text-center text-gray-700">No upcoming appointments found.</div>
             ) : (
-            appointments.map(appt => (
-              <div key={appt.id} className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-start md:items-center md:justify-between gap-6">
-                <div className="flex items-center gap-3">
-                  <Calendar className="w-10 h-10 text-green-600" />
-                  <div>
-                    <div className="font-semibold text-gray-900 text-lg">{appt.date}, {appt.time}</div>
-                    <div className="text-gray-600 text-sm">{appt.location}</div>
+              appointments.map(appt => (
+                <div key={appt.appointment_id} className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-start md:items-center md:justify-between gap-6">
+                  <div className="flex items-center gap-3">
+                    <Calendar className="w-10 h-10 text-green-600" />
+                    <div>
+                      <div className="font-semibold text-gray-900 text-lg">{appt.booking_date}, {appt.start_time}</div>
+                      <div className="text-gray-600 text-sm">{appt.clinic_id}</div>
+                    </div>
                   </div>
+                  <div className="flex items-center gap-3">
+                    <User className="w-5 h-5 text-blue-700" />
+                    <div className="text-gray-900 font-medium">{appt.doctor_id}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="border-green-600 text-green-700 hover:bg-green-50">
+                      Update
+                    </Button>
+                    <Button size="sm" className="bg-red-100 text-red-800 hover:bg-red-200">
+                      Cancel
+                    </Button>
+                  </div>
+                  {/* {appt.notes && (
+                    <div className="w-full text-gray-600 text-xs mt-3 md:mt-0 italic">Note: {appt.notes}</div>
+                  )} */}
                 </div>
-                <div className="flex items-center gap-3">
-                  <User className="w-5 h-5 text-blue-700" />
-                  <div className="text-gray-900 font-medium">{appt.doctor}</div>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="border-green-600 text-green-700 hover:bg-green-50">
-                    Update
-                  </Button>
-                  <Button size="sm" className="bg-red-100 text-red-800 hover:bg-red-200">
-                    Cancel
-                  </Button>
-                </div>
-                {appt.notes && (
-                  <div className="w-full text-gray-600 text-xs mt-3 md:mt-0 italic">Note: {appt.notes}</div>
-                )}
-              </div>
-            )))}
+              )))}
           </div>
         </div>
       </section>
