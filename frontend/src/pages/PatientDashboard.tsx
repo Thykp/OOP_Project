@@ -6,11 +6,11 @@ import { PageLayout } from "../components/page-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Link } from "react-router-dom"
+
 
 // Mock data
 const mockDoctors = [
@@ -83,24 +83,11 @@ const mockPastAppointments = [
 ]
 
 export default function PatientDashboard() {
-  const [selectedDoctor, setSelectedDoctor] = useState("")
-  const [selectedClinic, setSelectedClinic] = useState("")
-  const [selectedDate, setSelectedDate] = useState("")
-  const [selectedTime, setSelectedTime] = useState("")
+ 
   const [isCheckedIn, setIsCheckedIn] = useState(false)
   const [queueNumber, setQueueNumber] = useState(15)
   const [currentNumber] = useState(12)
 
-  const handleBookAppointment = () => {
-    if (selectedDoctor && selectedClinic && selectedDate && selectedTime) {
-      alert("Appointment booked successfully!")
-      // Reset form
-      setSelectedDoctor("")
-      setSelectedClinic("")
-      setSelectedDate("")
-      setSelectedTime("")
-    }
-  }
 
   const handleCheckIn = () => {
     setIsCheckedIn(true)
@@ -128,7 +115,9 @@ export default function PatientDashboard() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-gray-600 mb-3">Schedule your next visit</p>
+                <Link to="/bookappointment">
                 <Button className="w-full bg-blue-600 hover:bg-blue-700">New Appointment</Button>
+                </Link>
               </CardContent>
             </Card>
 
@@ -185,9 +174,8 @@ export default function PatientDashboard() {
 
           {/* Main Content Tabs */}
           <Tabs defaultValue="appointments" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="appointments">Appointments</TabsTrigger>
-              <TabsTrigger value="booking">Book New</TabsTrigger>
               <TabsTrigger value="queue">Queue Status</TabsTrigger>
               <TabsTrigger value="history">Medical History</TabsTrigger>
             </TabsList>
@@ -232,90 +220,6 @@ export default function PatientDashboard() {
               </Card>
             </TabsContent>
 
-            {/* Book New Appointment */}
-            <TabsContent value="booking">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Book New Appointment</CardTitle>
-                  <CardDescription>Schedule your next visit with our healthcare professionals</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="doctor">Select Doctor</Label>
-                      <Select value={selectedDoctor} onValueChange={setSelectedDoctor}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choose a doctor" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {mockDoctors.map((doctor) => (
-                            <SelectItem key={doctor.id} value={doctor.name}>
-                              <div>
-                                <div className="font-medium">{doctor.name}</div>
-                                <div className="text-sm text-gray-500">{doctor.specialty}</div>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="clinic">Select Clinic</Label>
-                      <Select value={selectedClinic} onValueChange={setSelectedClinic}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choose a clinic" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {mockClinics.map((clinic) => (
-                            <SelectItem key={clinic.id} value={clinic.name}>
-                              <div>
-                                <div className="font-medium">{clinic.name}</div>
-                                <div className="text-sm text-gray-500">{clinic.type}</div>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="date">Select Date</Label>
-                      <Input
-                        type="date"
-                        value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                        min={new Date().toISOString().split("T")[0]}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="time">Select Time</Label>
-                      <Select value={selectedTime} onValueChange={setSelectedTime}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choose time slot" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {mockTimeSlots.map((time) => (
-                            <SelectItem key={time} value={time}>
-                              {time}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <Button
-                    onClick={handleBookAppointment}
-                    className="w-full bg-blue-600 hover:bg-blue-700"
-                    disabled={!selectedDoctor || !selectedClinic || !selectedDate || !selectedTime}
-                  >
-                    Book Appointment
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
 
             {/* Queue Status */}
             <TabsContent value="queue">

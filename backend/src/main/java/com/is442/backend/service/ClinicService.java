@@ -1,15 +1,17 @@
 package com.is442.backend.service;
 
+import java.util.List;
+
+import org.springframework.data.domain.PageRequest;
+import org.springframework.lang.Nullable;
+import org.springframework.stereotype.Service;
+
 import com.is442.backend.dto.GpClinicDto;
 import com.is442.backend.dto.SpecialistClinicDto;
 import com.is442.backend.model.GpClinic;
 import com.is442.backend.model.SpecialistClinic;
 import com.is442.backend.repository.GpClinicRepository;
 import com.is442.backend.repository.SpecialistClinicRepository;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 public class ClinicService {
@@ -21,7 +23,7 @@ public class ClinicService {
     public ClinicService(
             GpClinicRepository gpRepo,
             SpecialistClinicRepository spRepo,
-            KafkaQueueEventProducer queueEventProducer
+            @Nullable KafkaQueueEventProducer queueEventProducer
     ) {
         this.gpRepo = gpRepo;
         this.spRepo = spRepo;
@@ -51,7 +53,7 @@ public class ClinicService {
     }
 
     private GpClinicDto toDto(GpClinic g) {
-        return new GpClinicDto(g.getSn(), g.getPcn(), g.getClinicName(), g.getAddress(), g.getTelephoneNum());
+        return new GpClinicDto(g.getSn(), g.getClinicId(), g.getPcn(), g.getClinicName(), g.getAddress(), g.getTelephoneNum());
     }
 
     private SpecialistClinicDto toDto(SpecialistClinic s) {

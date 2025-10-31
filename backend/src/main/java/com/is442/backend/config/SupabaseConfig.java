@@ -24,6 +24,7 @@ public class SupabaseConfig {
                 .defaultHeader("Prefer", "return=minimal")  
 
                 .build();
+                
     }
     
 }

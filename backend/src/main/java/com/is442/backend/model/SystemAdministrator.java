@@ -1,9 +1,15 @@
 package com.is442.backend.model;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.PrimaryKeyJoinColumn;
+import jakarta.persistence.Table;
+import java.util.UUID;
+
 
 @Entity
 @Table(name = "system_admin")
+@PrimaryKeyJoinColumn(name = "supabase_user_id")
 public class SystemAdministrator extends User {
 
     @Column(name = "department")
@@ -16,7 +22,7 @@ public class SystemAdministrator extends User {
         super();
     }
 
-    public SystemAdministrator(String supabaseUserId, String email, String firstName, String lastName, String role,
+    public SystemAdministrator(UUID supabaseUserId, String email, String firstName, String lastName, String role,
                                String department, String adminLevel) {
         super(supabaseUserId, email, firstName, lastName, role);
         this.department = department;

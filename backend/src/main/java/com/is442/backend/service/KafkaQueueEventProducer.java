@@ -2,10 +2,14 @@ package com.is442.backend.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.is442.backend.dto.QueueEvent;
+
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 @Service
+@ConditionalOnProperty(name = "kafka.enabled", havingValue = "true")
+
 public class KafkaQueueEventProducer {
     private static final String TOPIC_NAME = "clinic-queue-updates";
     private final KafkaTemplate<String, String> kafkaTemplate;

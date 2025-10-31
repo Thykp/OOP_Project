@@ -4,8 +4,11 @@ import com.is442.backend.model.QueueState;
 import com.is442.backend.model.QueueTicket;
 import com.is442.backend.repository.QueueStateRepository;
 import com.is442.backend.repository.QueueTicketRepository;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.lang.Nullable;
 
 import java.util.*;
 
@@ -14,14 +17,25 @@ public class QueueService {
 
     private final QueueStateRepository stateRepo;
     private final QueueTicketRepository ticketRepo;
-    private final NotificationEventProducer notificationProducer; // can be null if you want
+    private final NotificationEventProducer notificationProducer; 
 
-    public QueueService(QueueStateRepository stateRepo, QueueTicketRepository ticketRepo,
-                        NotificationEventProducer notificationProducer) {
+    // public QueueService(QueueStateRepository stateRepo, QueueTicketRepository ticketRepo,
+    //                     NotificationEventProducer notificationProducer) {
+    //     this.stateRepo = stateRepo;
+    //     this.ticketRepo = ticketRepo;
+    //     this.notificationProducer = notificationProducer;
+    // }
+    
+    public QueueService(
+            QueueStateRepository stateRepo,
+            QueueTicketRepository ticketRepo,
+            @Nullable NotificationEventProducer notificationProducer   // ✅ allow Spring to inject null
+    ) {
         this.stateRepo = stateRepo;
         this.ticketRepo = ticketRepo;
         this.notificationProducer = notificationProducer;
     }
+
 
     public record Next(String appointmentId, String patientId, int position) {}
     public record Snapshot(String clinicId, Integer position, int nowServing) {}
