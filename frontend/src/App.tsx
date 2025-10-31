@@ -5,6 +5,8 @@ import SignUpPage from './pages/SignUpPage'
 import PatientDashboard from './pages/PatientDashboard'
 import ViewAppointment from './pages/ViewAppointment'
 import { ProtectedRoute } from './context/auth-context'
+import BookAppointment from "./pages/BookAppointment";
+
 
 function App() {
   return (
@@ -21,6 +23,8 @@ function App() {
           }
         />
       <Route path="/viewappointment" element={<ViewAppointment/>}></Route>
+      <Route path="/bookappointment" element={<BookAppointment/>}></Route>
+
     </Routes>
   )
 }

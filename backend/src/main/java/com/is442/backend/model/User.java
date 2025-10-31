@@ -1,10 +1,12 @@
 package com.is442.backend.model;
+import java.util.UUID;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import jakarta.persistence.Inheritance;
-import jakarta.persistence.*;
+import jakarta.persistence.InheritanceType;
+import jakarta.persistence.Table;
 
 
 @Entity
@@ -13,13 +15,13 @@ import jakarta.persistence.*;
 
 public abstract class User {
     
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    private Long id;
+    // @GeneratedValue(strategy = GenerationType.IDENTITY)
+    // @Column(name = "id")
+    // private Long id;
     
-    @Column(name = "supabaseUserId")
-    private String supabaseUserId; //supabase Auth
+    @Id
+    @Column(name = "supabase_user_id")
+    private UUID supabaseUserId; //supabase Auth
     
     @Column(name = "email")
     private String email;
@@ -37,7 +39,7 @@ public abstract class User {
      public User() {
     }
 
-    public User(String supabaseUserId, String email, String firstName, String lastName, String role) {
+    public User(UUID supabaseUserId, String email, String firstName, String lastName, String role) {
         this.supabaseUserId = supabaseUserId;
         this.email = email;
         this.firstName = firstName;
@@ -45,19 +47,19 @@ public abstract class User {
         this.role = role;
     }
 
-    public Long getId() {
-        return id;
-    }
+    // public Long getId() {
+    //     return id;
+    // }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    // public void setId(Long id) {
+    //     this.id = id;
+    // }
 
-    public String getSupabaseUserId() {
+    public UUID getSupabaseUserId() {
         return supabaseUserId;
     }
 
-    public void setSupabaseUserId(String supabaseUserId) {
+    public void setSupabaseUserId(UUID supabaseUserId) {
         this.supabaseUserId = supabaseUserId;
     }
 
