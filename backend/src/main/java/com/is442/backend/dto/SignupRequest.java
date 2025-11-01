@@ -1,8 +1,10 @@
 package com.is442.backend.dto;
+import java.util.UUID;
+
 
 public class SignupRequest {
 
-    private String supabaseUserId; 
+    private UUID supabaseUserId; 
     private String email;
     private String firstName;
     private String lastName;
@@ -12,8 +14,8 @@ public class SignupRequest {
     private String gender;
 
     // Getters and Setters
-    public String getSupabaseUserId() { return supabaseUserId; }
-    public void setSupabaseUserId(String supabaseUserId ) { this.supabaseUserId = supabaseUserId; }
+    public UUID getSupabaseUserId() { return supabaseUserId; }
+    public void setSupabaseUserId(UUID supabaseUserId ) { this.supabaseUserId = supabaseUserId; }
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }

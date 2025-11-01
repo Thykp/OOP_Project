@@ -1,10 +1,27 @@
 package com.is442.backend.model;
+import java.time.LocalTime;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.time.LocalTime;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "time_slot")
 
 public class TimeSlot {
     
+    @Id
+    @JsonProperty("id")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    
+    @Column(name = "id")
+    private Long id;
+
     @JsonProperty("doctor_id")
     private String doctorId;
     
@@ -20,34 +37,40 @@ public class TimeSlot {
     @JsonProperty("end_time")
     private LocalTime endTime;
     
-    @JsonProperty("available")
-    private boolean isAvailable;
-
-    // @JsonProperty("order_index")
-    // private Integer orderIndex;
+    // @JsonProperty("available")
+    // private boolean isAvailable;
 
 
     public TimeSlot() {}
 
-    public TimeSlot(String doctorId, String doctorName, String dayOfWeek, 
-                    LocalTime startTime, LocalTime endTime, boolean isAvailable) {
+    public TimeSlot(Long id, String doctorId, String doctorName, String dayOfWeek, 
+                    LocalTime startTime, LocalTime endTime) {
+        this.id=id;
         this.doctorId = doctorId;
         this.doctorName = doctorName;
         this.dayOfWeek = dayOfWeek;
         this.startTime = startTime;
         this.endTime = endTime;
-        this.isAvailable = isAvailable;
+    }
+
+    public TimeSlot(String doctorId, String doctorName, String dayOfWeek,
+                    LocalTime startTime, LocalTime endTime) {
+        this.doctorId = doctorId;
+        this.doctorName = doctorName;
+        this.dayOfWeek = dayOfWeek;
+        this.startTime = startTime;
+        this.endTime = endTime;
     }
 
     // Getters and Setters
+     public Long getTimeSlotId() {
+        return id;
+    }
 
-    // public Integer getOrderIndex() {
-    //     return orderIndex;
-    // }
+    public void setTimeSlotId(Long id) {
+        this.id = id;
+    }
 
-    // public void setOrderIndex(Integer orderIndex) {
-    //     this.orderIndex = orderIndex;
-    // }
 
     public String getDoctorId() {
         return doctorId;
@@ -89,11 +112,5 @@ public class TimeSlot {
         this.endTime = endTime;
     }
 
-    public boolean isAvailable() {
-        return isAvailable;
-    }
-
-    public void setAvailable(boolean available) {
-        isAvailable = available;
-    }
+  
 }

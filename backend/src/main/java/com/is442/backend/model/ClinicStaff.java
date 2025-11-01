@@ -1,7 +1,14 @@
 package com.is442.backend.model;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.PrimaryKeyJoinColumn;
+import jakarta.persistence.Table;
+import java.util.UUID;
 
 
+@Entity
+@Table(name = "clinic_staff")
+@PrimaryKeyJoinColumn(name = "supabase_user_id")
 public class ClinicStaff extends User {
 
     @Column(name = "clinic_name")
@@ -14,7 +21,7 @@ public class ClinicStaff extends User {
         super();
     }
 
-    public ClinicStaff(String supabaseUserId, String email, String firstName, String lastName, String role,
+    public ClinicStaff(UUID supabaseUserId, String email, String firstName, String lastName, String role,
                        String clinicName, String position) {
         super(supabaseUserId, email, firstName, lastName, role);
         this.clinicName = clinicName;

@@ -115,15 +115,27 @@ export default function PatientDashboard() {
 
 
   // Getting the userId from Localstorage
-  let userId = null;
-  const firstKey = localStorage.key(1)
-  if (firstKey) {
-    const value = localStorage.getItem(firstKey);
-    if (value) {  // ✅ Check that value is not null
-      const jsonValue = JSON.parse(value);
-      userId = jsonValue.user.id
+  let userId: string | null = null
+
+try {
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key) {
+      const value = localStorage.getItem(key)
+      if (value) {
+        const jsonValue = JSON.parse(value)
+        // Only assign if user.id exists
+        if (jsonValue?.user?.id) {
+          userId = jsonValue.user.id
+          break
+        }
+      }
     }
   }
+} catch (err) {
+  console.error("Error parsing localStorage:", err)
+}
+
 
   useEffect(() => {
     fetch("http://localhost:8080/api/appointments/patient/"+ userId +"/upcoming")
@@ -203,9 +215,11 @@ export default function PatientDashboard() {
                   Book Appointment
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+               <CardContent>
                 <p className="text-sm text-gray-600 mb-3">Schedule your next visit</p>
+                <Link to="/bookappointment">
                 <Button className="w-full bg-blue-600 hover:bg-blue-700">New Appointment</Button>
+                </Link>
               </CardContent>
             </Card>
 

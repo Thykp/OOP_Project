@@ -1,26 +1,38 @@
 package com.is442.backend.config;
-import com.is442.backend.model.Doctor;
-import com.is442.backend.model.TimeSlot;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import java.time.*;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.is442.backend.model.Doctor;
 
 @Component
+@ConditionalOnProperty(name = "app.runDoctorSeeder", havingValue = "true")
+
 public class DoctorSeeder implements CommandLineRunner {
 
     private final WebClient supabaseClient;
+    private final ObjectMapper om = new ObjectMapper();
 
     @Value("${seeder.enabled:true}")
     private boolean seederEnabled;
 
-    private static final int NUM_DOCTORS = 4;
-    private static final int SLOT_MINUTES = 30;
+    private static final int NUM_DOCTORS = 3;
+    private static final int SLOT_MINUTES = 60;
     private int doctorCounter = 1;
     private final Set<String> usedDoctorNames = new HashSet<>();
 
@@ -87,6 +99,8 @@ private void resetTables() {
 }
 
     private void generateDoctorsForClinics(String table, boolean isSpecialist) {
+     System.out.println("Fetching clinics from table: " + table); // ADD THIS
+
         List<Map<String, Object>> clinics;
         try {
             clinics = supabaseClient.get()
@@ -106,22 +120,23 @@ private void resetTables() {
 
         Random rand = new Random();
         for (Map<String, Object> clinic : clinics) {
-            String clinicName = (String) clinic.get("Clinic_name");
-            String clinicAddress = (String) clinic.get("Address");
+            String clinicName = (String) clinic.get("clinic_name");
+            String clinicAddress = (String) clinic.get("address");
             if (clinicName == null || clinicAddress == null) continue;
 
             String speciality = isSpecialist
-                    ? (String) clinic.getOrDefault("Speciality", "Specialist")
+                    ? (String) clinic.getOrDefault("speciality", "Specialist")
                     : "General Practice";
 
 
             if (!isSpecialist) {
                 createDoctorsAndSlots(
                     // if is GP default to start 9am end 5pm
-                        clinicName, clinicAddress, speciality,
+                        clinic, clinicName, clinicAddress, speciality,
                         LocalTime.of(9, 0), LocalTime.of(17, 0),
                         List.of("MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY","SUNDAY"),
-                        rand
+                        rand,
+                        false
                 );
             } else {
                 generateSpecialistDoctors(clinic, clinicName, clinicAddress, speciality, rand);
@@ -134,11 +149,14 @@ private void resetTables() {
 
     private void generateSpecialistDoctors(Map<String, Object> clinic, String clinicName,
                                            String clinicAddress, String speciality, Random rand) {
+
+        String clinicId = clinic.get("ihp_clinic_id") != null ? clinic.get("ihp_clinic_id").toString() : null;
+
         List<Doctor> doctors = new ArrayList<>();
         for (int i = 1; i <= NUM_DOCTORS; i++) {
             String doctorId = String.format("DOC%04d", doctorCounter++);
             String doctorName = generateDoctorName(rand);
-            Doctor doctor = new Doctor(doctorId, doctorName, clinicName, clinicAddress, speciality);
+            Doctor doctor = new Doctor(doctorId, doctorName, clinicId, clinicName, clinicAddress, speciality);
             postDoctor(doctor);
             doctors.add(doctor);
         }
@@ -147,11 +165,11 @@ private void resetTables() {
             LocalTime open = null, close = null;
             String[] cols;
             if (List.of("MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY").contains(day)) {
-                cols = new String[]{"Mon_to_fri_am","Mon_to_fri_pm","Mon_to_fri_night"};
+                cols = new String[]{"mon_to_fri_am","mon_to_fri_pm","mon_to_fri_night"};
             } else if (day.equals("SATURDAY")) {
-                cols = new String[]{"Sat_am","Sat_pm","Sat_night"};
+                cols = new String[]{"sat_am","sat_pm","sat_night"};
             } else {
-                cols = new String[]{"Sun_am","Sun_pm","Sun_night"};
+                cols = new String[]{"sun_am","sun_pm","sun_night"};
             }
 
             for (String col : cols) {
@@ -174,24 +192,41 @@ private void resetTables() {
         }
     }
 
-    private void createDoctorsAndSlots(String clinicName, String clinicAddress, String speciality,
-                                       LocalTime open, LocalTime close, List<String> days, Random rand) {
-      
+    private void createDoctorsAndSlots(Map<String, Object> clinic, String clinicName, String clinicAddress, String speciality,
+                                       LocalTime open, LocalTime close, List<String> days, Random rand, boolean isSpecialist) {
+        // Determine clinicId depending on clinic table source
+        String clinicId = null;
+        try {
+            if (isSpecialist) {
+                Object v = clinic.get("ihp_clinic_id");
+                if (v != null) clinicId = v.toString();
+            } else {
+                Object v = clinic.get("clinic_id");
+                if (v != null) clinicId = v.toString();
+                else {
+                    // fallback to s_n (numeric primary key) if clinic_id missing
+                    Object sn = clinic.get("s_n");
+                    if (sn != null) clinicId = sn.toString();
+                }
+            }
+        } catch (Exception ex) {
+            // leave clinicId null if parsing fails
+        }
 
         List<Doctor> doctors = new ArrayList<>();
         for (int i = 1; i <= NUM_DOCTORS; i++) {
             String doctorId = String.format("DOC%04d", doctorCounter++);
             String doctorName = generateDoctorName(rand);
-            Doctor doctor = new Doctor(doctorId, doctorName, clinicName, clinicAddress, speciality);
+            Doctor doctor = new Doctor(doctorId, doctorName, clinicId, clinicName, clinicAddress, speciality);
             postDoctor(doctor);
             doctors.add(doctor);
         }
 
         for (String day : days) {
-        for (Doctor doctor : doctors) {
-            generateSlotsForDoctor(doctor, open, close, day);
+            for (Doctor doctor : doctors) {
+                generateSlotsForDoctor(doctor, open, close, day);
+            }
         }
-    }
     }
 
     private String generateDoctorName(Random rand) {
@@ -251,32 +286,51 @@ private void resetTables() {
             if (slotEnd.isAfter(end)) break;
             
 
-            TimeSlot slot = new TimeSlot(
-                    doctor.getDoctorId(),
-                    doctor.getDoctorName(),
-                    dayOfWeek,
-                    slotStart,
-                    slotEnd,
-                    true
-            );
-    
+        // Prepare payload with start/end as strings to avoid serialization issues
+        Map<String, Object> slotPayload = new HashMap<>();
+        slotPayload.put("doctor_id", doctor.getDoctorId());
+        slotPayload.put("doctor_name", doctor.getDoctorName());
+        slotPayload.put("day_of_week", dayOfWeek);
+        slotPayload.put("start_time", slotStart.format(DateTimeFormatter.ofPattern("HH:mm:ss")));
+        slotPayload.put("end_time", slotEnd.format(DateTimeFormatter.ofPattern("HH:mm:ss")));
 
-
-            try {
-                supabaseClient.post()
+        try {
+                String resp = supabaseClient.post()
                         .uri("/time_slot")
-                        .bodyValue(slot)
+                        .header("Prefer", "return=representation")
+                        .bodyValue(slotPayload)
                         .retrieve()
                         .bodyToMono(String.class)
                         .block();
+
                 System.out.println("Slot: " + doctor.getDoctorId() + " | " + dayOfWeek
                         + " | " + slotStart + "-" + slotEnd);
-            } catch (Exception e) {
-                System.err.println("Failed to insert slot for "
-                        + doctor.getDoctorId() + " on " + dayOfWeek
-                        + " at " + slotStart);
-                e.printStackTrace();
-            }
+
+                // If server returned the created row(s), parse the id and print it
+                if (resp != null && !resp.isBlank()) {
+                    try {
+                        JsonNode arr = om.readTree(resp);
+                        if (arr.isArray() && arr.size() > 0) {
+                            JsonNode first = arr.get(0);
+                            if (first.has("id") && !first.get("id").isNull()) {
+                                System.out.println("Inserted slot id: " + first.get("id").asLong());
+                            }
+                        }
+                    } catch (Exception ex) {
+                        // ignore parsing errors but log for debug
+                        System.err.println("Failed to parse insert response: " + ex.getMessage());
+                    }
+                }
+        } catch (Exception e) {
+        System.err.println("Failed to insert slot for "
+            + doctor.getDoctorId() + " on " + dayOfWeek
+            + " at " + slotStart);
+        // If it's an HTTP error, print the response body (useful for Supabase errors)
+        if (e instanceof org.springframework.web.reactive.function.client.WebClientResponseException w) {
+            System.err.println("Response body: " + w.getResponseBodyAsString());
+        }
+        e.printStackTrace();
+        }
 
             slotStart = slotEnd;
         }

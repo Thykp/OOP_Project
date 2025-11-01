@@ -107,7 +107,7 @@ public class AppointmentService {
                     if (docOpt.isPresent()) {
                         Doctor doc = docOpt.get();
                         doctorName = (doc.getDoctorName() != null) ? doc.getDoctorName() : "Unknown";
-                        clinicName = (doc.getclinicName() != null) ? doc.getclinicName() : "Unknown";
+                        clinicName = (doc.getClinicName() != null) ? doc.getClinicName() : "Unknown";
                         System.out.println("Doctor name: " + doctorName);
                     } else {
                         doctorName = "Unknown";
