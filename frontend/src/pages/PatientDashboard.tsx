@@ -6,12 +6,10 @@ import { PageLayout } from "../components/page-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Link } from "react-router-dom"
+import { useAuth } from "@/context/auth-context"
 
 
 interface Appointment {
@@ -19,6 +17,7 @@ interface Appointment {
   booking_date: string
   clinic_id: string
   clinic_name: string
+  clinic_type: string
   created_at: string
   doctor_id: string
   doctor_name: string
@@ -30,54 +29,6 @@ interface Appointment {
 }
 
 // Mock data
-const mockDoctors = [
-  { id: 1, name: "Dr. Sarah Lim", specialty: "General Practitioner", clinic: "SingHealth Polyclinic - Bedok" },
-  { id: 2, name: "Dr. Michael Tan", specialty: "Cardiologist", clinic: "Singapore General Hospital" },
-  { id: 3, name: "Dr. Jennifer Wong", specialty: "Dermatologist", clinic: "SingHealth Specialist Centre" },
-  { id: 4, name: "Dr. David Chen", specialty: "Orthopedic Surgeon", clinic: "Changi General Hospital" },
-]
-
-const mockClinics = [
-  { id: 1, name: "SingHealth Polyclinic - Bedok", type: "General Practice" },
-  { id: 2, name: "Singapore General Hospital", type: "Specialist" },
-  { id: 3, name: "SingHealth Specialist Centre", type: "Specialist" },
-  { id: 4, name: "Changi General Hospital", type: "Hospital" },
-]
-
-const mockTimeSlots = [
-  "09:00 AM",
-  "09:30 AM",
-  "10:00 AM",
-  "10:30 AM",
-  "11:00 AM",
-  "11:30 AM",
-  "02:00 PM",
-  "02:30 PM",
-  "03:00 PM",
-  "03:30 PM",
-  "04:00 PM",
-  "04:30 PM",
-]
-
-// const mockUpcomingAppointments = [
-//   {
-//     id: 1,
-//     doctor: "Dr. Sarah Lim",
-//     clinic: "SingHealth Polyclinic - Bedok",
-//     date: "2024-01-15",
-//     time: "10:00 AM",
-//     type: "General Consultation",
-//   },
-//   {
-//     id: 2,
-//     doctor: "Dr. Michael Tan",
-//     clinic: "Singapore General Hospital",
-//     date: "2024-01-22",
-//     time: "02:30 PM",
-//     type: "Cardiology Follow-up",
-//   },
-// ]
-
 const mockPastAppointments = [
   {
     id: 1,
@@ -102,10 +53,6 @@ const mockPastAppointments = [
 
 
 export default function PatientDashboard() {
-  const [selectedDoctor, setSelectedDoctor] = useState("")
-  const [selectedClinic, setSelectedClinic] = useState("")
-  const [selectedDate, setSelectedDate] = useState("")
-  const [selectedTime, setSelectedTime] = useState("")
   const [isCheckedIn, setIsCheckedIn] = useState(false)
   const [queueNumber, setQueueNumber] = useState(15)
   const [currentNumber] = useState(12)
@@ -113,32 +60,15 @@ export default function PatientDashboard() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
 
+  const { user } = useAuth()
 
-  // Getting the userId from Localstorage
-  let userId: string | null = null
-
-try {
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)
-    if (key) {
-      const value = localStorage.getItem(key)
-      if (value) {
-        const jsonValue = JSON.parse(value)
-        // Only assign if user.id exists
-        if (jsonValue?.user?.id) {
-          userId = jsonValue.user.id
-          break
-        }
-      }
+  const fetchAppointments = () => {
+    if (!user?.id) {
+      setLoading(false)
+      return
     }
-  }
-} catch (err) {
-  console.error("Error parsing localStorage:", err)
-}
 
-
-  useEffect(() => {
-    fetch("http://localhost:8080/api/appointments/patient/"+ userId +"/upcoming")
+    fetch(`http://localhost:8080/api/appointments/patient/${user.id}/upcoming`)
       .then(response => {
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`)
@@ -152,20 +82,13 @@ try {
         console.error("Error fetching appointments:", err)
       })
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => {
+    fetchAppointments()
+  }, [user?.id])
 
   if (loading) return <div>Loading...</div>
-
-  const handleBookAppointment = () => {
-    if (selectedDoctor && selectedClinic && selectedDate && selectedTime) {
-      alert("Appointment booked successfully!")
-      // Reset form
-      setSelectedDoctor("")
-      setSelectedClinic("")
-      setSelectedDate("")
-      setSelectedTime("")
-    }
-  }
 
   // Helper function to format date as dd/mm/yyyy
   const formatDate = (dateString: string | number | Date) => {
@@ -190,6 +113,28 @@ try {
     return `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
   };
 
+
+  const handleCancelAppointment = async (appointmentId: string) => {
+    if (!window.confirm("Are you sure you want to cancel this appointment?")) {
+      return
+    }
+
+    try {
+      const response = await fetch(`http://localhost:8080/api/appointments/${appointmentId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to cancel appointment")
+      }
+
+      alert("✅ Appointment cancelled successfully!")
+      fetchAppointments() // Refresh the appointments list
+    } catch (err) {
+      console.error("Error cancelling appointment:", err)
+      alert("❌ Error cancelling appointment. Please try again.")
+    }
+  }
 
   const handleCheckIn = () => {
     setIsCheckedIn(true)
@@ -276,9 +221,8 @@ try {
 
           {/* Main Content Tabs */}
           <Tabs defaultValue="appointments" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="appointments">Appointments</TabsTrigger>
-              <TabsTrigger value="booking">Book New</TabsTrigger>
               <TabsTrigger value="queue">Queue Status</TabsTrigger>
               <TabsTrigger value="history">Medical History</TabsTrigger>
             </TabsList>
@@ -310,8 +254,19 @@ try {
                           </div>
                           <div>
                             <h3 className="font-semibold">{appointment.doctor_name}</h3>
-                            <p className="text-sm text-gray-600">{appointment.clinic_name}</p>
-                            {/* <p className="text-sm text-gray-500">{appointment.type}</p> */}
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm text-gray-600">{appointment.clinic_name}</p>
+                              <Badge 
+                                variant="secondary" 
+                                className={
+                                  appointment.clinic_type === "General Practice" 
+                                    ? "bg-green-100 text-green-800 hover:bg-green-100" 
+                                    : "bg-purple-100 text-purple-800 hover:bg-purple-100"
+                                }
+                              >
+                                {appointment.clinic_type}
+                              </Badge>
+                            </div>
                           </div>
                         </div>
                         <div className="text-right">
@@ -321,7 +276,12 @@ try {
                             <Button size="sm" variant="outline">
                               Reschedule
                             </Button>
-                            <Button size="sm" variant="outline" className="text-red-600 border-red-200 bg-transparent">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="text-red-600 border-red-200 bg-transparent hover:bg-red-50"
+                              onClick={() => handleCancelAppointment(appointment.appointment_id)}
+                            >
                               Cancel
                             </Button>
                           </div>
@@ -333,90 +293,6 @@ try {
               </Card>
             </TabsContent>
 
-            {/* Book New Appointment */}
-            <TabsContent value="booking">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Book New Appointment</CardTitle>
-                  <CardDescription>Schedule your next visit with our healthcare professionals</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="doctor">Select Doctor</Label>
-                      <Select value={selectedDoctor} onValueChange={setSelectedDoctor}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choose a doctor" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {mockDoctors.map((doctor) => (
-                            <SelectItem key={doctor.id} value={doctor.name}>
-                              <div>
-                                <div className="font-medium">{doctor.name}</div>
-                                <div className="text-sm text-gray-500">{doctor.specialty}</div>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="clinic">Select Clinic</Label>
-                      <Select value={selectedClinic} onValueChange={setSelectedClinic}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choose a clinic" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {mockClinics.map((clinic) => (
-                            <SelectItem key={clinic.id} value={clinic.name}>
-                              <div>
-                                <div className="font-medium">{clinic.name}</div>
-                                <div className="text-sm text-gray-500">{clinic.type}</div>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="date">Select Date</Label>
-                      <Input
-                        type="date"
-                        value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                        min={new Date().toISOString().split("T")[0]}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="time">Select Time</Label>
-                      <Select value={selectedTime} onValueChange={setSelectedTime}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choose time slot" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {mockTimeSlots.map((time) => (
-                            <SelectItem key={time} value={time}>
-                              {time}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <Button
-                    onClick={handleBookAppointment}
-                    className="w-full bg-blue-600 hover:bg-blue-700"
-                    disabled={!selectedDoctor || !selectedClinic || !selectedDate || !selectedTime}
-                  >
-                    Book Appointment
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
 
             {/* Queue Status */}
             <TabsContent value="queue">

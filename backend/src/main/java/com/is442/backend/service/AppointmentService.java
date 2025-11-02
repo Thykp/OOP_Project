@@ -104,18 +104,29 @@ public class AppointmentService {
                     Optional<Doctor> docOpt = doctorRepository.findByDoctorId(appointment.getDoctorId());
                     String doctorName;
                     String clinicName;
+                    String clinicType;
                     if (docOpt.isPresent()) {
                         Doctor doc = docOpt.get();
                         doctorName = (doc.getDoctorName() != null) ? doc.getDoctorName() : "Unknown";
                         clinicName = (doc.getClinicName() != null) ? doc.getClinicName() : "Unknown";
+                        
+                        // Determine clinic type based on doctor's speciality
+                        String speciality = doc.getSpeciality();
+                        if (speciality != null && speciality.toUpperCase().contains("GENERAL PRACTICE")) {
+                            clinicType = "General Practice";
+                        } else {
+                            clinicType = "Specialist Clinic";
+                        }
+                        
                         System.out.println("Doctor name: " + doctorName);
                     } else {
                         doctorName = "Unknown";
                         clinicName = "Unknown";
+                        clinicType = "Unknown";
                         System.out.println("Doctor not found for id: " + appointment.getDoctorId());
                     }
 
-                    return new AppointmentResponse(appointment, doctorName, clinicName);
+                    return new AppointmentResponse(appointment, doctorName, clinicName, clinicType);
                 })
                 .collect(Collectors.toList());
     }

@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Building2, Calendar as CalendarIcon, CheckCircle2, Clock, User } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { PageLayout } from "../components/page-layout";
 import { useAuth } from "@/context/auth-context";
 
@@ -40,6 +41,7 @@ export default function AppointmentBooking() {
     const [selectedSlot, setSelectedSlot] = useState<any>(null);
 
     const { user } = useAuth();
+    const navigate = useNavigate();
 
     // console.log(user?.id);
 
@@ -255,10 +257,10 @@ export default function AppointmentBooking() {
     console.log(selectedDaySlotsDetailed)
 
     const handleBooking = async () => {
-        //   if (!user) {
-        //     alert("You must be logged in to book an appointment.");
-        //     return;
-        //   }
+        if (!user) {
+            alert("You must be logged in to book an appointment.");
+            return;
+        }
 
         if (!selectedDate || !selectedTimeRange) {
             alert("Please select clinic, date, and time slot before confirming.");
@@ -300,6 +302,7 @@ export default function AppointmentBooking() {
             const data = await res.json();
             alert("✅ Appointment booked successfully!");
             console.log("Response:", data);
+            navigate("/dashboard");
         } catch (err) {
             console.error(err);
             alert("❌ Error booking appointment. Please try again.");
