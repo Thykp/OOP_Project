@@ -15,6 +15,9 @@ public class AppointmentResponse {
     @JsonProperty("patient_id")
     private String patientId;
 
+    @JsonProperty("patient_name")
+    private String patientName;
+
     @JsonProperty("doctor_id")
     private String doctorId;
 
@@ -75,6 +78,23 @@ public class AppointmentResponse {
         this.updatedAt = appointment.getUpdatedAt();
 
     }
+    public AppointmentResponse(Appointment appointment, String docName, String clinicName, String patientName) {
+        this.appointmentId = appointment.getAppointmentId();
+        this.patientId = appointment.getPatientId();
+        this.patientName = patientName;
+        this.doctorId = appointment.getDoctorId();
+        this.doctorName = docName; 
+        this.clinicId = appointment.getClinicId();
+        this.clinicName = clinicName;
+        this.bookingDate = appointment.getBookingDate();
+        this.startTime = appointment.getStartTime();
+        this.endTime = appointment.getEndTime();
+        this.status = appointment.getStatus();
+        this.createdAt = appointment.getCreatedAt();
+        this.updatedAt = appointment.getUpdatedAt();
+
+    }
+
 
     public UUID getAppointmentId() {
         return appointmentId;

@@ -34,8 +34,6 @@ public class AppointmentController {
         }
     }
 
-    
-
     @GetMapping
     public ResponseEntity<List<AppointmentResponse>> getAllAppointments() {
         List<AppointmentResponse> appointments = appointmentService.getAllAppointments();
@@ -79,6 +77,12 @@ public class AppointmentController {
     @GetMapping("/patient/{patientId}/upcoming")
     public ResponseEntity<List<AppointmentResponse>> getUpcomingAppointments(@PathVariable String patientId) {
         List<AppointmentResponse> appointments = appointmentService.getUpcomingAppointments(patientId);
+        return ResponseEntity.ok(appointments);
+    }
+
+    @GetMapping("/upcoming")
+    public ResponseEntity<List<AppointmentResponse>> getUpcomingAppointments() {
+        List<AppointmentResponse> appointments = appointmentService.getUpcomingAppointments();
         return ResponseEntity.ok(appointments);
     }
 
