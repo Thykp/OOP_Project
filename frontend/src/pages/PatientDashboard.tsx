@@ -59,25 +59,6 @@ const mockTimeSlots = [
   "04:30 PM",
 ]
 
-// const mockUpcomingAppointments = [
-//   {
-//     id: 1,
-//     doctor: "Dr. Sarah Lim",
-//     clinic: "SingHealth Polyclinic - Bedok",
-//     date: "2024-01-15",
-//     time: "10:00 AM",
-//     type: "General Consultation",
-//   },
-//   {
-//     id: 2,
-//     doctor: "Dr. Michael Tan",
-//     clinic: "Singapore General Hospital",
-//     date: "2024-01-22",
-//     time: "02:30 PM",
-//     type: "Cardiology Follow-up",
-//   },
-// ]
-
 const mockPastAppointments = [
   {
     id: 1,
@@ -136,9 +117,8 @@ try {
   console.error("Error parsing localStorage:", err)
 }
 
-
   useEffect(() => {
-    fetch("http://localhost:8080/api/appointments/patient/"+ userId +"/upcoming")
+    fetch(`${import.meta.env.VITE_API_BASE_URL}/api/appointments/patient/userId/upcoming`)
       .then(response => {
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`)
