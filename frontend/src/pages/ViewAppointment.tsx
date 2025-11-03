@@ -23,12 +23,6 @@ interface Appointment {
   updated_at: string
 }
 
-interface Doctors {
-  doctor_id: string
-  doctor_name: string
-}
-
-
 export default function ViewAppointmentsPage() {
 
   const [appointments, setAppointments] = useState<Appointment[]>([])
@@ -82,7 +76,6 @@ export default function ViewAppointmentsPage() {
       });
   }
 
-
   type ClinicOption = { value: string; label: string; };
 
   // Holds list of options for dropdown
@@ -122,19 +115,34 @@ export default function ViewAppointmentsPage() {
 
   // Filter Function
   const filteredAppointments = appointments.filter(
-    appt =>
+    (appt) =>
       (!filterClinic || appt.clinic_name === filterClinic || filterClinic === "All") &&
       (!filterDoctor || appt.doctor_name === filterDoctor || filterDoctor === "All") &&
       (!filterDate || appt.booking_date === filterDate)
   );
 
+  // Update Status
+  const updateApptStatus = async (apptId: String, status: String) => {
+    const response = await fetch(`${baseURL}/api/appointments/${apptId}/updateStatus/${status}`, {
+      method: "PATCH"
+    })
+    if (!response.ok) throw new Error("Failed to update status");
+    fetchAppointments()
+  }
+
+  // Clear Filter
+  const clearFilters = () => {
+    setFilterDoctor("All")
+    setFilterClinic("All");
+    setFilterDate("");
+  }
+
   useEffect(() => {
     fetchAppointments();
     fetchDoctors();
     fetchClinics();
-
-
   }, [])
+
   // Helper function to format date as dd/mm/yyyy
   const formatDate = (dateString: string | number | Date) => {
     const date = new Date(dateString);
@@ -216,22 +224,21 @@ export default function ViewAppointmentsPage() {
         </div>
         {/* Date Filter */}
         <div className="flex-1 min-w-[180px]">
-          <div className="flex-1 min-w-[180px]">
-            <Label htmlFor="date" className="text-sm font-medium text-gray-700">Filter by Date</Label>
-            <input
-              id="date"
-              name="date"
-              type="date"
-              value={filterDate}
-              onChange={e => setFilterDate(e.target.value)}
-              className="h-11 w-full px-3 border border-gray-200 rounded-md text-gray-900 bg-white focus:ring-green-600 focus:border-green-600"
-              placeholder="Select date"
-            />
-          </div>
-
+          <Label htmlFor="date" className="text-sm font-medium text-gray-700">Filter by Date</Label>
+          <input
+            id="date"
+            name="date"
+            type="date"
+            value={filterDate}
+            onChange={e => setFilterDate(e.target.value)}
+            className="h-11 w-full px-3 border border-gray-200 rounded-md text-gray-900 bg-white focus:ring-green-600 focus:border-green-600"
+            placeholder="Select date"
+          />
         </div>
-        {/* Optional: Clear Filters Button */}
-        <Button variant="outline" className="h-11 px-5 whitespace-nowrap">Clear Filters</Button>
+        {/* Clear Filters Button */}
+        <div className="flex-1 min-w-[180px]">
+          <Button variant="outline" className="h-11 px-5 whitespace-nowrap" style={{ marginTop: "18px" }} onClick={clearFilters}>Clear Filters</Button>
+        </div>
       </section>
 
       {/* Appointments List */}
@@ -239,67 +246,71 @@ export default function ViewAppointmentsPage() {
         <div className="container mx-auto max-w-4xl grid gap-8">
           {/* Appointment Card - repeat as needed */}
           <div className="space-y-4">
-            {filteredAppointments.map((appointment) => (
-              <Card>
-                <CardHeader className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Upcoming Appointments</CardTitle>
-                    <CardDescription>Monitor all scheduled appointments at a glance</CardDescription>
-                  </div>
-                  {/* Optional: Add a filter or refresh button here for staff */}
-                  <Button variant="outline" size="sm" onClick={fetchAppointments} disabled={loading}>
-                    {loading ? "Refreshing..." : "Refresh"}
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {appointments.map((appointment) => (
-                      <div key={appointment.appointment_id} className="flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-lg bg-gray-50">
-                        {/* Left: Appointment Info */}
-                        <div className="flex items-center gap-4">
-                          {/* Patient Avatar/Icon */}
-                          <div className="bg-green-100 p-2 rounded-full">
-                            <User className="h-5 w-5 text-green-600" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-gray-900">{appointment.patient_name}</h3>
-                            <p className="text-xs text-gray-700">Doctor: <span className="font-medium">{appointment.doctor_name}</span></p>
-                            <p className="text-xs text-gray-700">Clinic: <span className="font-medium">{appointment.clinic_name}</span></p>
-                          </div>
+            <Card>
+              <CardHeader className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Upcoming Appointments</CardTitle>
+                  <CardDescription>Monitor all scheduled appointments at a glance</CardDescription>
+                </div>
+                {/* refresh button here for staff */}
+                <Button variant="outline" size="sm" onClick={fetchAppointments} disabled={loading}>
+                  {loading ? "Refreshing..." : "Refresh"}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {filteredAppointments.map(appointment => (
+                    <div key={appointment.appointment_id} className="flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-lg bg-gray-50">
+                      {/* Left: Appointment Info */}
+                      <div className="flex items-center gap-4">
+                        {/* Patient Avatar/Icon */}
+                        <div className="bg-green-100 p-2 rounded-full">
+                          <User className="h-5 w-5 text-green-600" />
                         </div>
-                        {/* Right: Date/Time & Actions */}
-                        <div className="flex flex-col text-right gap-2 md:items-end md:justify-end mt-2 md:mt-0">
-                          <div>
-                            <span className="inline-block bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded mb-1">
-                              {formatDate(appointment.booking_date)}
-                            </span>
-                            <span className="inline-block bg-purple-50 text-purple-700 text-xs px-2 py-1 rounded ml-2 mb-1">
-                              {formatTime(appointment.start_time)}
-                            </span>
-                          </div>
-                          {/* Status badge */}
-                          <span className={`inline-block text-xs px-2 py-1 rounded
-                ${appointment.status === "confirmed" ? "bg-green-100 text-green-700" :
-                              appointment.status === "pending" ? "bg-yellow-100 text-yellow-700" :
-                                "bg-red-100 text-red-700"}`}>
-                            {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
-                          </span>
-                          {/* Action buttons */}
-                          <div className="flex gap-2 mt-2">
-                            <Button size="sm" variant="outline">
-                              Reschedule
-                            </Button>
-                            <Button size="sm" variant="outline" className="text-red-600 border-red-200 bg-transparent">
-                              Cancel
-                            </Button>
-                          </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{appointment.patient_name}</h3>
+                          <p className="text-xs text-gray-700">Doctor: <span className="font-medium">{appointment.doctor_name}</span></p>
+                          <p className="text-xs text-gray-700">Clinic: <span className="font-medium">{appointment.clinic_name}</span></p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                      {/* Right: Date/Time & Actions */}
+                      <div className="flex flex-col text-right gap-2 md:items-end md:justify-end mt-2 md:mt-0">
+                        <div>
+                          <span className="inline-block bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded mb-1">
+                            {formatDate(appointment.booking_date)}
+                          </span>
+                          <span className="inline-block bg-purple-50 text-purple-700 text-xs px-2 py-1 rounded ml-2 mb-1">
+                            {formatTime(appointment.start_time)}
+                          </span>
+                        </div>
+                        {/* Status badge */}
+                        <span className={`inline-block text-xs px-2 py-1 rounded
+                ${appointment.status === "COMPLETED" ? "bg-green-100 text-green-700" :
+                            appointment.status === "SCHEDULED" ? "bg-yellow-100 text-yellow-700" : appointment.status === "CHECKED IN"
+                              ? "bg-blue-100 text-blue-700" :
+                              "bg-red-100 text-red-700"}`}>
+                          {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
+                        </span>
+                        {/* Status Update buttons */}
+                        <div className="flex gap-2 mt-2">
+                          {appointment.status === "SCHEDULED" && (
+                            <>
+                              <Button id="apptCheckIn" className="bg-blue-600 text-white hover:bg-blue-700" onClick={() => updateApptStatus(appointment.appointment_id, "CHECKED IN")}>Check In</Button>
+                              <Button id="apptNoShow" className="bg-red-100 text-red-600 border-red-200 hover:bg-red-200" onClick={() => updateApptStatus(appointment.appointment_id, "NO SHOW")}>No Show</Button>
+                            </>
+                          )}
+                          {appointment.status === "CHECKED IN" && (
+                            <>
+                              <Button id="apptCompleted" className="bg-green-600 text-white hover:bg-green-700" onClick={() => updateApptStatus(appointment.appointment_id, "COMPLETED")}>Completed</Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </section>
