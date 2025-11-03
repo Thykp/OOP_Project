@@ -82,14 +82,17 @@ public class AppointmentResponse {
         this.updatedAt = appointment.getUpdatedAt();
 
     }
-    public AppointmentResponse(Appointment appointment, String docName, String clinicName, String patientName) {
+
+    public AppointmentResponse(Appointment appointment, String docName, String clinicName, String patientName,
+            String clinicType) {
         this.appointmentId = appointment.getAppointmentId();
         this.patientId = appointment.getPatientId();
         this.patientName = patientName;
         this.doctorId = appointment.getDoctorId();
-        this.doctorName = docName; 
+        this.doctorName = docName;
         this.clinicId = appointment.getClinicId();
         this.clinicName = clinicName;
+        this.clinicType = clinicType;
         this.bookingDate = appointment.getBookingDate();
         this.startTime = appointment.getStartTime();
         this.endTime = appointment.getEndTime();
@@ -98,7 +101,6 @@ public class AppointmentResponse {
         this.updatedAt = appointment.getUpdatedAt();
 
     }
-
 
     public UUID getAppointmentId() {
         return appointmentId;
