@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,7 +13,9 @@ import { Eye, EyeOff, Check, X } from "lucide-react"
 import { PageLayout } from "@/components/page-layout"
 import { supabase } from "@/lib/supabase"
 
+
 type Role = "ROLE_PATIENT" | "ROLE_STAFF" | "ROLE_DOCTOR" | "ROLE_ADMIN"
+
 
 export default function SignUpPage() {
   const nav = useNavigate()
@@ -36,6 +38,8 @@ export default function SignUpPage() {
     agreeToTerms: false,
     agreeToMarketing: false,
     role: "ROLE_PATIENT" as Role,
+    clinicName: "",
+    position: ""
   })
 
   const [passwordValidation, setPasswordValidation] = useState({
@@ -45,6 +49,15 @@ export default function SignUpPage() {
     number: false,
     special: false,
   })
+
+
+  const positionOptions = [
+    { value: "nurse", label: "Nurse" },
+    { value: "receptionist", label: "Receptionist" },
+    { value: "manager", label: "Manager" },
+    // ...add more positions as needed
+  ];
+
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -87,6 +100,8 @@ export default function SignUpPage() {
             dateOfBirth: formData.dateOfBirth,
             gender: formData.gender,
             marketingOptIn: formData.agreeToMarketing,
+            clinicName: formData.clinicName,
+            position: formData.position
           },
         },
       });
@@ -96,7 +111,7 @@ export default function SignUpPage() {
       const supabaseUser = signupData.user;
       if (!supabaseUser) throw new Error("Signup failed — no Supabase user returned.");
 
-      const backendResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL|| "http://localhost:8080"}/api/auth/signup`, {
+      const backendResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://localhost:8080"}/api/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
 
@@ -108,7 +123,9 @@ export default function SignUpPage() {
           role: formData.role,
           phone: formData.phone,
           gender: formData.gender,
-          dateOfBirth: formData.dateOfBirth, 
+          dateOfBirth: formData.dateOfBirth,
+          clinicName: formData.clinicName,
+          position: formData.position
         }),
       });
 
@@ -151,6 +168,40 @@ export default function SignUpPage() {
 
   const isSubmitDisabled = loading || !isPasswordValid || !passwordsMatch || !formData.agreeToTerms
 
+
+  // Get Clinic from Db
+  type ClinicOption = { value: string; label: string; };
+  const [clinicOptions, setClinicOptions] = useState<ClinicOption[]>([]);
+
+  useEffect(() => {
+    const fetchClinics = async () => {
+      try {
+        const gpRes = await fetch("http://localhost:8080/api/clinics/gp?limit=100");
+        const gpData = await gpRes.json();
+        const gpOptions = gpData.map((clinic: { clinicName: any }) => ({
+          value: clinic.clinicName,   // or clinic.name or whatever your property is
+          label: clinic.clinicName,
+        }));
+        const spRes = await fetch("http://localhost:8080/api/clinics/specialist?limit=100");
+        const spData = await spRes.json();
+
+        const spOptions = spData.map((clinic: { clinicName: any }) => ({
+          value: clinic.clinicName,
+          label: clinic.clinicName,
+        }));
+        // Combine and sort alphabetically by label
+        const combinedOptions = [...gpOptions, ...spOptions].sort((a, b) =>
+          a.label.localeCompare(b.label)
+        );
+
+        setClinicOptions(combinedOptions);
+      } catch (err) {
+        console.error("error fetching clinics: ", err);
+      }
+    }
+    fetchClinics();
+  }, []);
+
   return (
     <PageLayout variant="auth" className="bg-gray-50">
       <div className="flex items-center justify-center px-4 py-12 min-h-[calc(100vh-80px)]">
@@ -164,20 +215,71 @@ export default function SignUpPage() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Role selector */}
-                <div className="space-y-2">
-                  <Label htmlFor="role" className="text-sm font-medium text-gray-700">Role</Label>
-                  <Select value={formData.role} onValueChange={(value) => handleInputChange("role", value)}>
-                    <SelectTrigger className="h-11">
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ROLE_PATIENT">Patient</SelectItem>
-                      <SelectItem value="ROLE_STAFF">Staff</SelectItem>
-                      <SelectItem value="ROLE_DOCTOR">Doctor</SelectItem>
-                      <SelectItem value="ROLE_ADMIN">Admin</SelectItem>
-                    </SelectContent>
-                  </Select>
+                {/* Role, Clinic, Position Side by Side */}
+                <div className={`grid grid-cols-3 gap-4 ${formData.role === "ROLE_STAFF" ? "" : "max-w-xs"}`}>
+                  {/* Role Selector */}
+                  <div className="space-y-2">
+                    <Label htmlFor="role" className="text-sm font-medium text-gray-700">Role</Label>
+                    <Select value={formData.role} onValueChange={(value) => handleInputChange("role", value)}>
+                      <SelectTrigger className="h-11 w-30">
+                        <SelectValue placeholder="Select role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ROLE_PATIENT">Patient</SelectItem>
+                        <SelectItem value="ROLE_STAFF">Staff</SelectItem>
+                        <SelectItem value="ROLE_DOCTOR">Doctor</SelectItem>
+                        <SelectItem value="ROLE_ADMIN">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Show Clinic and Position if STAFF */}
+                  {formData.role === "ROLE_STAFF" && (
+                    <>
+
+                      {/* Position Dropdown */}
+                      <div className="space-y-2">
+                        <Label htmlFor="position" className="text-sm font-medium text-gray-700">Position</Label>
+                        <Select
+                          value={formData.position}
+                          onValueChange={value => handleInputChange("position", value)}
+                        >
+                          <SelectTrigger className="h-11 w-35">
+                            <SelectValue placeholder="Select position" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {positionOptions.map(option => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {/* Clinic Dropdown */}
+                      <div className="space-y-2 col-span-3 w-full">
+                        <Label htmlFor="clinic" className="text-sm font-medium text-gray-700">Clinic</Label>
+                        <Select
+                          value={formData.clinicName}
+                          onValueChange={value => handleInputChange("clinicName", value)}
+                        >
+                          <SelectTrigger className="h-11 w-full">
+                            <SelectValue placeholder="Select clinic" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-64 overflow-y-auto">
+                            {clinicOptions.map(option => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+
+                        </Select>
+                      </div>
+
+
+                    </>
+                  )}
                 </div>
 
                 {/* Name Fields */}

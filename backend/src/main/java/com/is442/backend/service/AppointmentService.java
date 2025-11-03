@@ -16,8 +16,10 @@ import com.is442.backend.dto.AppointmentResponse;
 import com.is442.backend.dto.RescheduleRequest;
 import com.is442.backend.model.Appointment;
 import com.is442.backend.model.Doctor;
+import com.is442.backend.model.Patient;
 import com.is442.backend.repository.AppointmentRepository;
 import com.is442.backend.repository.DoctorRepository;
+import com.is442.backend.repository.PatientRepository;
 
 @Service
 @Transactional
@@ -26,6 +28,9 @@ public class AppointmentService {
 
     @Autowired // needed so springboot know to inject this
     private DoctorRepository doctorRepository;
+
+    @Autowired
+    private PatientRepository patientRepository;
 
     public AppointmentService(AppointmentRepository appointmentRepository) {
         this.appointmentRepository = appointmentRepository;
@@ -129,7 +134,6 @@ public class AppointmentService {
                         Doctor doc = docOpt.get();
                         doctorName = (doc.getDoctorName() != null) ? doc.getDoctorName() : "Unknown";
                         clinicName = (doc.getClinicName() != null) ? doc.getClinicName() : "Unknown";
-                        
                         // Determine clinic type based on doctor's speciality
                         String speciality = doc.getSpeciality();
                         if (speciality != null && speciality.toUpperCase().contains("GENERAL PRACTICE")) {
@@ -147,6 +151,37 @@ public class AppointmentService {
                     }
 
                     return new AppointmentResponse(appointment, doctorName, clinicName, clinicType);
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<AppointmentResponse> getUpcomingAppointments() {
+        LocalDate today = LocalDate.now();
+        return appointmentRepository.findUpcomingAppointments(today).stream()
+                .map(appointment -> {
+                    System.out.println("Looking up doctor for appointment " + appointment.getDoctorId());
+
+                    Optional<Doctor> docOpt = doctorRepository.findByDoctorId(appointment.getDoctorId());
+                    String doctorName;
+                    String clinicName;
+                    if (docOpt.isPresent()) {
+                        Doctor doc = docOpt.get();
+                        doctorName = (doc.getDoctorName() != null) ? doc.getDoctorName() : "Unknown";
+                        clinicName = (doc.getClinicName() != null) ? doc.getClinicName() : "Unknown";
+                    } else {
+                        doctorName = "Unknown";
+                        clinicName = "Unknown";
+                    }
+                    Optional<Patient> patientOpt = patientRepository.findBysupabaseUserId(UUID.fromString(appointment.getPatientId()));
+                    String patientName;
+                    if (patientOpt.isPresent()) {
+                        Patient patient = patientOpt.get();
+                        patientName = (patient.getFirstName() + " " + patient.getLastName());
+                    }else{
+                        patientName = "Unknown";
+                    }
+                    return new AppointmentResponse(appointment, doctorName, clinicName, patientName);
                 })
                 .collect(Collectors.toList());
     }
@@ -177,6 +212,7 @@ public class AppointmentService {
     public AppointmentResponse markNoShow(UUID id) {
         return updateAppointmentStatus(id, "NO_SHOW");
     }
+
 
     public AppointmentResponse rescheduleAppointment(UUID id, RescheduleRequest request) {
         // Find the existing appointment
@@ -235,6 +271,11 @@ public class AppointmentService {
         return new AppointmentResponse(updated, doctorName, clinicName, clinicType);
     }
 
+    public AppointmentResponse updateStatus(UUID id, String status){
+        return updateAppointmentStatus(id, status);
+    }
+  
+          
     public void deleteAppointment(UUID id) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Appointment not found with id: " + id));

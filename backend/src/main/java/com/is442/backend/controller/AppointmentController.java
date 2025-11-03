@@ -36,8 +36,6 @@ public class AppointmentController {
         }
     }
 
-    
-
     @GetMapping
     public ResponseEntity<List<AppointmentResponse>> getAllAppointments() {
         List<AppointmentResponse> appointments = appointmentService.getAllAppointments();
@@ -84,6 +82,12 @@ public class AppointmentController {
         return ResponseEntity.ok(appointments);
     }
 
+    @GetMapping("/upcoming")
+    public ResponseEntity<List<AppointmentResponse>> getUpcomingAppointments() {
+        List<AppointmentResponse> appointments = appointmentService.getUpcomingAppointments();
+        return ResponseEntity.ok(appointments);
+    }
+
     @PatchMapping("/{id}/cancel")
     public ResponseEntity<?> cancelAppointment(@PathVariable UUID id) {
         try {
@@ -118,6 +122,7 @@ public class AppointmentController {
         }
     }
 
+
     @PatchMapping("/{id}/reschedule")
     public ResponseEntity<?> rescheduleAppointment(
             @PathVariable UUID id, 
@@ -134,6 +139,13 @@ public class AppointmentController {
                 return ResponseEntity.status(HttpStatus.CONFLICT)
                         .body(new ErrorResponse(e.getMessage()));
             }
+          
+  @PatchMapping("/{id}/updateStatus/{status}")
+    public ResponseEntity<AppointmentResponse> updateStatus(@PathVariable UUID id, @PathVariable String status) {
+        try {
+            AppointmentResponse response = appointmentService.updateStatus(id, status);
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
     }

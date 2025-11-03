@@ -52,4 +52,11 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
         @Param("patientId") String patientId,
         @Param("today") LocalDate today
     );
+
+    @Query("SELECT a FROM Appointment a WHERE (a.status = 'SCHEDULED' OR a.status = 'CHECKED IN') " +
+           "AND a.bookingDate >= :today " +
+           "ORDER BY a.bookingDate, a.startTime")
+    List<Appointment> findUpcomingAppointments(
+        @Param("today") LocalDate today
+    );
 }

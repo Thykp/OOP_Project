@@ -77,8 +77,7 @@ export default function PatientDashboard() {
       setLoading(false)
       return
     }
-
-    fetch(`http://localhost:8080/api/appointments/patient/${user.id}/upcoming`)
+    fetch(`${import.meta.env.VITE_API_BASE_URL}/api/appointments/patient/${user.id}/upcoming`)
       .then(response => {
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`)
