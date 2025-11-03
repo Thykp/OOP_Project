@@ -12,7 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Building2, Calendar as CalendarIcon, CheckCircle2, Clock, User } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { PageLayout } from "../components/page-layout";
 import { useAuth } from "@/context/auth-context";
 
@@ -42,6 +42,11 @@ export default function AppointmentBooking() {
 
     const { user } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+    
+    // Reschedule mode state
+    const rescheduleMode = location.state?.rescheduleMode || false;
+    const appointmentToReschedule = location.state?.appointmentToReschedule || null;
 
     // console.log(user?.id);
 
@@ -99,6 +104,17 @@ export default function AppointmentBooking() {
     }, []
 
     );
+
+    // Pre-fill form when in reschedule mode
+    useEffect(() => {
+        if (rescheduleMode && appointmentToReschedule) {
+            setSelectedClinicType(appointmentToReschedule.clinic_type || "");
+            setSelectedDate(new Date(appointmentToReschedule.booking_date));
+            setSelectedDoctorId(appointmentToReschedule.doctor_id);
+            setSelectedClinicId(appointmentToReschedule.clinic_id);
+            setSelectedTimeRange(`${appointmentToReschedule.start_time}-${appointmentToReschedule.end_time}`);
+        }
+    }, [rescheduleMode, appointmentToReschedule]);
 
     // Use effect to fetch available date and slots
     // Fetch available dates and time slots once doctor or clinic is selected
@@ -257,13 +273,14 @@ export default function AppointmentBooking() {
     console.log(selectedDaySlotsDetailed)
 
     const handleBooking = async () => {
-        if (!user) {
+        if (!user && !rescheduleMode) {
             alert("You must be logged in to book an appointment.");
             return;
         }
 
         if (!selectedDate || !selectedTimeRange) {
             alert("Please select clinic, date, and time slot before confirming.");
+            return;
         }
 
         const [start_time, end_time] = selectedTimeRange
@@ -273,39 +290,82 @@ export default function AppointmentBooking() {
         const formattedStart = start_time.length > 5 ? start_time.substring(0, 5) : start_time;
         const formattedEnd = end_time.length > 5 ? end_time.substring(0, 5) : end_time;
 
-        const appointmentRequest = {
-            patient_id: user.id,
-            doctor_id: selectedSlot?.doctorId || selectedDoctorId,
-            clinic_id: selectedSlot?.clinicId || selectedClinicId,
-            booking_date: selectedDate
-  ? selectedDate.toLocaleDateString("en-CA") // YYYY-MM-DD in local timezone
-  : null,
-            start_time: formattedStart,
-            end_time: formattedEnd,
-        };
-
-
-        console.log("Payload:", appointmentRequest);
-
-
         try {
-            const res = await fetch("http://localhost:8080/api/appointments", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(appointmentRequest),
-            });
+            if (rescheduleMode && appointmentToReschedule) {
+                // Reschedule existing appointment
+                const rescheduleData = {
+                    doctor_id: selectedSlot?.doctorId || selectedDoctorId,
+                    clinic_id: selectedSlot?.clinicId || selectedClinicId,
+                    booking_date: selectedDate.toLocaleDateString("en-CA"),
+                    start_time: formattedStart,
+                    end_time: formattedEnd,
+                };
 
-            if (!res.ok) {
-                throw new Error("Failed to create appointment");
+                console.log("Reschedule Payload:", rescheduleData);
+
+                const res = await fetch(
+                    `http://localhost:8080/api/appointments/${appointmentToReschedule.appointment_id}/reschedule`,
+                    {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(rescheduleData),
+                    }
+                );
+
+                if (!res.ok) {
+                    if (res.status === 400) {
+                        const errorData = await res.json();
+                        alert(`⚠️ ${errorData.message}`);
+                        return;
+                    }
+                    if (res.status === 409) {
+                        const errorData = await res.json();
+                        alert(`⚠️ ${errorData.message || "This time slot is already taken. Please choose another."}`);
+                        return;
+                    }
+                    throw new Error("Failed to reschedule appointment");
+                }
+
+                const data = await res.json();
+                alert("✅ Appointment rescheduled successfully!");
+                console.log("Response:", data);
+                navigate("/dashboard");
+            } else {
+                // Book new appointment
+                if (!user) {
+                    alert("You must be logged in to book an appointment.");
+                    return;
+                }
+                
+                const appointmentRequest = {
+                    patient_id: user.id,
+                    doctor_id: selectedSlot?.doctorId || selectedDoctorId,
+                    clinic_id: selectedSlot?.clinicId || selectedClinicId,
+                    booking_date: selectedDate.toLocaleDateString("en-CA"),
+                    start_time: formattedStart,
+                    end_time: formattedEnd,
+                };
+
+                console.log("Booking Payload:", appointmentRequest);
+
+                const res = await fetch("http://localhost:8080/api/appointments", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(appointmentRequest),
+                });
+
+                if (!res.ok) {
+                    throw new Error("Failed to create appointment");
+                }
+
+                const data = await res.json();
+                alert("✅ Appointment booked successfully!");
+                console.log("Response:", data);
+                navigate("/dashboard");
             }
-
-            const data = await res.json();
-            alert("✅ Appointment booked successfully!");
-            console.log("Response:", data);
-            navigate("/dashboard");
         } catch (err) {
             console.error(err);
-            alert("❌ Error booking appointment. Please try again.");
+            alert(`❌ Error ${rescheduleMode ? 'rescheduling' : 'booking'} appointment. Please try again.`);
         }
     };
 
@@ -321,9 +381,13 @@ export default function AppointmentBooking() {
                     {/* Header */}
                     <div className="text-center space-y-3">
                         <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                            Book Your Appointment
+                            {rescheduleMode ? "Reschedule Your Appointment" : "Book Your Appointment"}
                         </h1>
-
+                        {rescheduleMode && appointmentToReschedule && (
+                            <p className="text-sm text-gray-600">
+                                Rescheduling appointment with {appointmentToReschedule.doctor_name} on {new Date(appointmentToReschedule.booking_date).toLocaleDateString()}
+                            </p>
+                        )}
                     </div>
 
                     {/* Clinic Selection */}
@@ -590,7 +654,7 @@ export default function AppointmentBooking() {
                             size="lg"
                             className="w-full md:w-96 h-14 text-lg font-semibold shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-card)] transition-all duration-300"
                         >
-                            Confirm
+                            {rescheduleMode ? "Confirm Reschedule" : "Confirm Booking"}
                         </Button>
                     </div>
                 </div>

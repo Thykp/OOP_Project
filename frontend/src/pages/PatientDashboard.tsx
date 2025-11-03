@@ -1,14 +1,15 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Calendar, Clock, User, Bell, History, CheckCircle } from "lucide-react"
+import { Clock, User, Bell, History, CheckCircle, Calendar as CalendarIcon } from "lucide-react"
 import { PageLayout } from "../components/page-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Link } from "react-router-dom"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/auth-context"
 
 
@@ -61,6 +62,15 @@ export default function PatientDashboard() {
   const [loading, setLoading] = useState(true)
 
   const { user } = useAuth()
+  const navigate = useNavigate()
+
+  // Helper function to check if appointment is within 24 hours
+  const isWithin24Hours = (appointment: Appointment): boolean => {
+    const appointmentDateTime = new Date(`${appointment.booking_date}T${appointment.start_time}`)
+    const now = new Date()
+    const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+    return appointmentDateTime < twentyFourHoursFromNow
+  }
 
   const fetchAppointments = () => {
     if (!user?.id) {
@@ -114,6 +124,16 @@ export default function PatientDashboard() {
   };
 
 
+  const handleRescheduleAppointment = (appointment: Appointment) => {
+    // Navigate to booking page with reschedule state
+    navigate("/bookappointment", {
+      state: {
+        rescheduleMode: true,
+        appointmentToReschedule: appointment
+      }
+    })
+  }
+
   const handleCancelAppointment = async (appointmentId: string) => {
     if (!window.confirm("Are you sure you want to cancel this appointment?")) {
       return
@@ -125,6 +145,11 @@ export default function PatientDashboard() {
       })
 
       if (!response.ok) {
+        if (response.status === 400) {
+          const errorData = await response.json()
+          alert(`⚠️ ${errorData.message}`)
+          return
+        }
         throw new Error("Failed to cancel appointment")
       }
 
@@ -156,7 +181,7 @@ export default function PatientDashboard() {
             <Card className="border-blue-200 hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-blue-700">
-                  <Calendar className="h-5 w-5" />
+                  <CalendarIcon className="h-5 w-5" />
                   Book Appointment
                 </CardTitle>
               </CardHeader>
@@ -273,17 +298,50 @@ export default function PatientDashboard() {
                           <p className="font-semibold">{formatDate(appointment.booking_date)}</p>
                           <p className="text-sm text-gray-600">{formatTime(appointment.start_time)}</p>
                           <div className="flex gap-2 mt-2">
-                            <Button size="sm" variant="outline">
-                              Reschedule
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              className="text-red-600 border-red-200 bg-transparent hover:bg-red-50"
-                              onClick={() => handleCancelAppointment(appointment.appointment_id)}
-                            >
-                              Cancel
-                            </Button>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      className="border-blue-200 text-blue-600 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      onClick={() => handleRescheduleAppointment(appointment)}
+                                      disabled={isWithin24Hours(appointment)}
+                                    >
+                                      Reschedule
+                                    </Button>
+                                  </span>
+                                </TooltipTrigger>
+                                {isWithin24Hours(appointment) && (
+                                  <TooltipContent>
+                                    <p>Appointments can only be rescheduled at least 24 hours in advance</p>
+                                  </TooltipContent>
+                                )}
+                              </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline" 
+                                      className="text-red-600 border-red-200 bg-transparent hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      onClick={() => handleCancelAppointment(appointment.appointment_id)}
+                                      disabled={isWithin24Hours(appointment)}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </span>
+                                </TooltipTrigger>
+                                {isWithin24Hours(appointment) && (
+                                  <TooltipContent>
+                                    <p>Appointments can only be cancelled at least 24 hours in advance</p>
+                                  </TooltipContent>
+                                )}
+                              </Tooltip>
+                            </TooltipProvider>
                           </div>
                         </div>
                       </div>
