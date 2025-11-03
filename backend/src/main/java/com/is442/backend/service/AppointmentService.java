@@ -175,6 +175,10 @@ public class AppointmentService {
         return updateAppointmentStatus(id, "NO_SHOW");
     }
 
+    public AppointmentResponse updateStatus(UUID id, String status){
+        return updateAppointmentStatus(id, status);
+    }
+
     public void deleteAppointment(UUID id) {
         if (!appointmentRepository.existsById(id)) {
             throw new RuntimeException("Appointment not found with id: " + id);

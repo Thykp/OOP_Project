@@ -116,6 +116,16 @@ public class AppointmentController {
         }
     }
 
+    @PatchMapping("/{id}/updateStatus/{status}")
+    public ResponseEntity<AppointmentResponse> updateStatus(@PathVariable UUID id, @PathVariable String status) {
+        try {
+            AppointmentResponse response = appointmentService.updateStatus(id, status);
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteAppointment(@PathVariable UUID id) {
         try {
