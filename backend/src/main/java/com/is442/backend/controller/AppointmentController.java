@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.*;
 
 import com.is442.backend.dto.AppointmentRequest;
 import com.is442.backend.dto.AppointmentResponse;
+import com.is442.backend.dto.ErrorResponse;
+import com.is442.backend.dto.RescheduleRequest;
 import com.is442.backend.service.AppointmentService;
 
 import jakarta.validation.Valid;
@@ -87,11 +89,15 @@ public class AppointmentController {
     }
 
     @PatchMapping("/{id}/cancel")
-    public ResponseEntity<AppointmentResponse> cancelAppointment(@PathVariable UUID id) {
+    public ResponseEntity<?> cancelAppointment(@PathVariable UUID id) {
         try {
             AppointmentResponse response = appointmentService.cancelAppointment(id);
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
+            if (e.getMessage().contains("24 hours in advance")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new ErrorResponse(e.getMessage()));
+            }
             return ResponseEntity.notFound().build();
         }
     }
@@ -116,7 +122,25 @@ public class AppointmentController {
         }
     }
 
-    @PatchMapping("/{id}/updateStatus/{status}")
+
+    @PatchMapping("/{id}/reschedule")
+    public ResponseEntity<?> rescheduleAppointment(
+            @PathVariable UUID id, 
+            @Valid @RequestBody RescheduleRequest request) {
+        try {
+            AppointmentResponse response = appointmentService.rescheduleAppointment(id, request);
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            if (e.getMessage().contains("24 hours in advance")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new ErrorResponse(e.getMessage()));
+            }
+            if (e.getMessage().contains("time slot")) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(new ErrorResponse(e.getMessage()));
+            }
+          
+  @PatchMapping("/{id}/updateStatus/{status}")
     public ResponseEntity<AppointmentResponse> updateStatus(@PathVariable UUID id, @PathVariable String status) {
         try {
             AppointmentResponse response = appointmentService.updateStatus(id, status);
@@ -127,11 +151,15 @@ public class AppointmentController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteAppointment(@PathVariable UUID id) {
+    public ResponseEntity<?> deleteAppointment(@PathVariable UUID id) {
         try {
             appointmentService.deleteAppointment(id);
             return ResponseEntity.noContent().build();
         } catch (RuntimeException e) {
+            if (e.getMessage().contains("24 hours in advance")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new ErrorResponse(e.getMessage()));
+            }
             return ResponseEntity.notFound().build();
         }
     }
