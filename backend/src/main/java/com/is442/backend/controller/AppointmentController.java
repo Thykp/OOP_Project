@@ -122,10 +122,9 @@ public class AppointmentController {
         }
     }
 
-
     @PatchMapping("/{id}/reschedule")
     public ResponseEntity<?> rescheduleAppointment(
-            @PathVariable UUID id, 
+            @PathVariable UUID id,
             @Valid @RequestBody RescheduleRequest request) {
         try {
             AppointmentResponse response = appointmentService.rescheduleAppointment(id, request);
@@ -139,8 +138,11 @@ public class AppointmentController {
                 return ResponseEntity.status(HttpStatus.CONFLICT)
                         .body(new ErrorResponse(e.getMessage()));
             }
-          
-  @PatchMapping("/{id}/updateStatus/{status}")
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @PatchMapping("/{id}/updateStatus/{status}")
     public ResponseEntity<AppointmentResponse> updateStatus(@PathVariable UUID id, @PathVariable String status) {
         try {
             AppointmentResponse response = appointmentService.updateStatus(id, status);
