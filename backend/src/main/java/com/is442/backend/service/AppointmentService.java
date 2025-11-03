@@ -1,6 +1,7 @@
 package com.is442.backend.service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -12,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.is442.backend.dto.AppointmentRequest;
 import com.is442.backend.dto.AppointmentResponse;
+import com.is442.backend.dto.RescheduleRequest;
 import com.is442.backend.model.Appointment;
 import com.is442.backend.model.Doctor;
 import com.is442.backend.repository.AppointmentRepository;
@@ -27,6 +29,24 @@ public class AppointmentService {
 
     public AppointmentService(AppointmentRepository appointmentRepository) {
         this.appointmentRepository = appointmentRepository;
+    }
+
+    /**
+     * Checks if an appointment is at least 24 hours away from now
+     * @param appointment The appointment to check
+     * @throws RuntimeException if the appointment is less than 24 hours away
+     */
+    private void validateAdvanceNotice(Appointment appointment) {
+        LocalDateTime appointmentDateTime = LocalDateTime.of(
+            appointment.getBookingDate(), 
+            appointment.getStartTime()
+        );
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime minimumTime = now.plusHours(24);
+
+        if (appointmentDateTime.isBefore(minimumTime)) {
+            throw new RuntimeException("Appointments must be cancelled or rescheduled at least 24 hours in advance");
+        }
     }
 
     public AppointmentResponse createAppointment(AppointmentRequest request) {
@@ -104,18 +124,29 @@ public class AppointmentService {
                     Optional<Doctor> docOpt = doctorRepository.findByDoctorId(appointment.getDoctorId());
                     String doctorName;
                     String clinicName;
+                    String clinicType;
                     if (docOpt.isPresent()) {
                         Doctor doc = docOpt.get();
                         doctorName = (doc.getDoctorName() != null) ? doc.getDoctorName() : "Unknown";
                         clinicName = (doc.getClinicName() != null) ? doc.getClinicName() : "Unknown";
+                        
+                        // Determine clinic type based on doctor's speciality
+                        String speciality = doc.getSpeciality();
+                        if (speciality != null && speciality.toUpperCase().contains("GENERAL PRACTICE")) {
+                            clinicType = "General Practice";
+                        } else {
+                            clinicType = "Specialist Clinic";
+                        }
+                        
                         System.out.println("Doctor name: " + doctorName);
                     } else {
                         doctorName = "Unknown";
                         clinicName = "Unknown";
+                        clinicType = "Unknown";
                         System.out.println("Doctor not found for id: " + appointment.getDoctorId());
                     }
 
-                    return new AppointmentResponse(appointment, doctorName, clinicName);
+                    return new AppointmentResponse(appointment, doctorName, clinicName, clinicType);
                 })
                 .collect(Collectors.toList());
     }
@@ -130,6 +161,12 @@ public class AppointmentService {
     }
 
     public AppointmentResponse cancelAppointment(UUID id) {
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Appointment not found with id: " + id));
+        
+        // Validate 24-hour advance notice
+        validateAdvanceNotice(appointment);
+        
         return updateAppointmentStatus(id, "CANCELLED");
     }
 
@@ -141,10 +178,70 @@ public class AppointmentService {
         return updateAppointmentStatus(id, "NO_SHOW");
     }
 
-    public void deleteAppointment(UUID id) {
-        if (!appointmentRepository.existsById(id)) {
-            throw new RuntimeException("Appointment not found with id: " + id);
+    public AppointmentResponse rescheduleAppointment(UUID id, RescheduleRequest request) {
+        // Find the existing appointment
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Appointment not found with id: " + id));
+
+        // Validate 24-hour advance notice
+        validateAdvanceNotice(appointment);
+
+        // Check for conflicts with the new time slot
+        List<Appointment> conflicts = appointmentRepository.findConflictingAppointments(
+                request.getDoctorId(),
+                request.getBookingDate(),
+                request.getStartTime(),
+                request.getEndTime());
+
+        // Filter out the current appointment from conflicts
+        conflicts = conflicts.stream()
+                .filter(conflict -> !conflict.getAppointmentId().equals(id))
+                .collect(Collectors.toList());
+
+        if (!conflicts.isEmpty()) {
+            throw new RuntimeException("Doctor already has an appointment during this time slot");
         }
+
+        // Update appointment details
+        appointment.setDoctorId(request.getDoctorId());
+        appointment.setClinicId(request.getClinicId());
+        appointment.setBookingDate(request.getBookingDate());
+        appointment.setStartTime(request.getStartTime());
+        appointment.setEndTime(request.getEndTime());
+        // Keep status as SCHEDULED so it appears in upcoming appointments
+
+        // Save the updated appointment
+        Appointment updated = appointmentRepository.save(appointment);
+        
+        // Get doctor details for response
+        Optional<Doctor> docOpt = doctorRepository.findByDoctorId(updated.getDoctorId());
+        String doctorName = "Unknown";
+        String clinicName = "Unknown";
+        String clinicType = "Unknown";
+        
+        if (docOpt.isPresent()) {
+            Doctor doc = docOpt.get();
+            doctorName = (doc.getDoctorName() != null) ? doc.getDoctorName() : "Unknown";
+            clinicName = (doc.getClinicName() != null) ? doc.getClinicName() : "Unknown";
+            
+            String speciality = doc.getSpeciality();
+            if (speciality != null && speciality.toUpperCase().contains("GENERAL PRACTICE")) {
+                clinicType = "General Practice";
+            } else {
+                clinicType = "Specialist Clinic";
+            }
+        }
+        
+        return new AppointmentResponse(updated, doctorName, clinicName, clinicType);
+    }
+
+    public void deleteAppointment(UUID id) {
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Appointment not found with id: " + id));
+        
+        // Validate 24-hour advance notice
+        validateAdvanceNotice(appointment);
+        
         appointmentRepository.deleteById(id);
     }
 }
