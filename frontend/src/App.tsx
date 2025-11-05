@@ -7,31 +7,32 @@ import ViewAppointment from './pages/ViewAppointment'
 import { ProtectedRoute } from './context/auth-context'
 import BookAppointment from "./pages/BookAppointment";
 
-
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/signin" element={<SignInPage />} />
-      <Route path="/signup" element={<SignUpPage />} />
-      <Route path="/viewappointment" element={<ViewAppointment />} />
-      <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <PatientDashboard />
-            </ProtectedRoute>
-          }
-        />
-      <Route
-          path="/bookappointment" 
-          element={
-            <ProtectedRoute>
-              <BookAppointment/>
-            </ProtectedRoute>
-          }>
-      </Route>
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/signin" element={<SignInPage />} />
+        <Route path="/signup" element={<SignUpPage />} />
+        <Route path="/viewappointment" element={<ViewAppointment />} />
+        <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <PatientDashboard />
+              </ProtectedRoute>
+            }
+          />
+        <Route
+            path="/bookappointment" 
+            element={
+              <ProtectedRoute>
+                <BookAppointment/>
+              </ProtectedRoute>
+            }>
+        </Route>
+      </Routes>
+    </>
   )
 }
 
