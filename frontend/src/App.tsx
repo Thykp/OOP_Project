@@ -14,6 +14,7 @@ function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/signin" element={<SignInPage />} />
       <Route path="/signup" element={<SignUpPage />} />
+      <Route path="/viewappointment" element={<ViewAppointment />} />
       <Route
           path="/dashboard"
           element={
@@ -22,9 +23,14 @@ function App() {
             </ProtectedRoute>
           }
         />
-      <Route path="/viewappointment" element={<ViewAppointment/>}></Route>
-      <Route path="/bookappointment" element={<BookAppointment/>}></Route>
-
+      <Route
+          path="/bookappointment" 
+          element={
+            <ProtectedRoute>
+              <BookAppointment/>
+            </ProtectedRoute>
+          }>
+      </Route>
     </Routes>
   )
 }
