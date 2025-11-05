@@ -25,6 +25,7 @@ import {
 
 import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/context/auth-context"
+import Loader from "@/components/Loader"
 
 interface Appointment {
   appointment_id: string
@@ -99,14 +100,14 @@ export default function PatientDashboard() {
   }
 
   const formatTime = (timeString: string) => {
-    // expects "HH:MM:SS"
     const [hours24, minutes] = timeString.split(":")
     let hours = parseInt(hours24, 10)
     const ampm = hours >= 12 ? "PM" : "AM"
     hours = hours % 12
-    hours = hours ? hours : 12
+    if (hours === 0) hours = 12
     return `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`
   }
+
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL
 
@@ -203,10 +204,8 @@ export default function PatientDashboard() {
   if (loading) {
     return (
       <PageLayout variant="dashboard">
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
-          <div className="container mx-auto px-4 py-8">
-            <p className="text-gray-600">Loading...</p>
-          </div>
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
+          <Loader />
         </div>
       </PageLayout>
     )
@@ -285,7 +284,7 @@ export default function PatientDashboard() {
               </CardContent>
             </Card>
 
-            {/* NEW: Browse Clinics & Queues */}
+            {/* Browse Clinics & Queues */}
             <Card className="border-indigo-200 hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-indigo-700">
@@ -336,7 +335,7 @@ export default function PatientDashboard() {
                     <CardDescription>Your scheduled appointments</CardDescription>
                   </div>
 
-                  {/* NEW: Secondary entry */}
+                  {/* Secondary entry to view all */}
                   <Link to="/viewappointment">
                     <Button size="sm" variant="outline" className="border-blue-200">
                       Browse All Clinics & Queues

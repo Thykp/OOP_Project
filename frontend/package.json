@@ -31,6 +31,7 @@
     "react-day-picker": "^9.11.1",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.7.0",
+    "styled-components": "^6.1.19",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.11"
   },
