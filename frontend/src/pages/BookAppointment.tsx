@@ -9,13 +9,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/context/auth-context";
+import { connectSocket, disconnectSocket, subscribeToSlots } from "@/lib/socket";
 import { cn } from "@/lib/utils";
 import { Building2, Calendar as CalendarIcon, CheckCircle2, Clock, User } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { PageLayout } from "../components/page-layout";
-import { useAuth } from "@/context/auth-context";
-import { useToast } from "@/components/ui/use-toast";
 
 const clinicTypes = ["General Practice", "Specialist Clinic"];
 
@@ -106,6 +107,55 @@ export default function AppointmentBooking() {
       setSelectedTimeRange(`${appointmentToReschedule.start_time}-${appointmentToReschedule.end_time}`);
     }
   }, [rescheduleMode, appointmentToReschedule]);
+
+  // subscribe to server-side slot updates so UI can remove booked slots in real-time
+  useEffect(() => {
+    connectSocket();
+    const sub = subscribeToSlots((update: any) => {
+      if (!update) return;
+      const bookingDate = update.booking_date;
+      const doctorId = update.doctor_id;
+      const clinicId = update.clinic_id;
+      const startTime = (update.start_time || '').substring(0, 5);
+      const action = update.action;
+
+      if (action !== 'REMOVE') return;
+
+      setAvailableDatesWithSlots((prev: any[]) => {
+        if (!prev || prev.length === 0) return prev;
+        const next = prev
+          .map((entry: any) => {
+            if (entry.date !== bookingDate) return entry;
+            if (clinicId && entry.clinicId !== clinicId) return entry;
+            if (doctorId && entry.doctorId !== doctorId) return entry;
+
+            const newSlots = (entry.timeSlots || []).filter((slot: any) => {
+              if (!slot) return true;
+              if (typeof slot === 'string') {
+                const s = slot.split('-')[0].trim();
+                return s !== startTime;
+              }
+              const s = (slot.startTime || slot.start_time || '').substring(0, 5);
+              return s !== startTime;
+            });
+
+            return {
+              ...entry,
+              timeSlots: newSlots,
+            };
+          })
+          .filter((e: any) => e.timeSlots && e.timeSlots.length > 0);
+
+        return next;
+      });
+    });
+
+    return () => {
+      try { sub.unsubscribe(); } catch (e) {}
+      disconnectSocket();
+    };
+    // we intentionally run once on mount
+  }, []);
 
   // Fetch available dates and time slots once doctor or clinic is selected
   useEffect(() => {

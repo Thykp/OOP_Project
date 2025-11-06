@@ -7,7 +7,10 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,7 +27,10 @@ import com.is442.backend.repository.PatientRepository;
 @Service
 @Transactional
 public class AppointmentService {
+    private static final Logger logger = LoggerFactory.getLogger(AppointmentService.class);
+
     private final AppointmentRepository appointmentRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Autowired // needed so springboot know to inject this
     private DoctorRepository doctorRepository;
@@ -32,8 +38,9 @@ public class AppointmentService {
     @Autowired
     private PatientRepository patientRepository;
 
-    public AppointmentService(AppointmentRepository appointmentRepository) {
+    public AppointmentService(AppointmentRepository appointmentRepository, SimpMessagingTemplate messagingTemplate) {
         this.appointmentRepository = appointmentRepository;
+        this.messagingTemplate = messagingTemplate;
     }
 
     /**
@@ -43,9 +50,7 @@ public class AppointmentService {
      * @throws RuntimeException if the appointment is less than 24 hours away
      */
     private void validateAdvanceNotice(Appointment appointment) {
-        LocalDateTime appointmentDateTime = LocalDateTime.of(
-                appointment.getBookingDate(),
-                appointment.getStartTime());
+        LocalDateTime appointmentDateTime = LocalDateTime.of(appointment.getBookingDate(), appointment.getStartTime());
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime minimumTime = now.plusHours(24);
 
@@ -73,7 +78,28 @@ public class AppointmentService {
                 request.getStartTime(),
                 request.getEndTime());
 
+        logger.info("Saving appointment entity: patient={}, doctor={}, clinic={}, date={}, start={}, end=",
+                appointment.getPatientId(), appointment.getDoctorId(), appointment.getClinicId(),
+                appointment.getBookingDate(), appointment.getStartTime(), appointment.getEndTime());
+
         Appointment saved = appointmentRepository.save(appointment);
+        logger.info("Saved appointment id={}, clinicId={}", saved.getAppointmentId(), saved.getClinicId());
+
+        // publish slot removal so other clients can update their UI in real-time
+        try {
+            com.is442.backend.dto.SlotUpdateDto update = new com.is442.backend.dto.SlotUpdateDto(
+                    saved.getClinicId(), saved.getDoctorId(),
+                    saved.getBookingDate().toString(),
+                    saved.getStartTime().toString(),
+                    saved.getEndTime().toString(),
+                    "REMOVE"
+            );
+            // broadcast on /topic/slots — clients may filter by clinicId/doctorId
+            messagingTemplate.convertAndSend("/topic/slots", update);
+        } catch (Exception e) {
+            logger.warn("Failed to publish slot update message: {}", e.getMessage());
+        }
+
         return new AppointmentResponse(saved);
     }
 
@@ -124,8 +150,6 @@ public class AppointmentService {
         LocalDate today = LocalDate.now();
         return appointmentRepository.findUpcomingAppointmentsByPatient(patientId, today).stream()
                 .map(appointment -> {
-                    System.out.println("Looking up doctor for appointment " + appointment.getDoctorId());
-
                     Optional<Doctor> docOpt = doctorRepository.findByDoctorId(appointment.getDoctorId());
                     String doctorName;
                     String clinicName;
@@ -141,13 +165,10 @@ public class AppointmentService {
                         } else {
                             clinicType = "Specialist Clinic";
                         }
-
-                        System.out.println("Doctor name: " + doctorName);
                     } else {
                         doctorName = "Unknown";
                         clinicName = "Unknown";
                         clinicType = "Unknown";
-                        System.out.println("Doctor not found for id: " + appointment.getDoctorId());
                     }
 
                     return new AppointmentResponse(appointment, doctorName, clinicName, clinicType);
@@ -160,8 +181,6 @@ public class AppointmentService {
         LocalDate today = LocalDate.now();
         return appointmentRepository.findUpcomingAppointments(today).stream()
                 .map(appointment -> {
-                    System.out.println("Looking up doctor for appointment " + appointment.getDoctorId());
-
                     Optional<Doctor> docOpt = doctorRepository.findByDoctorId(appointment.getDoctorId());
                     String doctorName;
                     String clinicName;
