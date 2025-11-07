@@ -61,7 +61,7 @@ public class AuthController {
                     admin.setEmail(dto.getEmail());
                     admin.setFirstName(dto.getFirstName());
                     admin.setLastName(dto.getLastName());
-                    admin.setRole("ROLE_ADMIN");
+                    // admin.setRole("ROLE_ADMIN");
                     return ResponseEntity.ok(userService.registerUser(admin));
                 }
                 default -> throw new IllegalArgumentException("Invalid role");
