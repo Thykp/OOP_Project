@@ -5,6 +5,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useAuth } from "@/context/auth-context"
 
 
 interface Appointment {
@@ -24,6 +25,7 @@ interface Appointment {
 }
 
 export default function ViewAppointmentsPage() {
+  const { user } = useAuth()
 
   const [appointments, setAppointments] = useState<Appointment[]>([])
 
@@ -82,7 +84,7 @@ export default function ViewAppointmentsPage() {
   const [clinicOptions, setClinicOptions] = useState<ClinicOption[]>([]);
 
   // Holds selected filter value
-  const [filterClinic, setFilterClinic] = useState("");
+  const [filterClinic, setFilterClinic] = useState<string>(user?.user_metadata.clinicName);
 
   const fetchClinics = async () => {
     try {
