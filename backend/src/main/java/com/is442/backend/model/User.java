@@ -1,4 +1,5 @@
 package com.is442.backend.model;
+
 import java.util.UUID;
 
 import jakarta.persistence.Column;
@@ -8,35 +9,33 @@ import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
 import jakarta.persistence.Table;
 
-
 @Entity
 @Table(name = "users")
 @Inheritance(strategy = InheritanceType.JOINED)
 
 public abstract class User {
-    
+
     // @GeneratedValue(strategy = GenerationType.IDENTITY)
     // @Column(name = "id")
     // private Long id;
-    
+
     @Id
     @Column(name = "supabase_user_id")
-    private UUID supabaseUserId; //supabase Auth
-    
+    private UUID supabaseUserId; // supabase Auth
+
     @Column(name = "email")
     private String email;
-    
-    @Column(name = "firstName")
+
+    @Column(name = "first_name")
     private String firstName;
-    
-    @Column(name = "lastName")
+
+    @Column(name = "last_name")
     private String lastName;
 
     @Column(name = "role")
     private String role;
 
-
-     public User() {
+    public User() {
     }
 
     public User(UUID supabaseUserId, String email, String firstName, String lastName, String role) {
@@ -48,11 +47,11 @@ public abstract class User {
     }
 
     // public Long getId() {
-    //     return id;
+    // return id;
     // }
 
     // public void setId(Long id) {
-    //     this.id = id;
+    // this.id = id;
     // }
 
     public UUID getSupabaseUserId() {
@@ -95,11 +94,3 @@ public abstract class User {
         this.role = role;
     }
 }
-
-
-
-
-
-
-
-

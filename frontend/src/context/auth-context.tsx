@@ -102,3 +102,27 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>
 }
+
+export function RoleProtectedRoute({ children, role }: { children: React.ReactNode, role: string[] }) {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[50vh] grid place-items-center text-sm text-muted-foreground">
+        Checking your session…
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <Navigate to="/signin" replace />;
+  }
+
+  if (!role.includes(user.user_metadata.role)) {
+    console.log(role)
+    console.log(user.user_metadata.role)
+    console.log(role == user.user_metadata.role)
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
+}
