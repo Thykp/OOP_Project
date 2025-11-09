@@ -4,9 +4,12 @@ services:
     container_name: redis
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes
-    volumes:
-      - redis_data:/data
+    # command: redis-server --appendonly yes
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    tmpfs:
+      - /data
+    # volumes:
+    #   - redis_data:/data
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.0.1
@@ -77,5 +80,5 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
 
 volumes:
-  redis_data: {}
+#   redis_data: {}
   redisinsight-data: {}
