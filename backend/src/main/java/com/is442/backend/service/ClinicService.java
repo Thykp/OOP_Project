@@ -1,5 +1,6 @@
 package com.is442.backend.service;
 
+import java.time.LocalTime;
 import java.util.List;
 
 import org.springframework.data.domain.PageRequest;
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import com.is442.backend.dto.GpClinicDto;
 import com.is442.backend.dto.SpecialistClinicDto;
+import com.is442.backend.model.Clinic;
 import com.is442.backend.model.GpClinic;
 import com.is442.backend.model.SpecialistClinic;
 import com.is442.backend.repository.GpClinicRepository;
@@ -23,8 +25,7 @@ public class ClinicService {
     public ClinicService(
             GpClinicRepository gpRepo,
             SpecialistClinicRepository spRepo,
-            @Nullable KafkaQueueEventProducer queueEventProducer
-    ) {
+            @Nullable KafkaQueueEventProducer queueEventProducer) {
         this.gpRepo = gpRepo;
         this.spRepo = spRepo;
         this.queueEventProducer = queueEventProducer;
@@ -53,13 +54,29 @@ public class ClinicService {
     }
 
     private GpClinicDto toDto(GpClinic g) {
-        return new GpClinicDto(g.getSn(), g.getClinicId(), g.getPcn(), g.getClinicName(), g.getAddress(), g.getTelephoneNum());
+        return new GpClinicDto(g.getSn(), g.getClinicId(), g.getPcn(), g.getClinicName(), g.getAddress(),
+                g.getTelephoneNum(), g.getOpeningHours(), g.getClosingHours());
     }
 
     private SpecialistClinicDto toDto(SpecialistClinic s) {
         return new SpecialistClinicDto(
                 s.getSn(), s.getIhpClinicId(), s.getRegion(), s.getArea(),
-                s.getClinicName(), s.getAddress(), s.getTelephoneNum(), s.getSpeciality()
-        );
+                s.getClinicName(), s.getAddress(), s.getTelephoneNum(), s.getSpeciality());
     }
+
+    // update operating hours
+    public void updateGPClinicOperatingHours(int s_n, GpClinicDto operatinHours ) {
+        GpClinic clinic = gpRepo.findById(s_n)
+                .orElseThrow(() -> new RuntimeException("Clinic not found!"));
+
+        if (operatinHours.getOpeningHours() != null) {
+            clinic.setOpeningHours(operatinHours.getOpeningHours());
+        }
+        if (operatinHours.getClosingHours() != null) {
+            clinic.setClosingHours(operatinHours.getClosingHours());
+        }
+
+        gpRepo.save(clinic);
+    }
+
 }
