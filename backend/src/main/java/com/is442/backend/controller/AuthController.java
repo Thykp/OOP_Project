@@ -26,6 +26,7 @@ public class AuthController {
                     patient.setFirstName(dto.getFirstName());
                     patient.setLastName(dto.getLastName());
                     patient.setRole("ROLE_PATIENT");
+                    patient.setStatus("ACTIVE");
 
                     // specific patient details
                     patient.setPhone(dto.getPhone());
@@ -51,6 +52,8 @@ public class AuthController {
                     staff.setFirstName(dto.getFirstName());
                     staff.setLastName(dto.getLastName());
                     staff.setRole("ROLE_STAFF");
+                    staff.setStatus("ACTIVE");
+
                     staff.setClinicName(dto.getClinicName());
                     staff.setPosition(dto.getPosition());
                     return ResponseEntity.ok(userService.registerUser(staff));
@@ -61,6 +64,8 @@ public class AuthController {
                     admin.setEmail(dto.getEmail());
                     admin.setFirstName(dto.getFirstName());
                     admin.setLastName(dto.getLastName());
+                    admin.setStatus("ACTIVE");
+
                     // admin.setRole("ROLE_ADMIN");
                     return ResponseEntity.ok(userService.registerUser(admin));
                 }

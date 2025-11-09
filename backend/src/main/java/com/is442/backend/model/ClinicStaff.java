@@ -21,9 +21,9 @@ public class ClinicStaff extends User {
         super();
     }
 
-    public ClinicStaff(UUID supabaseUserId, String email, String firstName, String lastName, String role,
+    public ClinicStaff(UUID supabaseUserId, String email, String firstName, String lastName, String role, String status,
                        String clinicName, String position) {
-        super(supabaseUserId, email, firstName, lastName, role);
+        super(supabaseUserId, email, firstName, lastName, role, status);
         this.clinicName = clinicName;
         this.position = position;
     }

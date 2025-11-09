@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import java.util.UUID;
 
 public class UserRequest {
-     @NotNull(message = "Supabase user ID is required")
+    @NotNull(message = "Supabase user ID is required")
     @JsonProperty("supabase_user_id")
     private UUID supabaseUserId;
 
@@ -24,6 +24,9 @@ public class UserRequest {
     @NotNull(message = "Role is required")
     @JsonProperty("role")
     private String role;
+
+    @JsonProperty("status")
+    private String status;
 
     // Getters and setters
 
@@ -66,5 +69,13 @@ public class UserRequest {
     public void setRole(String role) {
         this.role = role;
     }
-    
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
 }
