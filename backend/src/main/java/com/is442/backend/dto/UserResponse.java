@@ -22,6 +22,9 @@ public class UserResponse {
     @JsonProperty("role")
     private String role;
 
+    @JsonProperty("status")
+    private String status;
+
     // Getters and setters
 
     public UUID getSupabaseUserId() {
@@ -64,11 +67,19 @@ public class UserResponse {
         this.role = role;
     }
 
+        public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
     public UserResponse(User user) {
         this.supabaseUserId = user.getSupabaseUserId();
         this.email = user.getEmail();
         this.firstName = user.getFirstName();
         this.lastName = user.getLastName();
         this.role = user.getRole();
+        this.status = user.getStatus();
     }
 }

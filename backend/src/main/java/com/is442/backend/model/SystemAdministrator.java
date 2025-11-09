@@ -30,8 +30,8 @@ public class SystemAdministrator extends User {
     //     this.adminLevel = adminLevel;
     // }
 
-        public SystemAdministrator(UUID supabaseUserId, String email, String firstName, String lastName, String role) {
-        super(supabaseUserId, email, firstName, lastName, role);
+        public SystemAdministrator(UUID supabaseUserId, String email, String firstName, String lastName, String role, String status) {
+        super(supabaseUserId, email, firstName, lastName, role, status);
     }
 
     // ===== Getters and Setters =====

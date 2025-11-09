@@ -24,9 +24,9 @@ public class Patient extends User{
         super();
     }
 
-    public Patient(UUID supabaseUserId, String email, String firstName, String lastName, String role,
+    public Patient(UUID supabaseUserId, String email, String firstName, String lastName, String role, String status,
                    String phone, String dateOfBirth, String gender) {
-        super(supabaseUserId, email, firstName, lastName, role);
+        super(supabaseUserId, email, firstName, lastName, role, status);
         this.phone = phone;
         this.dateOfBirth = dateOfBirth;
         this.gender = gender;

@@ -35,15 +35,19 @@ public abstract class User {
     @Column(name = "role")
     private String role;
 
+    @Column(name = "status")
+    private String status;
+
     public User() {
     }
 
-    public User(UUID supabaseUserId, String email, String firstName, String lastName, String role) {
+    public User(UUID supabaseUserId, String email, String firstName, String lastName, String role, String status) {
         this.supabaseUserId = supabaseUserId;
         this.email = email;
         this.firstName = firstName;
         this.lastName = lastName;
         this.role = role;
+        this.status = status;
     }
 
     // public Long getId() {
@@ -92,5 +96,13 @@ public abstract class User {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 }
