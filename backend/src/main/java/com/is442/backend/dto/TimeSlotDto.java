@@ -1,13 +1,18 @@
 package com.is442.backend.dto;
 
 import java.time.LocalTime;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 public class TimeSlotDto {
     private Long id;
     private String doctorId;
     private String doctorName;
     private String dayOfWeek;
+    
+    @JsonFormat(pattern = "HH:mm:ss")
     private LocalTime startTime;
+    
+    @JsonFormat(pattern = "HH:mm:ss")
     private LocalTime endTime;
     private boolean isAvailable;
 
