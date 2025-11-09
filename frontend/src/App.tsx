@@ -9,6 +9,8 @@ import AdminClinicConfig from './pages/AdminClinicConfig'
 import AdminUserManagement from './pages/AdminUserManagement'
 import { ProtectedRoute, RoleProtectedRoute } from './context/auth-context'
 import BookAppointment from "./pages/BookAppointment";
+import ClinicOperatingHours from './pages/ClinicOperatingHours'
+import DoctorTimeSlotManagement from './pages/DoctorTimeSlotManagement'
 
 function App() {
   return (
@@ -62,6 +64,21 @@ function App() {
           element={
             <RoleProtectedRoute role={["ROLE_ADMIN"]}>
               <AdminClinicConfig />
+            </RoleProtectedRoute>
+          }
+        />
+            <Route
+          path="/admin/clinic-operating-hours"
+          element={
+            <RoleProtectedRoute role={["ROLE_ADMIN"]}>
+              <ClinicOperatingHours />
+            </RoleProtectedRoute>
+          }
+        />            <Route
+          path="/admin/doctor-time-slot"
+          element={
+            <RoleProtectedRoute role={["ROLE_ADMIN"]}>
+              <DoctorTimeSlotManagement />
             </RoleProtectedRoute>
           }
         />
