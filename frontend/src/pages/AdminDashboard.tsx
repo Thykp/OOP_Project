@@ -49,9 +49,14 @@ export default function AdminUserManagement() {
 
     // Filtering logic
     const filteredUsers = users.filter(u =>
-        (!search || u.first_name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())) &&
-        (positionFilter === "All" || u.position === positionFilter)
+        (!search || u.first_name.toLowerCase().includes(search.toLowerCase()) || u.last_name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())) &&
+        (
+            tabView !== "staff" ||                        // If not staff tab, ignore position filter
+            positionFilter === "All" ||
+            u.position === positionFilter
+        )
     )
+
     const [modalOpen, setModalOpen] = useState(false)
     const [editUser, setEditUser] = useState<UserAccount | null>(null)
     const openUpdateModal = (user: UserAccount) => {
