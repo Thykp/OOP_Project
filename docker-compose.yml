@@ -24,7 +24,7 @@ services:
     platform: linux/amd64
     container_name: kafka
     healthcheck:
-      test: [ "CMD", "bash", "-lc", "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1" ]
+      test: [ "CMD", "bash", "-lc", "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2%3E&1" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -52,9 +52,19 @@ services:
       - "8080:8080"
     env_file:
       - ./backend/.env
-
-volumes:
-  redis_data:
-      ./backend/.env
     tty: true
     stdin_open: true
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: redisinsight
+    ports:
+      - "5540:5540"
+    volumes:
+      - redisinsight-data:/data
+    depends_on:
+      - redis
+
+volumes:
+  redis_data: {}
+  redisinsight-data: {}

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.*;
+import java.util.UUID;
 
 /**
  * Queue semantics:
@@ -73,7 +74,7 @@ public class RedisQueueService {
         Objects.requireNonNull(appointmentId, "appointmentId cannot be null");
 
         // Get User Data based on user id
-        User user = userService.findBySupabaseUserId(patientId);
+        User user = userService.findBySupabaseUserId(UUID.fromString(patientId));
 
         // 1) allocate next sequence (FIFO ticket)
         long seq = Optional.ofNullable(strTpl.opsForValue().increment(kSeq(clinicId))).orElse(1L);
@@ -111,7 +112,7 @@ public class RedisQueueService {
         List<String> args = List.of("patient:"); // prefix expected by Lua
 
         List<?> res = strTpl.execute(dequeueScript, keys, args.toArray());
-        if (res == null || res.isEmpty() || Boolean.FALSE.equals(res.get(0))) {
+        if (res.isEmpty() || Boolean.FALSE.equals(res.get(0))) {
             return CallNextResult.empty(clinicId);
         }
 
@@ -181,4 +182,10 @@ public class RedisQueueService {
             return dflt;
         }
     }
+
+    public Set<String> listClinics() {
+        Set<String> clinics = strTpl.opsForSet().members("clinics");
+        return (clinics == null) ? Set.of() : clinics;
+    }
+
 }

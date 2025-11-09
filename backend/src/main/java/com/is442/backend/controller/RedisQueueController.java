@@ -39,7 +39,7 @@ public class RedisQueueController {
                 "POSITION_CHANGED", clinicId, appointmentId, patientId, position,
                 System.currentTimeMillis()));
 
-        return Map.of("status", "ok", "position", position);
+        return Map.of("status", "ok", "position", position, "appointmentId", appointmentId);
     }
 
     // POST endpoint
@@ -51,11 +51,11 @@ public class RedisQueueController {
 
         // Publish real-time event
         events.publishQueueEvent(new QueueEvent(
-                "NOW_SERVING", clinicId, result.getAppointmentId(),
-                result.getPatientId(), result.getPosition(), System.currentTimeMillis()));
+                "NOW_SERVING", clinicId, result.appointmentId(),
+                result.patientId(), result.position(), System.currentTimeMillis()));
 
-        return Map.of("status", "ok", "nowServing", result.getPosition(),
-                "appointmentId", result.getAppointmentId());
+        return Map.of("status", "ok", "nowServing", result.position(),
+                "appointmentId", result.appointmentId());
     }
 
     // GET endpoint
