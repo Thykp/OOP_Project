@@ -62,9 +62,19 @@ export function UserMenu() {
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="truncate">Signed in as {user?.email}</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link to="/dashboard">Dashboard</Link>
-        </DropdownMenuItem>
+        {user?.user_metadata?.role === "ROLE_ADMIN" ? (
+          <DropdownMenuItem asChild>
+            <Link to="/admin/dashboard">Admin Dashboard</Link>
+          </DropdownMenuItem>
+        ) : user?.user_metadata?.role === "ROLE_STAFF" ? (
+          <DropdownMenuItem asChild>
+            <Link to="/viewappointment">View Appointments</Link>
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem asChild>
+            <Link to="/dashboard">Dashboard</Link>
+          </DropdownMenuItem>
+        )}
         {/* Add these when you have pages: 
         <DropdownMenuItem asChild>
           <Link to="/profile">Profile</Link>

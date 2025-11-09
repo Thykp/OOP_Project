@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import com.is442.backend.dto.AvailableDateSlotsDto;
 import com.is442.backend.dto.TimeSlotDto;
+import com.is442.backend.dto.TimeSlotRequest;
 import com.is442.backend.model.Appointment;
 import com.is442.backend.model.Doctor;
 import com.is442.backend.model.TimeSlot;
@@ -243,5 +244,201 @@ public class TimeSlotService {
                 slot.getEndTime(),
                 available
         );
+    }
+
+    // Admin CRUD operations
+
+    /**
+     * Get all time slots (for admin)
+     */
+    public List<TimeSlotDto> getAllTimeSlotsForAdmin() {
+        return timeSlotRepository.findAll().stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get time slots by doctor ID (for admin)
+     */
+    public List<TimeSlotDto> getTimeSlotsByDoctor(String doctorId) {
+        return timeSlotRepository.findByDoctorId(doctorId).stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Create a single time slot
+     * If a schedule already exists for this doctor and day, it will be overwritten
+     */
+    public TimeSlotDto createTimeSlot(TimeSlotRequest request) {
+        // Validate doctor exists
+        Doctor doctor = doctorRepository.findByDoctorId(request.getDoctorId())
+                .orElseThrow(() -> new RuntimeException("Doctor not found with ID: " + request.getDoctorId()));
+
+        // Parse times
+        LocalTime startTime = parseTimeString(request.getStartTime());
+        LocalTime endTime = parseTimeString(request.getEndTime());
+
+        if (startTime == null || endTime == null) {
+            throw new RuntimeException("Invalid time format. Use HH:mm or HH:mm:ss");
+        }
+
+        if (!endTime.isAfter(startTime)) {
+            throw new RuntimeException("End time must be after start time");
+        }
+
+        // Delete existing time slots for this doctor and day to overwrite
+        String dayOfWeek = request.getDayOfWeek().toUpperCase();
+        deleteTimeSlotsByDoctorAndDay(request.getDoctorId(), dayOfWeek);
+
+        // Use doctor name from request or from doctor entity
+        String doctorName = request.getDoctorName() != null && !request.getDoctorName().isBlank()
+                ? request.getDoctorName()
+                : doctor.getDoctorName();
+
+        TimeSlot timeSlot = new TimeSlot(
+                request.getDoctorId(),
+                doctorName,
+                dayOfWeek,
+                startTime,
+                endTime
+        );
+
+        TimeSlot saved = timeSlotRepository.save(timeSlot);
+        return toDto(saved);
+    }
+
+    /**
+     * Create multiple time slots (e.g., for a day with 15-minute intervals)
+     * If a schedule already exists for this doctor and day, it will be overwritten
+     */
+    public List<TimeSlotDto> createTimeSlots(TimeSlotRequest request, int slotIntervalMinutes) {
+        // Validate doctor exists
+        Doctor doctor = doctorRepository.findByDoctorId(request.getDoctorId())
+                .orElseThrow(() -> new RuntimeException("Doctor not found with ID: " + request.getDoctorId()));
+
+        // Parse times
+        LocalTime startTime = parseTimeString(request.getStartTime());
+        LocalTime endTime = parseTimeString(request.getEndTime());
+
+        if (startTime == null || endTime == null) {
+            throw new RuntimeException("Invalid time format. Use HH:mm or HH:mm:ss");
+        }
+
+        if (!endTime.isAfter(startTime)) {
+            throw new RuntimeException("End time must be after start time");
+        }
+
+        // Delete existing time slots for this doctor and day to overwrite
+        String dayOfWeek = request.getDayOfWeek().toUpperCase();
+        deleteTimeSlotsByDoctorAndDay(request.getDoctorId(), dayOfWeek);
+
+        String doctorName = request.getDoctorName() != null && !request.getDoctorName().isBlank()
+                ? request.getDoctorName()
+                : doctor.getDoctorName();
+
+        List<TimeSlot> slots = new ArrayList<>();
+        LocalTime currentStart = startTime;
+
+        while (currentStart.isBefore(endTime)) {
+            LocalTime currentEnd = currentStart.plusMinutes(slotIntervalMinutes);
+            if (currentEnd.isAfter(endTime)) {
+                break;
+            }
+
+            TimeSlot slot = new TimeSlot(
+                    request.getDoctorId(),
+                    doctorName,
+                    dayOfWeek,
+                    currentStart,
+                    currentEnd
+            );
+            slots.add(slot);
+            currentStart = currentEnd;
+        }
+
+        List<TimeSlot> saved = timeSlotRepository.saveAll(slots);
+        return saved.stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Update a time slot
+     */
+    public TimeSlotDto updateTimeSlot(Long id, TimeSlotRequest request) {
+        TimeSlot timeSlot = timeSlotRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Time slot not found with ID: " + id));
+
+        // Update fields if provided
+        if (request.getDoctorId() != null && !request.getDoctorId().isBlank()) {
+            // Validate doctor exists
+            Doctor doctor = doctorRepository.findByDoctorId(request.getDoctorId())
+                    .orElseThrow(() -> new RuntimeException("Doctor not found with ID: " + request.getDoctorId()));
+            timeSlot.setDoctorId(request.getDoctorId());
+            if (request.getDoctorName() != null && !request.getDoctorName().isBlank()) {
+                timeSlot.setDoctorName(request.getDoctorName());
+            } else {
+                timeSlot.setDoctorName(doctor.getDoctorName());
+            }
+        }
+
+        if (request.getDayOfWeek() != null && !request.getDayOfWeek().isBlank()) {
+            timeSlot.setDayOfWeek(request.getDayOfWeek().toUpperCase());
+        }
+
+        if (request.getStartTime() != null && !request.getStartTime().isBlank()) {
+            LocalTime startTime = parseTimeString(request.getStartTime());
+            if (startTime == null) {
+                throw new RuntimeException("Invalid start time format");
+            }
+            timeSlot.setStartTime(startTime);
+        }
+
+        if (request.getEndTime() != null && !request.getEndTime().isBlank()) {
+            LocalTime endTime = parseTimeString(request.getEndTime());
+            if (endTime == null) {
+                throw new RuntimeException("Invalid end time format");
+            }
+            timeSlot.setEndTime(endTime);
+        }
+
+        // Validate end time is after start time
+        if (timeSlot.getEndTime() != null && timeSlot.getStartTime() != null) {
+            if (!timeSlot.getEndTime().isAfter(timeSlot.getStartTime())) {
+                throw new RuntimeException("End time must be after start time");
+            }
+        }
+
+        TimeSlot updated = timeSlotRepository.save(timeSlot);
+        return toDto(updated);
+    }
+
+    /**
+     * Delete a time slot
+     */
+    public void deleteTimeSlot(Long id) {
+        if (!timeSlotRepository.existsById(id)) {
+            throw new RuntimeException("Time slot not found with ID: " + id);
+        }
+        timeSlotRepository.deleteById(id);
+    }
+
+    /**
+     * Delete all time slots for a doctor
+     */
+    public void deleteTimeSlotsByDoctor(String doctorId) {
+        List<TimeSlot> slots = timeSlotRepository.findByDoctorId(doctorId);
+        timeSlotRepository.deleteAll(slots);
+    }
+
+    /**
+     * Delete all time slots for a specific doctor and day of week
+     */
+    public void deleteTimeSlotsByDoctorAndDay(String doctorId, String dayOfWeek) {
+        List<TimeSlot> slots = timeSlotRepository.findByDoctorIdAndDayOfWeek(doctorId, dayOfWeek.toUpperCase());
+        if (!slots.isEmpty()) {
+            timeSlotRepository.deleteAll(slots);
+        }
     }
 }
