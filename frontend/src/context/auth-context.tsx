@@ -119,9 +119,6 @@ export function RoleProtectedRoute({ children, role }: { children: React.ReactNo
   }
 
   if (!role.includes(user.user_metadata.role)) {
-    console.log(role)
-    console.log(user.user_metadata.role)
-    console.log(role == user.user_metadata.role)
     return <Navigate to="/dashboard" replace />;
   }
   return children;
