@@ -4,15 +4,28 @@ import SignInPage from './pages/SignInPage'
 import SignUpPage from './pages/SignUpPage'
 import PatientDashboard from './pages/PatientDashboard'
 import ViewAppointment from './pages/ViewAppointment'
-import { ProtectedRoute } from './context/auth-context'
+import AdminDashboard from './pages/AdminDashboard'
+import AdminClinicConfig from './pages/AdminClinicConfig'
+import AdminUserManagement from './pages/AdminUserManagement'
+import { ProtectedRoute, RoleProtectedRoute } from './context/auth-context'
+import BookAppointment from "./pages/BookAppointment";
 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/signin" element={<SignInPage />} />
-      <Route path="/signup" element={<SignUpPage />} />
-      <Route
+    <>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/signin" element={<SignInPage />} />
+        <Route path="/signup" element={
+          <RoleProtectedRoute role={["ROLE_ADMIN"]}>
+            <SignUpPage />
+          </RoleProtectedRoute>} />
+        <Route path="/viewappointment" element={
+          <RoleProtectedRoute role={["ROLE_STAFF"]}>
+            <ViewAppointment />
+          </RoleProtectedRoute>
+        } />
+        <Route
           path="/dashboard"
           element={
             <ProtectedRoute>
@@ -20,8 +33,40 @@ function App() {
             </ProtectedRoute>
           }
         />
-      <Route path="/viewappointment" element={<ViewAppointment/>}></Route>
-    </Routes>
+        <Route
+          path="/bookappointment"
+          element={
+            <ProtectedRoute>
+              <BookAppointment />
+            </ProtectedRoute>
+          }>
+        </Route>
+        <Route
+          path="/admin/dashboard"
+          element={
+            <RoleProtectedRoute role={["ROLE_ADMIN"]}>
+              <AdminDashboard />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/user-management"
+          element={
+            <RoleProtectedRoute role={["ROLE_ADMIN"]}>
+              <AdminUserManagement />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/clinic-config"
+          element={
+            <RoleProtectedRoute role={["ROLE_ADMIN"]}>
+              <AdminClinicConfig />
+            </RoleProtectedRoute>
+          }
+        />
+      </Routes>
+    </>
   )
 }
 

@@ -100,5 +100,47 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/signin" replace />
   }
 
+  // Redirect users to their appropriate dashboard based on role
+  const userRole = user.user_metadata?.role
+  
+  if (userRole === "ROLE_ADMIN" && window.location.pathname === "/dashboard") {
+    return <Navigate to="/admin/dashboard" replace />
+  }
+  if (userRole === "ROLE_STAFF") {
+    // Redirect staff away from patient dashboard and admin routes
+    if (window.location.pathname === "/dashboard" || window.location.pathname.startsWith("/admin")) {
+      return <Navigate to="/viewappointment" replace />
+    }
+  }
+
   return <>{children}</>
+}
+
+export function RoleProtectedRoute({ children, role }: { children: React.ReactNode, role: string[] }) {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[50vh] grid place-items-center text-sm text-muted-foreground">
+        Checking your session…
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <Navigate to="/signin" replace />;
+  }
+
+  const userRole = user.user_metadata?.role
+  
+  if (!role.includes(userRole)) {
+    // Redirect users to their appropriate dashboard based on role
+    if (userRole === "ROLE_ADMIN") {
+      return <Navigate to="/admin/dashboard" replace />;
+    } else if (userRole === "ROLE_STAFF") {
+      return <Navigate to="/viewappointment" replace />;
+    }
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
 }

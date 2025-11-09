@@ -24,9 +24,14 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
     
     List<Appointment> findByBookingDate(LocalDate bookingDate);
     
+    
     List<Appointment> findByPatientIdAndStatus(String patientId, String status);
     
     List<Appointment> findByDoctorIdAndBookingDate(String doctorId, LocalDate bookingDate);
+    
+    List<Appointment> findByDoctorIdInAndBookingDateBetween(
+    List<String> doctorIds, LocalDate start, LocalDate end);
+
     
     @Query("SELECT a FROM Appointment a WHERE a.doctorId = :doctorId " +
            "AND a.bookingDate = :bookingDate " +
@@ -45,6 +50,13 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
            "ORDER BY a.bookingDate, a.startTime")
     List<Appointment> findUpcomingAppointmentsByPatient(
         @Param("patientId") String patientId,
+        @Param("today") LocalDate today
+    );
+
+    @Query("SELECT a FROM Appointment a WHERE (a.status = 'SCHEDULED' OR a.status = 'CHECKED IN') " +
+           "AND a.bookingDate >= :today " +
+           "ORDER BY a.bookingDate, a.startTime")
+    List<Appointment> findUpcomingAppointments(
         @Param("today") LocalDate today
     );
 }

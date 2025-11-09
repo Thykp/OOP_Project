@@ -16,4 +16,4 @@ COPY --from=builder /app/target/backend-0.0.1-SNAPSHOT.jar app.jar
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["sh", "-c", "java -Dspring.output.ansi.enabled=ALWAYS -Dfile.encoding=UTF-8 -jar app.jar"]

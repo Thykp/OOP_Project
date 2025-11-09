@@ -1,24 +1,38 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Calendar, Clock, User, Bell, History, CheckCircle } from "lucide-react"
-import { PageLayout } from "../components/page-layout"
+import { useEffect, useState } from "react"
+import { Link, useNavigate } from "react-router-dom"
+import { Clock, User, Bell, History, CheckCircle, Calendar as CalendarIcon } from "lucide-react"
+
+import { PageLayout } from "@/components/page-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Link } from "react-router-dom"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+
+import { useToast } from "@/components/ui/use-toast"
+import { useAuth } from "@/context/auth-context"
+import Loader from "@/components/Loader"
 
 interface Appointment {
   appointment_id: string
   booking_date: string
   clinic_id: string
   clinic_name: string
+  clinic_type: string
   created_at: string
   doctor_id: string
   doctor_name: string
@@ -29,55 +43,7 @@ interface Appointment {
   updated_at: string
 }
 
-// Mock data
-const mockDoctors = [
-  { id: 1, name: "Dr. Sarah Lim", specialty: "General Practitioner", clinic: "SingHealth Polyclinic - Bedok" },
-  { id: 2, name: "Dr. Michael Tan", specialty: "Cardiologist", clinic: "Singapore General Hospital" },
-  { id: 3, name: "Dr. Jennifer Wong", specialty: "Dermatologist", clinic: "SingHealth Specialist Centre" },
-  { id: 4, name: "Dr. David Chen", specialty: "Orthopedic Surgeon", clinic: "Changi General Hospital" },
-]
-
-const mockClinics = [
-  { id: 1, name: "SingHealth Polyclinic - Bedok", type: "General Practice" },
-  { id: 2, name: "Singapore General Hospital", type: "Specialist" },
-  { id: 3, name: "SingHealth Specialist Centre", type: "Specialist" },
-  { id: 4, name: "Changi General Hospital", type: "Hospital" },
-]
-
-const mockTimeSlots = [
-  "09:00 AM",
-  "09:30 AM",
-  "10:00 AM",
-  "10:30 AM",
-  "11:00 AM",
-  "11:30 AM",
-  "02:00 PM",
-  "02:30 PM",
-  "03:00 PM",
-  "03:30 PM",
-  "04:00 PM",
-  "04:30 PM",
-]
-
-// const mockUpcomingAppointments = [
-//   {
-//     id: 1,
-//     doctor: "Dr. Sarah Lim",
-//     clinic: "SingHealth Polyclinic - Bedok",
-//     date: "2024-01-15",
-//     time: "10:00 AM",
-//     type: "General Consultation",
-//   },
-//   {
-//     id: 2,
-//     doctor: "Dr. Michael Tan",
-//     clinic: "Singapore General Hospital",
-//     date: "2024-01-22",
-//     time: "02:30 PM",
-//     type: "Cardiology Follow-up",
-//   },
-// ]
-
+// --- mock past history for the "Medical History" tab ---
 const mockPastAppointments = [
   {
     id: 1,
@@ -99,92 +65,170 @@ const mockPastAppointments = [
   },
 ]
 
-
-
 export default function PatientDashboard() {
-  const [selectedDoctor, setSelectedDoctor] = useState("")
-  const [selectedClinic, setSelectedClinic] = useState("")
-  const [selectedDate, setSelectedDate] = useState("")
-  const [selectedTime, setSelectedTime] = useState("")
+  // check-in / queue
   const [isCheckedIn, setIsCheckedIn] = useState(false)
   const [queueNumber, setQueueNumber] = useState(15)
   const [currentNumber] = useState(12)
 
+  // data
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
 
+  // cancel dialog state
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [appointmentToCancel, setAppointmentToCancel] = useState<Appointment | null>(null)
 
-  let userId = null;
-  const firstKey = localStorage.key(0)
-  if (firstKey) {
-    const value = localStorage.getItem(firstKey);
-    if (value) {  // ✅ Check that value is not null
-      const jsonValue = JSON.parse(value);
-      userId = jsonValue.user.id
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const { toast } = useToast()
+
+  // --- helpers ---
+  const isWithin24Hours = (appointment: Appointment): boolean => {
+    const appointmentDateTime = new Date(`${appointment.booking_date}T${appointment.start_time}`)
+    const now = new Date()
+    const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+    return appointmentDateTime < twentyFourHoursFromNow
+  }
+
+  const formatDate = (dateString: string | number | Date) => {
+    const date = new Date(dateString)
+    const day = String(date.getDate()).padStart(2, "0")
+    const month = String(date.getMonth() + 1).padStart(2, "0")
+    const year = date.getFullYear()
+    return `${day}/${month}/${year}`
+  }
+
+  const formatTime = (timeString: string) => {
+    const [hours24, minutes] = timeString.split(":")
+    let hours = parseInt(hours24, 10)
+    const ampm = hours >= 12 ? "PM" : "AM"
+    hours = hours % 12
+    if (hours === 0) hours = 12
+    return `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`
+  }
+
+
+  const API_BASE = import.meta.env.VITE_API_BASE_URL
+
+  const fetchAppointments = () => {
+    if (!user?.id) {
+      setLoading(false)
+      return
     }
+    setLoading(true)
+    fetch(`${API_BASE}/api/appointments/patient/${user.id}/upcoming`)
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`)
+        return response.json()
+      })
+      .then((data) => setAppointments(data))
+      .catch((err) => {
+        console.error("Error fetching appointments:", err)
+        toast({
+          variant: "destructive",
+          title: "Unable to load appointments",
+          description: "Please try again shortly.",
+        })
+      })
+      .finally(() => setLoading(false))
   }
 
   useEffect(() => {
-    fetch("http://localhost:8080/api/appointments/patient/"+ userId +"/upcoming")
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`)
-        }
-        return response.json()
-      })
-      .then(data => {
-        setAppointments(data)
-      })
-      .catch(err => {
-        console.error("Error fetching appointments:", err)
-      })
-      .finally(() => setLoading(false))
-  }, [])
+    fetchAppointments()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id])
 
-  if (loading) return <div>Loading...</div>
-
-  const handleBookAppointment = () => {
-    if (selectedDoctor && selectedClinic && selectedDate && selectedTime) {
-      alert("Appointment booked successfully!")
-      // Reset form
-      setSelectedDoctor("")
-      setSelectedClinic("")
-      setSelectedDate("")
-      setSelectedTime("")
-    }
+  // --- actions ---
+  const handleRescheduleAppointment = (appointment: Appointment) => {
+    navigate("/bookappointment", {
+      state: { rescheduleMode: true, appointmentToReschedule: appointment },
+    })
   }
 
-  // Helper function to format date as dd/mm/yyyy
-  const formatDate = (dateString: string | number | Date) => {
-    const date = new Date(dateString);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  };
+  const handleAskCancel = (appointment: Appointment) => {
+    setAppointmentToCancel(appointment)
+    setCancelDialogOpen(true)
+  }
 
-  // Helper function to format time as hh:mm AM/PM
-  const formatTime = (timeString: string) => {
-    // If timeString is just "HH:MM:SS" format
-    const [hours24, minutes] = timeString.split(':');
-    let hours = parseInt(hours24);
-    const ampm = hours >= 12 ? 'PM' : 'AM';
+  const confirmCancelAppointment = async () => {
+    if (!appointmentToCancel) return
+    try {
+      const response = await fetch(`${API_BASE}/api/appointments/${appointmentToCancel.appointment_id}`, {
+        method: "DELETE",
+      })
 
-    // Convert to 12-hour format
-    hours = hours % 12;
-    hours = hours ? hours : 12; // 0 should be 12
+      if (!response.ok) {
+        if (response.status === 400) {
+          const errorData = await response.json()
+          toast({
+            variant: "destructive",
+            title: "Unable to cancel",
+            description: errorData?.message ?? "Please try again later.",
+          })
+          return
+        }
+        throw new Error("Failed to cancel appointment")
+      }
 
-    return `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
-  };
-
+      toast({
+        variant: "success",
+        title: "Appointment cancelled",
+        description: `${appointmentToCancel.doctor_name} • ${formatDate(
+          appointmentToCancel.booking_date
+        )} ${formatTime(appointmentToCancel.start_time)}`,
+      })
+      setCancelDialogOpen(false)
+      setAppointmentToCancel(null)
+      fetchAppointments()
+    } catch (err) {
+      console.error("Error cancelling appointment:", err)
+      toast({
+        variant: "destructive",
+        title: "Error cancelling appointment",
+        description: "Something went wrong. Please try again.",
+      })
+    }
+  }
 
   const handleCheckIn = () => {
     setIsCheckedIn(true)
     setQueueNumber(Math.floor(Math.random() * 20) + 10)
+    toast({
+      variant: "success",
+      title: "Checked in",
+      description: "You’ve joined the queue. We’ll notify you as you get closer.",
+    })
+  }
+
+  if (loading) {
+    return (
+      <PageLayout variant="dashboard">
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
+          <Loader />
+        </div>
+      </PageLayout>
+    )
   }
 
   return (
     <PageLayout variant="dashboard">
+      {/* Cancel Confirmation Dialog */}
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this appointment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. You can only cancel or reschedule at least 24 hours in advance.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep appointment</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmCancelAppointment}>Cancel appointment</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
         <div className="container mx-auto px-4 py-8">
           {/* Header */}
@@ -198,13 +242,15 @@ export default function PatientDashboard() {
             <Card className="border-blue-200 hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-blue-700">
-                  <Calendar className="h-5 w-5" />
+                  <CalendarIcon className="h-5 w-5" />
                   Book Appointment
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-gray-600 mb-3">Schedule your next visit</p>
-                <Button className="w-full bg-blue-600 hover:bg-blue-700">New Appointment</Button>
+                <Link to="/bookappointment">
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700">New Appointment</Button>
+                </Link>
               </CardContent>
             </Card>
 
@@ -217,11 +263,7 @@ export default function PatientDashboard() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-gray-600 mb-3">Join the queue for your appointment</p>
-                <Button
-                  className="w-full bg-green-600 hover:bg-green-700"
-                  onClick={handleCheckIn}
-                  disabled={isCheckedIn}
-                >
+                <Button className="w-full bg-green-600 hover:bg-green-700" onClick={handleCheckIn} disabled={isCheckedIn}>
                   {isCheckedIn ? "Checked In" : "Check In Now"}
                 </Button>
               </CardContent>
@@ -236,10 +278,7 @@ export default function PatientDashboard() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-gray-600 mb-3">View past appointments</p>
-                <Button
-                  variant="outline"
-                  className="w-full border-purple-200 text-purple-700 hover:bg-purple-50 bg-transparent"
-                >
+                <Button variant="outline" className="w-full border-purple-200 text-purple-700 hover:bg-purple-50 bg-transparent">
                   View History
                 </Button>
               </CardContent>
@@ -251,9 +290,9 @@ export default function PatientDashboard() {
             <Alert className="mb-8 border-blue-200 bg-blue-50">
               <Bell className="h-4 w-4" />
               <AlertDescription>
-                <strong>Queue Status:</strong> You are number #{queueNumber}. Current serving: #{currentNumber}.
+                <strong>Queue Status:</strong> You are number #{queueNumber}. Current serving: #{currentNumber}.{" "}
                 {queueNumber - currentNumber <= 3 && (
-                  <span className="text-blue-700 font-semibold"> Your turn is coming up soon!</span>
+                  <span className="text-blue-700 font-semibold">Your turn is coming up soon!</span>
                 )}
               </AlertDescription>
             </Alert>
@@ -261,9 +300,8 @@ export default function PatientDashboard() {
 
           {/* Main Content Tabs */}
           <Tabs defaultValue="appointments" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="appointments">Appointments</TabsTrigger>
-              <TabsTrigger value="booking">Book New</TabsTrigger>
               <TabsTrigger value="queue">Queue Status</TabsTrigger>
               <TabsTrigger value="history">Medical History</TabsTrigger>
             </TabsList>
@@ -271,134 +309,98 @@ export default function PatientDashboard() {
             {/* Upcoming Appointments */}
             <TabsContent value="appointments">
               <Card>
-                <CardHeader className="flex items-center justify-between">
-                  {/* Title and description on the left */}
-                  <div>
-                    <CardTitle>Upcoming Appointments</CardTitle>
-                    <CardDescription>Your scheduled appointments</CardDescription>
-                  </div>
-                  {/* Button on the right */}
-                  {/* <Link to="/ViewAppointment">
-                    <Button size="sm" className="bg-blue-600 text-white">
-                      View All Appointments
-                    </Button>
-                  </Link> */}
-                </CardHeader>
-                <CardContent>
-
-                  <div className="space-y-4">
-                    {appointments.map((appointment) => (
-                      <div key={appointment.appointment_id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center gap-4">
-                          <div className="bg-blue-100 p-2 rounded-full">
-                            <User className="h-5 w-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold">{appointment.doctor_name}</h3>
-                            <p className="text-sm text-gray-600">{appointment.clinic_name}</p>
-                            {/* <p className="text-sm text-gray-500">{appointment.type}</p> */}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-semibold">{formatDate(appointment.booking_date)}</p>
-                          <p className="text-sm text-gray-600">{formatTime(appointment.start_time)}</p>
-                          <div className="flex gap-2 mt-2">
-                            <Button size="sm" variant="outline">
-                              Reschedule
-                            </Button>
-                            <Button size="sm" variant="outline" className="text-red-600 border-red-200 bg-transparent">
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Book New Appointment */}
-            <TabsContent value="booking">
-              <Card>
                 <CardHeader>
-                  <CardTitle>Book New Appointment</CardTitle>
-                  <CardDescription>Schedule your next visit with our healthcare professionals</CardDescription>
+                  <CardTitle>Upcoming Appointments</CardTitle>
+                  <CardDescription>Your scheduled appointments</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="doctor">Select Doctor</Label>
-                      <Select value={selectedDoctor} onValueChange={setSelectedDoctor}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choose a doctor" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {mockDoctors.map((doctor) => (
-                            <SelectItem key={doctor.id} value={doctor.name}>
-                              <div>
-                                <div className="font-medium">{doctor.name}</div>
-                                <div className="text-sm text-gray-500">{doctor.specialty}</div>
+
+                <CardContent>
+                  {appointments.length === 0 ? (
+                    <div className="text-sm text-gray-600">No upcoming appointments.</div>
+                  ) : (
+                    <div className="space-y-4">
+                      {appointments.map((appointment) => (
+                        <div key={appointment.appointment_id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="flex items-center gap-4">
+                            <div className="bg-blue-100 p-2 rounded-full">
+                              <User className="h-5 w-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <h3 className="font-semibold">{appointment.doctor_name}</h3>
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm text-gray-600">{appointment.clinic_name}</p>
+                                <Badge
+                                  variant="secondary"
+                                  className={
+                                    appointment.clinic_type === "General Practice"
+                                      ? "bg-green-100 text-green-800 hover:bg-green-100"
+                                      : "bg-purple-100 text-purple-800 hover:bg-purple-100"
+                                  }
+                                >
+                                  {appointment.clinic_type}
+                                </Badge>
                               </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                            </div>
+                          </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="clinic">Select Clinic</Label>
-                      <Select value={selectedClinic} onValueChange={setSelectedClinic}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choose a clinic" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {mockClinics.map((clinic) => (
-                            <SelectItem key={clinic.id} value={clinic.name}>
-                              <div>
-                                <div className="font-medium">{clinic.name}</div>
-                                <div className="text-sm text-gray-500">{clinic.type}</div>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                          <div className="text-right">
+                            <p className="font-semibold">{formatDate(appointment.booking_date)}</p>
+                            <p className="text-sm text-gray-600">{formatTime(appointment.start_time)}</p>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="date">Select Date</Label>
-                      <Input
-                        type="date"
-                        value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                        min={new Date().toISOString().split("T")[0]}
-                      />
-                    </div>
+                            <div className="flex gap-2 mt-2">
+                              {/* Reschedule */}
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="border-blue-200 text-blue-600 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        onClick={() => handleRescheduleAppointment(appointment)}
+                                        disabled={isWithin24Hours(appointment)}
+                                      >
+                                        Reschedule
+                                      </Button>
+                                    </span>
+                                  </TooltipTrigger>
+                                  {isWithin24Hours(appointment) && (
+                                    <TooltipContent>
+                                      <p>Appointments can only be rescheduled at least 24 hours in advance</p>
+                                    </TooltipContent>
+                                  )}
+                                </Tooltip>
+                              </TooltipProvider>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="time">Select Time</Label>
-                      <Select value={selectedTime} onValueChange={setSelectedTime}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choose time slot" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {mockTimeSlots.map((time) => (
-                            <SelectItem key={time} value={time}>
-                              {time}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                              {/* Cancel */}
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-red-600 border-red-200 bg-transparent hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        onClick={() => handleAskCancel(appointment)}
+                                        disabled={isWithin24Hours(appointment)}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </span>
+                                  </TooltipTrigger>
+                                  {isWithin24Hours(appointment) && (
+                                    <TooltipContent>
+                                      <p>Appointments can only be cancelled at least 24 hours in advance</p>
+                                    </TooltipContent>
+                                  )}
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-
-                  <Button
-                    onClick={handleBookAppointment}
-                    className="w-full bg-blue-600 hover:bg-blue-700"
-                    disabled={!selectedDoctor || !selectedClinic || !selectedDate || !selectedTime}
-                  >
-                    Book Appointment
-                  </Button>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -433,15 +435,13 @@ export default function PatientDashboard() {
                       <div className="bg-gray-50 rounded-lg p-4">
                         <div className="flex justify-between items-center mb-2">
                           <span className="text-sm text-gray-600">Queue Progress</span>
-                          <span className="text-sm font-medium">
-                            {Math.max(0, queueNumber - currentNumber)} people ahead
-                          </span>
+                          <span className="text-sm font-medium">{Math.max(0, queueNumber - currentNumber)} people ahead</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div
                             className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                             style={{ width: `${Math.min(100, (currentNumber / queueNumber) * 100)}%` }}
-                          ></div>
+                          />
                         </div>
                       </div>
 

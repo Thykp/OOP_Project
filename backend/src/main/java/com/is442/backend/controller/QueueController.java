@@ -3,9 +3,12 @@ package com.is442.backend.controller;
 import com.is442.backend.dto.QueueEvent;
 import com.is442.backend.service.KafkaQueueEventProducer;
 import com.is442.backend.service.QueueService;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import org.springframework.lang.Nullable;
 
 @RestController
 @RequestMapping("/api/queue")
@@ -14,10 +17,12 @@ public class QueueController {
     private final QueueService queue;
     private final KafkaQueueEventProducer events;
 
-    public QueueController(QueueService queue, KafkaQueueEventProducer events) {
+     @Autowired
+    public QueueController(QueueService queue, @Nullable KafkaQueueEventProducer events) {
         this.queue = queue;
         this.events = events;
     }
+
 
     @PostMapping("/checkin")
     public Map<String, Object> checkin(@RequestBody Map<String, Object> body,

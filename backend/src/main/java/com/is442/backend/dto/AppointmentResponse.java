@@ -15,6 +15,9 @@ public class AppointmentResponse {
     @JsonProperty("patient_id")
     private String patientId;
 
+    @JsonProperty("patient_name")
+    private String patientName;
+
     @JsonProperty("doctor_id")
     private String doctorId;
 
@@ -26,6 +29,9 @@ public class AppointmentResponse {
 
     @JsonProperty("clinic_name")
     private String clinicName;
+
+    @JsonProperty("clinic_type")
+    private String clinicType;
 
     @JsonProperty("booking_date")
     private LocalDate bookingDate;
@@ -60,13 +66,33 @@ public class AppointmentResponse {
         this.updatedAt = appointment.getUpdatedAt();
     }
 
-    public AppointmentResponse(Appointment appointment, String docName, String clinicName) {
+    public AppointmentResponse(Appointment appointment, String docName, String clinicName, String clinicType) {
         this.appointmentId = appointment.getAppointmentId();
         this.patientId = appointment.getPatientId();
         this.doctorId = appointment.getDoctorId();
         this.doctorName = docName; // <--- set doctor name here!
         this.clinicId = appointment.getClinicId();
         this.clinicName = clinicName;
+        this.clinicType = clinicType;
+        this.bookingDate = appointment.getBookingDate();
+        this.startTime = appointment.getStartTime();
+        this.endTime = appointment.getEndTime();
+        this.status = appointment.getStatus();
+        this.createdAt = appointment.getCreatedAt();
+        this.updatedAt = appointment.getUpdatedAt();
+
+    }
+
+    public AppointmentResponse(Appointment appointment, String docName, String clinicName, String patientName,
+            String clinicType) {
+        this.appointmentId = appointment.getAppointmentId();
+        this.patientId = appointment.getPatientId();
+        this.patientName = patientName;
+        this.doctorId = appointment.getDoctorId();
+        this.doctorName = docName;
+        this.clinicId = appointment.getClinicId();
+        this.clinicName = clinicName;
+        this.clinicType = clinicType;
         this.bookingDate = appointment.getBookingDate();
         this.startTime = appointment.getStartTime();
         this.endTime = appointment.getEndTime();
@@ -154,5 +180,29 @@ public class AppointmentResponse {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getDoctorName() {
+        return doctorName;
+    }
+
+    public void setDoctorName(String doctorName) {
+        this.doctorName = doctorName;
+    }
+
+    public String getClinicName() {
+        return clinicName;
+    }
+
+    public void setClinicName(String clinicName) {
+        this.clinicName = clinicName;
+    }
+
+    public String getClinicType() {
+        return clinicType;
+    }
+
+    public void setClinicType(String clinicType) {
+        this.clinicType = clinicType;
     }
 }

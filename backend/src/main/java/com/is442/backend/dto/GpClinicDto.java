@@ -4,12 +4,14 @@ public class GpClinicDto {
 
     private Integer sn;
     private String pcn;
+    private String clinicId;
     private String clinicName;
     private String address;
     private String telephoneNum;
 
-    public GpClinicDto(Integer sn, String pcn, String clinicName, String address, String telephoneNum) {
+    public GpClinicDto(Integer sn, String clinicId, String pcn, String clinicName, String address, String telephoneNum) {
         this.sn = sn;
+        this.clinicId = clinicId;
         this.pcn = pcn;
         this.clinicName = clinicName;
         this.address = address;
@@ -19,6 +21,8 @@ public class GpClinicDto {
     public Integer getSn() {
         return sn;
     }
+
+    public String getClinicId() { return clinicId; }
 
     public String getPcn() {
         return pcn;
@@ -40,6 +44,7 @@ public class GpClinicDto {
     public String toString() {
         return "GpClinicDto{" +
                 "sn=" + sn +
+                ", clinicId=" + clinicId +
                 ", pcn='" + pcn + '\'' +
                 ", clinicName='" + clinicName + '\'' +
                 ", address='" + address + '\'' +

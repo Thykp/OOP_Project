@@ -47,7 +47,7 @@ services:
     container_name: backend
     depends_on:
       kafka:
-        condition: service_healthy
+        condition: service_started
     ports:
       - "8080:8080"
     env_file:
@@ -55,3 +55,6 @@ services:
 
 volumes:
   redis_data:
+      ./backend/.env
+    tty: true
+    stdin_open: true

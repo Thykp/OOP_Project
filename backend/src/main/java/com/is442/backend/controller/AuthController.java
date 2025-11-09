@@ -21,29 +21,41 @@ public class AuthController {
             switch (dto.getRole()) {
                 case "ROLE_PATIENT" -> {
                     Patient patient = new Patient();
-                    patient.setSupabaseUserId(dto.getSupabaseUserId()); 
+                    patient.setSupabaseUserId(dto.getSupabaseUserId());
                     patient.setEmail(dto.getEmail());
                     patient.setFirstName(dto.getFirstName());
                     patient.setLastName(dto.getLastName());
                     patient.setRole("ROLE_PATIENT");
+                    patient.setStatus("ACTIVE");
 
-
-                    //specific patient details
+                    // specific patient details
                     patient.setPhone(dto.getPhone());
                     patient.setGender(dto.getGender());
                     patient.setDateOfBirth(dto.getDateOfBirth());
-                    
-
 
                     return ResponseEntity.ok(userService.registerUser(patient));
                 }
                 case "ROLE_STAFF" -> {
+
+                    System.out.print(dto.getClinicName());
+                    System.out.print(dto.getPosition());
+                    if (dto.getClinicName() == null || dto.getClinicName().isEmpty() ||
+                            dto.getPosition() == null || dto.getPosition().isEmpty()) {
+                        // Return error response if any value is missing
+                        return ResponseEntity
+                                .badRequest()
+                                .body("Clinic name and position must be provided for staff registration");
+                    }
                     ClinicStaff staff = new ClinicStaff();
                     staff.setSupabaseUserId(dto.getSupabaseUserId());
                     staff.setEmail(dto.getEmail());
                     staff.setFirstName(dto.getFirstName());
                     staff.setLastName(dto.getLastName());
                     staff.setRole("ROLE_STAFF");
+                    staff.setStatus("ACTIVE");
+
+                    staff.setClinicName(dto.getClinicName());
+                    staff.setPosition(dto.getPosition());
                     return ResponseEntity.ok(userService.registerUser(staff));
                 }
                 case "ROLE_ADMIN" -> {
@@ -52,7 +64,9 @@ public class AuthController {
                     admin.setEmail(dto.getEmail());
                     admin.setFirstName(dto.getFirstName());
                     admin.setLastName(dto.getLastName());
-                    admin.setRole("ROLE_ADMIN");
+                    admin.setStatus("ACTIVE");
+
+                    // admin.setRole("ROLE_ADMIN");
                     return ResponseEntity.ok(userService.registerUser(admin));
                 }
                 default -> throw new IllegalArgumentException("Invalid role");
