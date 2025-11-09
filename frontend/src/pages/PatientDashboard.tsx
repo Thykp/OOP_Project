@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Clock, User, Bell, History, CheckCircle, Building2, Calendar as CalendarIcon } from "lucide-react"
+import { Clock, User, Bell, History, CheckCircle, Calendar as CalendarIcon } from "lucide-react"
 
 import { PageLayout } from "@/components/page-layout"
 import { Button } from "@/components/ui/button"
@@ -238,7 +238,7 @@ export default function PatientDashboard() {
           </div>
 
           {/* Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <Card className="border-blue-200 hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-blue-700">
@@ -283,26 +283,6 @@ export default function PatientDashboard() {
                 </Button>
               </CardContent>
             </Card>
-
-            {/* Browse Clinics & Queues */}
-            <Card className="border-indigo-200 hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-indigo-700">
-                  <Building2 className="h-5 w-5" />
-                  Browse Clinics & Queues
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-600 mb-3">
-                  View all clinics, live queues, and appointment availability
-                </p>
-                <Link to="/viewappointment">
-                  <Button className="w-full bg-indigo-600 hover:bg-indigo-700">
-                    View All
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
           </div>
 
           {/* Queue Status Alert */}
@@ -329,18 +309,9 @@ export default function PatientDashboard() {
             {/* Upcoming Appointments */}
             <TabsContent value="appointments">
               <Card>
-                <CardHeader className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Upcoming Appointments</CardTitle>
-                    <CardDescription>Your scheduled appointments</CardDescription>
-                  </div>
-
-                  {/* Secondary entry to view all */}
-                  <Link to="/viewappointment">
-                    <Button size="sm" variant="outline" className="border-blue-200">
-                      Browse All Clinics & Queues
-                    </Button>
-                  </Link>
+                <CardHeader>
+                  <CardTitle>Upcoming Appointments</CardTitle>
+                  <CardDescription>Your scheduled appointments</CardDescription>
                 </CardHeader>
 
                 <CardContent>

@@ -4,6 +4,9 @@ import SignInPage from './pages/SignInPage'
 import SignUpPage from './pages/SignUpPage'
 import PatientDashboard from './pages/PatientDashboard'
 import ViewAppointment from './pages/ViewAppointment'
+import AdminDashboard from './pages/AdminDashboard'
+import AdminClinicConfig from './pages/AdminClinicConfig'
+import AdminUserManagement from './pages/AdminUserManagement'
 import { ProtectedRoute, RoleProtectedRoute } from './context/auth-context'
 import BookAppointment from "./pages/BookAppointment";
 
@@ -38,6 +41,30 @@ function App() {
             </ProtectedRoute>
           }>
         </Route>
+        <Route
+          path="/admin/dashboard"
+          element={
+            <RoleProtectedRoute role={["ROLE_ADMIN"]}>
+              <AdminDashboard />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/user-management"
+          element={
+            <RoleProtectedRoute role={["ROLE_ADMIN"]}>
+              <AdminUserManagement />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/clinic-config"
+          element={
+            <RoleProtectedRoute role={["ROLE_ADMIN"]}>
+              <AdminClinicConfig />
+            </RoleProtectedRoute>
+          }
+        />
       </Routes>
     </>
   )

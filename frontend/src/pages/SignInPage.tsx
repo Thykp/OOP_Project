@@ -41,7 +41,21 @@ export default function SignInPage() {
       setError(error.message)
       return
     }
-    navigate("/dashboard")
+    
+    // Check user role and redirect accordingly
+    const { data: { session } } = await supabase.auth.getSession()
+    const userRole = session?.user?.user_metadata?.role
+    
+    // Debug: log the role to help troubleshoot
+    console.log("User role after login:", userRole)
+    
+    if (userRole === "ROLE_ADMIN") {
+      navigate("/admin/dashboard", { replace: true })
+    } else if (userRole === "ROLE_STAFF") {
+      navigate("/viewappointment", { replace: true })
+    } else {
+      navigate("/dashboard", { replace: true })
+    }
   }
 
   const handleGoogle = async () => {
