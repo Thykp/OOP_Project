@@ -6,7 +6,6 @@ import PatientDashboard from './pages/PatientDashboard'
 import ViewAppointment from './pages/ViewAppointment'
 import { ProtectedRoute, RoleProtectedRoute } from './context/auth-context'
 import BookAppointment from "./pages/BookAppointment";
-import AdminDashboard from "./pages/AdminDashboard";
 
 function App() {
   return (
@@ -39,11 +38,6 @@ function App() {
             </ProtectedRoute>
           }>
         </Route>
-
-        <Route path="/admindashboard" element={
-          <RoleProtectedRoute role={["ROLE_ADMIN"]}>
-            <AdminDashboard />
-          </RoleProtectedRoute>} />
       </Routes>
     </>
   )
