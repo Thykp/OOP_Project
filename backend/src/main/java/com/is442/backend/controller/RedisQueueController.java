@@ -2,6 +2,7 @@ package com.is442.backend.controller;
 
 import com.is442.backend.service.KafkaQueueEventProducer;
 import com.is442.backend.service.RedisQueueService;
+import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.*;
 import com.is442.backend.dto.QueueEvent;
 import java.util.Map;
@@ -16,7 +17,7 @@ public class RedisQueueController {
 
     // contructor
     public RedisQueueController(RedisQueueService redisQueueService,
-            KafkaQueueEventProducer events) {
+            @Nullable KafkaQueueEventProducer events) {
         this.redisQueueService = redisQueueService;
         this.events = events;
     }
@@ -35,9 +36,11 @@ public class RedisQueueController {
         int position = redisQueueService.checkIn(clinicId, appointmentId, patientId);
 
         // Publish real-time event
-        events.publishQueueEvent(new QueueEvent(
-                "POSITION_CHANGED", clinicId, appointmentId, patientId, position,
-                System.currentTimeMillis()));
+        if (events != null) {
+            events.publishQueueEvent(new QueueEvent(
+                    "POSITION_CHANGED", clinicId, appointmentId, patientId, position,
+                    System.currentTimeMillis()));
+        }
 
         return Map.of("status", "ok", "position", position, "appointmentId", appointmentId);
     }
@@ -50,9 +53,11 @@ public class RedisQueueController {
         var result = redisQueueService.callNext(clinicId);
 
         // Publish real-time event
-        events.publishQueueEvent(new QueueEvent(
-                "NOW_SERVING", clinicId, result.appointmentId(),
-                result.patientId(), result.position(), System.currentTimeMillis()));
+        if (events != null) {
+            events.publishQueueEvent(new QueueEvent(
+                    "NOW_SERVING", clinicId, result.appointmentId(),
+                    result.patientId(), result.position(), System.currentTimeMillis()));
+        }
 
         return Map.of("status", "ok", "nowServing", result.position(),
                 "appointmentId", result.appointmentId());
