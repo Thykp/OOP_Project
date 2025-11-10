@@ -1,15 +1,14 @@
 services:
   redis:
-    image: redis:7-alpine
+    image: redis/redis-stack:latest
     container_name: redis
     ports:
       - "6379:6379"
-    # command: redis-server --appendonly yes
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
+      - "5540:8001"
+    environment:
+      REDIS_ARGS: "--save '' --appendonly no"
     tmpfs:
       - /data
-    # volumes:
-    #   - redis_data:/data
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.0.1
@@ -57,16 +56,6 @@ services:
       - ./backend/.env
     tty: true
     stdin_open: true
-
-  redisinsight:
-    image: redis/redisinsight:latest
-    container_name: redisinsight
-    ports:
-      - "5540:5540"
-    volumes:
-      - redisinsight-data:/data
-    depends_on:
-      - redis
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
