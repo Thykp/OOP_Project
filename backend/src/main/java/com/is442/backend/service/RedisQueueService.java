@@ -1,6 +1,7 @@
 package com.is442.backend.service;
 
 import com.is442.backend.dto.CallNextResult;
+import com.is442.backend.dto.NotificationEvent;
 import com.is442.backend.dto.PositionSnapshot;
 import com.is442.backend.dto.QueueStatus;
 import com.is442.backend.model.User;
@@ -52,6 +53,9 @@ public class RedisQueueService {
 
     @Autowired(required = false)
     private AppointmentService appointmentService;
+
+    @Autowired(required = false)
+    private NotificationEventProducer notificationEventProducer;
 
     public RedisQueueService(StringRedisTemplate strTpl,
             RedisTemplate<String, Object> jsonTpl,
@@ -158,6 +162,11 @@ public class RedisQueueService {
         // 5) register clinic id for dashboards
         strTpl.opsForSet().add(KEY_CLINICS, clinicId);
 
+        // 6) Send N3_AWAY notification if position is 3
+        if (position == 3 && notificationEventProducer != null) {
+            sendN3AwayNotification(clinicId, appointmentId, patientId, user);
+        }
+
         return new CheckinResult(position, seq);
     }
 
@@ -231,6 +240,19 @@ public class RedisQueueService {
                     // This is a non-critical operation
                 }
             }
+        }
+
+        // Send NOW_SERVING notification to the patient being called
+        // Note: fields contains all patient hash data retrieved BEFORE deletion in Lua
+        // script
+        if (notificationEventProducer != null && appointmentId != null && !appointmentId.isEmpty()) {
+            sendNowServingNotification(clinicId, appointmentId, patientId, fields, doctorId);
+        }
+
+        // Check if anyone in the queue is now at position 3 and send N3_AWAY
+        // notification
+        if (notificationEventProducer != null) {
+            checkAndNotifyN3Away(clinicId);
         }
 
         // position=0 to mean "this appointment is now being served"
@@ -366,6 +388,241 @@ public class RedisQueueService {
         }
         if (value.trim().isEmpty()) {
             throw new IllegalArgumentException(fieldName + " cannot be empty");
+        }
+    }
+
+    /**
+     * Builds a JSON payload for notification events with patient information.
+     * Includes: name, email, phone, appointment_id, queue number, clinicId,
+     * doctorId, and message
+     * content.
+     * 
+     * @param eventType     the type of event ("N3_AWAY" or "NOW_SERVING")
+     * @param meta          patient metadata from Redis hash
+     * @param appointmentId the appointment ID
+     * @param clinicId      the clinic ID
+     * @param doctorId      the doctor ID (can be null)
+     * @return JSON string payload
+     */
+    private String buildNotificationPayload(String eventType, Map<Object, Object> meta, String appointmentId,
+            String clinicId, String doctorId) {
+        // Extract patient information from metadata
+        String name = getStringFromMeta(meta, "name", "Patient");
+        String email = getStringFromMeta(meta, "email", "");
+        String phone = getStringFromMeta(meta, "phone", "");
+        String queueNumber = getStringFromMeta(meta, "seq", "0");
+
+        // Get clinicId from meta if not provided (fallback)
+        if (clinicId == null || clinicId.trim().isEmpty()) {
+            clinicId = getStringFromMeta(meta, "clinicId", "");
+        }
+
+        // Get doctorId from meta if not provided (fallback)
+        if (doctorId == null || doctorId.trim().isEmpty()) {
+            doctorId = getStringFromMeta(meta, "doctorId", "");
+        }
+
+        // Build message based on event type
+        String subject;
+        String body;
+
+        if ("N3_AWAY".equals(eventType)) {
+            subject = "You're 3 away";
+            body = String.format("Please return to the waiting area. Your queue number is %s.", queueNumber);
+        } else { // NOW_SERVING
+            subject = "You're being called";
+            body = String.format("%s, please proceed to the consultation room. Your queue number is %s.",
+                    name, queueNumber);
+        }
+
+        // Build comprehensive JSON payload with clinicId and doctorId
+        return String.format(
+                "{\"subject\":\"%s\",\"body\":\"%s\",\"clinicId\":\"%s\",\"doctorId\":\"%s\",\"patient\":{\"name\":\"%s\",\"email\":\"%s\",\"phone\":\"%s\",\"appointment_id\":\"%s\",\"queue_number\":\"%s\"}}",
+                escapeJson(subject),
+                escapeJson(body),
+                escapeJson(clinicId),
+                escapeJson(doctorId != null ? doctorId : ""),
+                escapeJson(name),
+                escapeJson(email),
+                escapeJson(phone),
+                escapeJson(appointmentId),
+                escapeJson(queueNumber));
+    }
+
+    /**
+     * Safely extracts a string value from metadata map.
+     */
+    private String getStringFromMeta(Map<Object, Object> meta, String key, String defaultValue) {
+        Object value = meta.get(key);
+        if (value == null) {
+            return defaultValue;
+        }
+        String str = value.toString();
+        return str.trim().isEmpty() ? defaultValue : str;
+    }
+
+    /**
+     * Escapes special JSON characters in a string.
+     */
+    private String escapeJson(String str) {
+        if (str == null) {
+            return "";
+        }
+        return str.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
+    }
+
+    /**
+     * Sends N3_AWAY notification to a patient who is 3 positions away from being
+     * called.
+     */
+    private void sendN3AwayNotification(String clinicId, String appointmentId, String patientId, User user) {
+        if (notificationEventProducer == null) {
+            return;
+        }
+
+        try {
+            // Get patient metadata from Redis hash
+            Map<Object, Object> meta = strTpl.opsForHash().entries(kPatient(appointmentId));
+
+            // Get doctorId from metadata if available
+            String doctorId = getStringFromMeta(meta, "doctorId", "");
+
+            // Build payload with all patient information including clinicId and doctorId
+            String payload = buildNotificationPayload("N3_AWAY", meta, appointmentId, clinicId, doctorId);
+
+            NotificationEvent event = new NotificationEvent(
+                    "N3_AWAY",
+                    clinicId,
+                    appointmentId,
+                    patientId,
+                    "EMAIL", // Default channel, can be enhanced to support multiple channels
+                    payload,
+                    System.currentTimeMillis());
+
+            notificationEventProducer.publish(event);
+            System.out.println("[RedisQueueService] Sent N3_AWAY notification for appointment: " + appointmentId);
+        } catch (Exception e) {
+            // Log but don't fail the check-in if notification fails
+            // This is a non-critical operation
+            System.err.println("[RedisQueueService] Failed to send N3_AWAY notification: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Sends NOW_SERVING notification to a patient who is being called.
+     * Uses patient fields from the dequeued data (retrieved from Redis hash before
+     * deletion).
+     * 
+     * @param clinicId      the clinic ID
+     * @param appointmentId the appointment ID
+     * @param patientId     the patient ID
+     * @param patientFields patient data retrieved from Redis hash (before deletion
+     *                      in Lua script)
+     * @param doctorId      the doctor ID (can be null)
+     */
+    private void sendNowServingNotification(String clinicId, String appointmentId, String patientId,
+            Map<String, String> patientFields, String doctorId) {
+        if (notificationEventProducer == null) {
+            return;
+        }
+
+        try {
+            // Convert Map<String, String> to Map<Object, Object> for consistency
+            // Note: patientFields contains all data from Redis hash (name, email, phone,
+            // clinicId, etc.)
+            // retrieved by Lua script's HGETALL before the hash was deleted
+            Map<Object, Object> meta = new LinkedHashMap<>();
+            for (Map.Entry<String, String> entry : patientFields.entrySet()) {
+                meta.put(entry.getKey(), entry.getValue());
+            }
+
+            // Build payload with all patient information including clinicId and doctorId
+            String payload = buildNotificationPayload("NOW_SERVING", meta, appointmentId, clinicId, doctorId);
+
+            NotificationEvent event = new NotificationEvent(
+                    "NOW_SERVING",
+                    clinicId,
+                    appointmentId,
+                    patientId,
+                    "EMAIL", // Default channel, can be enhanced to support multiple channels
+                    payload,
+                    System.currentTimeMillis());
+
+            notificationEventProducer.publish(event);
+            System.out.println("[RedisQueueService] Sent NOW_SERVING notification for appointment: " + appointmentId);
+        } catch (Exception e) {
+            // Log but don't fail the call-next if notification fails
+            // This is a non-critical operation
+            System.err.println("[RedisQueueService] Failed to send NOW_SERVING notification: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Checks all patients in the queue and sends N3_AWAY notification to anyone at
+     * position 3.
+     * This is called after callNext() to notify patients who moved to position 3.
+     */
+    private void checkAndNotifyN3Away(String clinicId) {
+        if (notificationEventProducer == null) {
+            return;
+        }
+
+        try {
+            // Get all appointment IDs in the queue (sorted by score/seq)
+            Set<String> appointmentIds = strTpl.opsForZSet().range(kQueue(clinicId), 0, -1);
+
+            if (appointmentIds == null || appointmentIds.isEmpty()) {
+                return;
+            }
+
+            // Convert to list to get index-based position
+            List<String> appointmentList = new ArrayList<>(appointmentIds);
+
+            // Check if there's a patient at position 3 (0-indexed = 2)
+            if (appointmentList.size() >= 3) {
+                String appointmentIdAtPosition3 = appointmentList.get(2); // 0-indexed, so index 2 = position 3
+
+                // Get patient metadata from Redis
+                Map<Object, Object> meta = strTpl.opsForHash().entries(kPatient(appointmentIdAtPosition3));
+
+                if (meta != null && !meta.isEmpty()) {
+                    String patientId = (String) meta.get("patientId");
+
+                    if (patientId != null && !patientId.trim().isEmpty()) {
+                        // Get doctorId from metadata if available
+                        String doctorId = getStringFromMeta(meta, "doctorId", "");
+
+                        // Build payload with all patient information including clinicId and doctorId
+                        String payload = buildNotificationPayload("N3_AWAY", meta, appointmentIdAtPosition3, clinicId,
+                                doctorId);
+
+                        NotificationEvent event = new NotificationEvent(
+                                "N3_AWAY",
+                                clinicId,
+                                appointmentIdAtPosition3,
+                                patientId,
+                                "EMAIL", // Default channel, can be enhanced to support multiple channels
+                                payload,
+                                System.currentTimeMillis());
+
+                        notificationEventProducer.publish(event);
+                        System.out.println(
+                                "[RedisQueueService] Sent N3_AWAY notification (post-callNext) for appointment: "
+                                        + appointmentIdAtPosition3);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // Log but don't fail the call-next if notification check fails
+            // This is a non-critical operation
+            System.err.println("[RedisQueueService] Failed to check/send N3_AWAY notification: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }
