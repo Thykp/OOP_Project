@@ -1,6 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -13,7 +21,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/context/auth-context";
 import { connectSocket, disconnectSocket, subscribeToSlots } from "@/lib/socket";
 import { cn } from "@/lib/utils";
-import { Building2, Calendar as CalendarIcon, CheckCircle2, Clock, User } from "lucide-react";
+import { Building2, Calendar as CalendarIcon, CheckCircle, CheckCircle2, Clock, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { PageLayout } from "../components/page-layout";
@@ -36,6 +44,10 @@ export default function AppointmentBooking() {
   const [highlightedDates, setHighlightedDates] = useState<Date[]>([]);
   const [unavailableDates, setUnavailableDates] = useState<Date[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<any>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [bookingDetails, setBookingDetails] = useState<any>(null);
 
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -53,6 +65,16 @@ export default function AppointmentBooking() {
     const trimmedAddress = clinic.address.split("#")[0].trim();
     return `${clinic.clinicName}, ${trimmedAddress}`;
   }
+
+  const getSelectedClinicDetails = () => {
+    if (!selectedClinicId) return null;
+    
+    if (selectedClinicType === "General Practice") {
+      return gpClinics.find(c => c.clinicId === selectedClinicId);
+    } else {
+      return specialistClinics.find(c => c.ihpClinicId === selectedClinicId);
+    }
+  };
 
   useEffect(() => {
     // fetch clinics and doctors on mount
@@ -276,13 +298,62 @@ export default function AppointmentBooking() {
     return selectedDate && day.toDateString() === selectedDate.toDateString();
   });
 
+  const validateBooking = (): string | null => {
+    if (!user && !rescheduleMode) {
+      return "Please sign in to book an appointment.";
+    }
+
+    if (!selectedClinicType) {
+      return "Please select a clinic type.";
+    }
+
+    if (selectedClinicType === "Specialist Clinic" && !selectedSpecialty) {
+      return "Please select a specialist type.";
+    }
+
+    if (!selectedClinicId) {
+      return "Please select a clinic name.";
+    }
+
+    if (!selectedDate) {
+      return "Please select a date.";
+    }
+
+    if (!selectedTimeRange) {
+      return "Please select a time slot.";
+    }
+
+    if (!(selectedSlot?.doctorId || selectedDoctorId) || !(selectedSlot?.clinicId || selectedClinicId)) {
+      return "Please select a valid time slot with doctor and clinic information.";
+    }
+
+    return null;
+  };
+
+  const handleConfirmClick = () => {
+    const validationError = validateBooking();
+    if (validationError) {
+      toast({
+        variant: "destructive",
+        title: "Missing Information",
+        description: validationError,
+      });
+      return;
+    }
+    setShowConfirmDialog(true);
+  };
+
   const handleBooking = async () => {
+    setIsSubmitting(true);
+    setShowConfirmDialog(false);
+
     if (!user && !rescheduleMode) {
       toast({
         variant: "destructive",
         title: "Login required",
         description: "Please sign in to book an appointment.",
       });
+      setIsSubmitting(false);
       return;
     }
 
@@ -292,6 +363,7 @@ export default function AppointmentBooking() {
         title: "Missing selection",
         description: "Choose clinic, doctor, date, and time slot before confirming.",
       });
+      setIsSubmitting(false);
       return;
     }
 
@@ -334,12 +406,15 @@ export default function AppointmentBooking() {
         const data = await res.json();
         console.log("Reschedule response:", data);
 
-        toast({
-          variant: "success",
-          title: "Appointment rescheduled",
-          description: `${selectedDate.toLocaleDateString("en-SG")} • ${formattedStart}-${formattedEnd}`,
+        setIsSubmitting(false);
+        setBookingDetails({
+          doctorName: selectedSlot?.doctorName || doctors.find(d => d.doctorId === selectedDoctorId)?.doctorName,
+          date: selectedDate?.toLocaleDateString("en-SG"),
+          time: selectedTimeRange,
+          clinicType: selectedClinicType,
+          specialty: selectedSpecialty,
         });
-        navigate("/dashboard");
+        setShowSuccessDialog(true);
       } else {
         if (!user) {
           toast({
@@ -382,15 +457,19 @@ export default function AppointmentBooking() {
         const data = await res.json();
         console.log("Booking response:", data);
 
-        toast({
-          variant: "success",
-          title: "Appointment booked",
-          description: `${selectedDate.toLocaleDateString("en-SG")} • ${formattedStart}-${formattedEnd}`,
+        setIsSubmitting(false);
+        setBookingDetails({
+          doctorName: selectedSlot?.doctorName || doctors.find(d => d.doctorId === selectedDoctorId)?.doctorName,
+          date: selectedDate?.toLocaleDateString("en-SG"),
+          time: selectedTimeRange,
+          clinicType: selectedClinicType,
+          specialty: selectedSpecialty,
         });
-        navigate("/dashboard");
+        setShowSuccessDialog(true);
       }
     } catch (err) {
       console.error(err);
+      setIsSubmitting(false);
       toast({
         variant: "destructive",
         title: `Error ${rescheduleMode ? "rescheduling" : "booking"}`,
@@ -401,20 +480,26 @@ export default function AppointmentBooking() {
 
   return (
     <PageLayout variant="dashboard">
-      <div className="min-h-screen bg-background py-8 px-4">
-        <div className="max-w-5xl mx-auto space-y-8">
-          {/* Header */}
-          <div className="text-center space-y-3">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              {rescheduleMode ? "Reschedule Your Appointment" : "Book Your Appointment"}
-            </h1>
-            {rescheduleMode && appointmentToReschedule && (
-              <p className="text-sm text-gray-600">
-                Rescheduling appointment with {appointmentToReschedule.doctor_name} on{" "}
-                {new Date(appointmentToReschedule.booking_date).toLocaleDateString()}
-              </p>
-            )}
-          </div>
+      <section className="relative overflow-hidden border-b">
+        <div className="absolute inset-0 bg-gradient-to-r from-green-50 to-blue-50" />
+        <div className="relative max-w-5xl mx-auto px-6 pt-12 pb-14 text-center">
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-gray-900">
+            {rescheduleMode ? "Reschedule Your Appointment" : "Book Your Appointment"}
+          </h1>
+          <p className="mt-4 text-base md:text-lg text-gray-700 max-w-2xl mx-auto">
+            {rescheduleMode
+              ? "Select a new date and time slot below to move your existing booking."
+              : "Choose your clinic, doctor and preferred time. Secure your slot instantly."}
+          </p>
+          {rescheduleMode && appointmentToReschedule && (
+            <p className="mt-2 text-xs font-medium text-gray-600">
+              Current: {appointmentToReschedule.doctor_name} • {new Date(appointmentToReschedule.booking_date).toLocaleDateString()} • {appointmentToReschedule.start_time.substring(0,5)}
+            </p>
+          )}
+        </div>
+      </section>
+      <div className="min-h-screen bg-background px-4 py-10">
+        <div className="max-w-5xl mx-auto space-y-10">
 
           {/* Clinic Selection */}
           <section className="space-y-4">
@@ -426,7 +511,9 @@ export default function AppointmentBooking() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Clinic Type */}
               <div className="space-y-2">
-                <Label className="text-md font-medium">Clinic Type</Label>
+                <Label className="text-md font-medium">
+                  Clinic Type<span className="text-sm text-destructive ml-1">*</span>
+                </Label>
                 <Select
                   value={selectedClinicType}
                   onValueChange={(value) => {
@@ -454,7 +541,9 @@ export default function AppointmentBooking() {
 
               {selectedClinicType === "Specialist Clinic" && (
                 <div className="space-y-2">
-                  <Label className="text-md font-medium">Clinic Specialty</Label>
+                  <Label className="text-md font-medium">
+                    Clinic Specialty<span className="text-sm text-destructive ml-1">*</span>
+                  </Label>
                   <Select
                     value={selectedSpecialty}
                     onValueChange={(v) => {
@@ -482,7 +571,9 @@ export default function AppointmentBooking() {
 
               {/* Clinic Name */}
               <div className="space-y-2">
-                <Label className="text-md font-medium">Clinic Name</Label>
+                <Label className="text-md font-medium">
+                  Clinic Name<span className="text-sm text-destructive ml-1">*</span>
+                </Label>
                 <Select
                   value={selectedClinicId}
                   onValueChange={(value) => {
@@ -522,8 +613,27 @@ export default function AppointmentBooking() {
               <User className="w-5 h-5 text-primary" />
               <Label className="text-lg font-semibold">Choose Your Doctor</Label>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {filteredDoctors.map((doctor) => (
+            {!selectedClinicType ? (
+              <Card className="p-6 bg-card">
+                <p className="text-center text-muted-foreground">
+                  Please select clinic type to see all doctors
+                </p>
+              </Card>
+            ) : selectedClinicType === "Specialist Clinic" && !selectedSpecialty ? (
+              <Card className="p-6 bg-card">
+                <p className="text-center text-muted-foreground">
+                  Please select specialist type to see all doctors
+                </p>
+              </Card>
+            ) : !selectedClinicId ? (
+              <Card className="p-6 bg-card">
+                <p className="text-center text-muted-foreground">
+                  Please select clinic name to see all doctors
+                </p>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {filteredDoctors.map((doctor) => (
                 <Card
                   key={doctor.doctorId}
                   className={cn(
@@ -555,6 +665,7 @@ export default function AppointmentBooking() {
                 </Card>
               ))}
             </div>
+            )}
           </section>
 
           {/* Date and Time Selection */}
@@ -566,6 +677,25 @@ export default function AppointmentBooking() {
                 <Label className="text-lg font-semibold">Select Date</Label>
                 <span className="text-sm text-destructive">*</span>
               </div>
+              {!selectedClinicType ? (
+                <Card className="p-6 bg-card">
+                  <p className="text-center text-muted-foreground">
+                    Please select clinic type to view available dates
+                  </p>
+                </Card>
+              ) : selectedClinicType === "Specialist Clinic" && !selectedSpecialty ? (
+                <Card className="p-6 bg-card">
+                  <p className="text-center text-muted-foreground">
+                    Please select specialist type to view available dates
+                  </p>
+                </Card>
+              ) : !selectedClinicId ? (
+                <Card className="p-6 bg-card">
+                  <p className="text-center text-muted-foreground">
+                    Please select clinic name to view available dates
+                  </p>
+                </Card>
+              ) : (
               <Card className="p-4 bg-card">
                 <Calendar
                   mode="single"
@@ -586,6 +716,7 @@ export default function AppointmentBooking() {
                   initialFocus
                 />
               </Card>
+              )}
             </section>
 
             {/* Time Slots */}
@@ -595,6 +726,31 @@ export default function AppointmentBooking() {
                 <Label className="text-lg font-semibold">Choose Time Slot</Label>
                 <span className="text-sm text-destructive">*</span>
               </div>
+              {!selectedClinicType ? (
+                <Card className="p-6 bg-card">
+                  <p className="text-center text-muted-foreground">
+                    Please select clinic type to view available time slots
+                  </p>
+                </Card>
+              ) : selectedClinicType === "Specialist Clinic" && !selectedSpecialty ? (
+                <Card className="p-6 bg-card">
+                  <p className="text-center text-muted-foreground">
+                    Please select specialist type to view available time slots
+                  </p>
+                </Card>
+              ) : !selectedClinicId ? (
+                <Card className="p-6 bg-card">
+                  <p className="text-center text-muted-foreground">
+                    Please select clinic name to view available time slots
+                  </p>
+                </Card>
+              ) : !selectedDate ? (
+                <Card className="p-6 bg-card">
+                  <p className="text-center text-muted-foreground">
+                    Please select a date to view available time slots
+                  </p>
+                </Card>
+              ) : (
               <Card className="p-4 bg-card">
                 {(() => {
                   const now = new Date();
@@ -667,19 +823,106 @@ export default function AppointmentBooking() {
                   );
                 })()}
               </Card>
+              )}
             </section>
           </div>
 
           {/* Book Button */}
           <div className="flex justify-center pt-4">
             <Button
-              onClick={handleBooking}
+              onClick={handleConfirmClick}
               size="lg"
+              disabled={isSubmitting}
               className="w-full md:w-96 h-14 text-lg font-semibold shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-card)] transition-all duration-300"
             >
-              {rescheduleMode ? "Confirm Reschedule" : "Confirm Booking"}
+              {isSubmitting ? "Processing..." : rescheduleMode ? "Confirm Reschedule" : "Confirm Booking"}
             </Button>
           </div>
+
+          {/* Confirmation Dialog */}
+          <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+            <DialogContent className="sm:max-w-xl">
+              <CheckCircle className="mx-auto h-12 w-12 text-green-600" />
+              <DialogHeader>
+                <DialogTitle className="text-center text-2xl">
+                  {rescheduleMode ? "Confirm Reschedule" : "Confirm Booking"}
+                </DialogTitle>
+                <DialogDescription />
+              </DialogHeader>
+              
+              {rescheduleMode ? (
+                <div className="space-y-3">
+                  <p className="text-center font-semibold text-lg">Are you sure you want to reschedule?</p>
+                  <div className="bg-muted p-5 rounded-lg space-y-3">
+                    <p className="text-base"><span className="font-semibold">Doctor:</span> {selectedSlot?.doctorName || doctors.find(d => d.doctorId === selectedDoctorId)?.doctorName}</p>
+                    <p className="text-base"><span className="font-semibold">Clinic:</span> {getSelectedClinicDetails()?.clinicName}</p>
+                     <p className="text-base"><span className="font-semibold">Clinic Type:</span> {selectedClinicType}</p>
+                    {selectedSpecialty && <p className="text-base"><span className="font-semibold">Specialty:</span> {selectedSpecialty}</p>}
+                    <p className="text-base"><span className="font-semibold">Address:</span> {getSelectedClinicDetails()?.address}</p>
+                    <p className="text-base"><span className="font-semibold">Date:</span> {selectedDate?.toLocaleDateString("en-SG")}</p>
+                    <p className="text-base"><span className="font-semibold">Time:</span> {selectedTimeRange}</p>
+                   
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-center font-semibold text-lg">Please confirm your appointment details:</p>
+                  <div className="bg-muted p-5 rounded-lg space-y-3">
+                    <p className="text-base"><span className="font-semibold">Doctor:</span> {selectedSlot?.doctorName || doctors.find(d => d.doctorId === selectedDoctorId)?.doctorName}</p>
+                    <p className="text-base"><span className="font-semibold">Clinic:</span> {getSelectedClinicDetails()?.clinicName}</p>
+                      <p className="text-base"><span className="font-semibold">Clinic Type:</span> {selectedClinicType}</p>
+                    {selectedSpecialty && <p className="text-base"><span className="font-semibold">Specialty:</span> {selectedSpecialty}</p>}
+                    <p className="text-base"><span className="font-semibold">Address:</span> {getSelectedClinicDetails()?.address}</p>
+                    <p className="text-base"><span className="font-semibold">Date:</span> {selectedDate?.toLocaleDateString("en-SG")}</p>
+                    <p className="text-base"><span className="font-semibold">Time:</span> {selectedTimeRange}</p>
+                  
+                  </div>
+                </div>
+              )}
+              
+              <DialogFooter className="flex gap-3 sm:justify-center">
+                <Button variant="outline" onClick={() => setShowConfirmDialog(false)} disabled={isSubmitting}>
+                  Cancel
+                </Button>
+                <Button onClick={handleBooking} disabled={isSubmitting}>
+                  {isSubmitting ? "Processing..." : "Confirm"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Success Dialog */}
+          <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+            <DialogContent className="sm:max-w-xl">
+              <CheckCircle className="mx-auto h-16 w-16 text-green-600" />
+              <DialogHeader>
+                <DialogTitle className="text-center text-2xl">
+                  {rescheduleMode ? "Appointment Rescheduled Successfully!" : "Appointment Booked Successfully!"}
+                </DialogTitle>
+                <DialogDescription />
+              </DialogHeader>
+              
+              <div className="space-y-3">
+                <p className="text-center text-lg">Your appointment has been confirmed:</p>
+                <div className="bg-green-50 border border-green-200 p-5 rounded-lg space-y-3">
+                  <p className="text-base"><span className="font-semibold">Doctor:</span> {bookingDetails?.doctorName}</p>
+                  <p className="text-base"><span className="font-semibold">Date:</span> {bookingDetails?.date}</p>
+                  <p className="text-base"><span className="font-semibold">Time:</span> {bookingDetails?.time}</p>
+                  <p className="text-base"><span className="font-semibold">Clinic Type:</span> {bookingDetails?.clinicType}</p>
+                  {bookingDetails?.specialty && <p className="text-base"><span className="font-semibold">Specialty:</span> {bookingDetails?.specialty}</p>}
+                </div>
+              </div>
+              
+              <DialogFooter className="flex sm:justify-center">
+                <Button onClick={() => {
+                  setShowSuccessDialog(false);
+                  navigate("/dashboard");
+                }} className="w-full sm:w-auto">
+                  Go to Dashboard
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </PageLayout>
