@@ -8,7 +8,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 @Service
-@ConditionalOnProperty(name = "kafka.enabled", havingValue = "true")   // 👈 Add this line
+@ConditionalOnProperty(name = "kafka.enabled", havingValue = "true") // 👈 Add this line
 
 public class NotificationEventProducer {
     private static final String TOPIC = "notification-events";
@@ -23,7 +23,11 @@ public class NotificationEventProducer {
         try {
             String json = om.writeValueAsString(evt);
             kafkaTemplate.send(TOPIC, evt.patientId(), json);
+            System.out.println("[NotificationEventProducer] Published to topic '" + TOPIC + "': " + evt.type()
+                    + " for patient " + evt.patientId());
         } catch (Exception e) {
+            System.err.println(
+                    "[NotificationEventProducer] Failed to publish to topic '" + TOPIC + "': " + e.getMessage());
             e.printStackTrace();
         }
     }
