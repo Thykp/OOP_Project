@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/redis-queue")
+@RequestMapping("/api/queue")
 public class RedisQueueController {
 
     private final RedisQueueService redisQueueService;
@@ -46,7 +46,7 @@ public class RedisQueueController {
         if (events != null) {
             events.publishQueueEvent(new QueueEvent(
                     "POSITION_CHANGED", clinicId, appointmentId, patientId,
-                    result.position(), System.currentTimeMillis()));
+                    result.position(), result.queueNumber(), System.currentTimeMillis()));
         }
 
         return Map.of(
@@ -72,6 +72,7 @@ public class RedisQueueController {
                     result.appointmentId(),
                     result.patientId(),
                     (int) result.nowServing(),
+                    result.queueNumber(),
                     System.currentTimeMillis()
             ));
         }
