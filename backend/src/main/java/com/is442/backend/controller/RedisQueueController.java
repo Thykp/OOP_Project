@@ -92,19 +92,28 @@ public class RedisQueueController {
                     // Log but don't fail the check-in if UUID parsing fails
                     // This shouldn't happen since we just generated it, but handle gracefully
                 }
-            } else if (appointmentProvided && doctorId != null && !doctorId.trim().isEmpty()
-                    && appointmentService != null) {
-                // Update existing appointment's doctor_id if doctorId is provided
+            } else if (appointmentProvided && appointmentService != null) {
+                // For booked appointments, update status to CHECKED-IN asynchronously
                 try {
                     UUID appointmentUuid = UUID.fromString(appointmentId);
-                    boolean updated = appointmentService.updateAppointmentDoctorId(appointmentUuid, doctorId);
-                    if (!updated) {
-                        // Appointment doesn't exist - this shouldn't happen for provided appointments
-                        // but handle gracefully
+                    appointmentService.updateAppointmentStatusToCheckedInAsync(appointmentUuid);
+                } catch (IllegalArgumentException e) {
+                    // Log but don't fail the check-in if UUID parsing fails
+                }
+
+                // Also update doctor_id if provided
+                if (doctorId != null && !doctorId.trim().isEmpty()) {
+                    try {
+                        UUID appointmentUuid = UUID.fromString(appointmentId);
+                        boolean updated = appointmentService.updateAppointmentDoctorId(appointmentUuid, doctorId);
+                        if (!updated) {
+                            // Appointment doesn't exist - this shouldn't happen for provided appointments
+                            // but handle gracefully
+                        }
+                    } catch (Exception e) {
+                        // Log but don't fail the check-in if update fails
+                        // This is a non-critical operation
                     }
-                } catch (Exception e) {
-                    // Log but don't fail the check-in if update fails
-                    // This is a non-critical operation
                 }
             }
 

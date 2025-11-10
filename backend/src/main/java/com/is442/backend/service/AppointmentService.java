@@ -366,7 +366,8 @@ public class AppointmentService {
 
         LocalDate today = LocalDate.now();
         LocalTime now = LocalTime.now();
-        // end_time can be null for walk-in appointments but has some issues, we put an estimated end time first
+        // end_time can be null for walk-in appointments but has some issues, we put an
+        // estimated end time first
         LocalTime endTime = LocalTime.now().plusHours(1);
         LocalDateTime createdAt = LocalDateTime.now();
 
@@ -407,6 +408,36 @@ public class AppointmentService {
             } else {
                 throw e; // Re-throw if it's a different error
             }
+        }
+    }
+
+    /**
+     * Updates the status of an existing appointment to "CHECKED-IN" asynchronously.
+     * This is called when a patient with a booked appointment checks in.
+     * 
+     * @param appointmentId the UUID of the appointment
+     */
+    @Async("appointmentTaskExecutor")
+    public void updateAppointmentStatusToCheckedInAsync(UUID appointmentId) {
+        try {
+            logger.info("Updating appointment status to CHECKED-IN: appointmentId={}", appointmentId);
+
+            Optional<Appointment> appointmentOpt = appointmentRepository.findById(appointmentId);
+            if (appointmentOpt.isEmpty()) {
+                logger.warn("Appointment not found for status update: appointmentId={}", appointmentId);
+                return;
+            }
+
+            Appointment appointment = appointmentOpt.get();
+            appointment.setStatus("CHECKED-IN");
+            appointmentRepository.save(appointment);
+
+            logger.info("Successfully updated appointment status to CHECKED-IN: appointmentId={}", appointmentId);
+        } catch (Exception e) {
+            logger.error("Error updating appointment status to CHECKED-IN: appointmentId={}, error={}",
+                    appointmentId, e.getMessage(), e);
+            // Don't throw exception - this is async and we don't want to break the check-in
+            // flow
         }
     }
 
