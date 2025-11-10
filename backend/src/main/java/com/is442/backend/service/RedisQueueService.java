@@ -43,16 +43,19 @@ public class RedisQueueService {
         return "patient:" + appointmentId;
     }
 
-    private final StringRedisTemplate strTpl;               // strings, hashes, zsets
-    private final RedisTemplate<String, Object> jsonTpl;    // (unused here but kept)
-    private final DefaultRedisScript<List> dequeueScript;   // Lua: [pid, nowServing, k1,v1,...]
+    private final StringRedisTemplate strTpl; // strings, hashes, zsets
+    private final RedisTemplate<String, Object> jsonTpl; // (unused here but kept)
+    private final DefaultRedisScript<List> dequeueScript; // Lua: [pid, nowServing, k1,v1,...]
 
     @Autowired
     private UserService userService;
 
+    @Autowired(required = false)
+    private AppointmentService appointmentService;
+
     public RedisQueueService(StringRedisTemplate strTpl,
-                             RedisTemplate<String, Object> jsonTpl,
-                             DefaultRedisScript<List> dequeueScript) {
+            RedisTemplate<String, Object> jsonTpl,
+            DefaultRedisScript<List> dequeueScript) {
         this.strTpl = strTpl;
         this.jsonTpl = jsonTpl;
         this.dequeueScript = dequeueScript;
@@ -61,23 +64,70 @@ public class RedisQueueService {
     /**
      * Return type for check-in: both live position and stable queueNumber (seq).
      */
-    public record CheckinResult(int position, long queueNumber) {}
+    public record CheckinResult(int position, long queueNumber) {
+    }
 
     /**
      * Check a patient into a clinic queue. Returns (position, queueNumber).
+     * 
+     * @param clinicId            the clinic identifier
+     * @param appointmentId       the appointment identifier (can be auto-generated)
+     * @param patientId           the patient identifier
+     * @param validateAppointment if true, validates that the appointment exists in
+     *                            the database
+     * @throws IllegalArgumentException if any parameter is invalid
+     * @throws RuntimeException         if user or appointment validation fails
      */
-    public CheckinResult checkIn(String clinicId, String appointmentId, String patientId) {
-        Objects.requireNonNull(clinicId, "clinicId cannot be null");
-        Objects.requireNonNull(patientId, "patientId cannot be null");
-        Objects.requireNonNull(appointmentId, "appointmentId cannot be null");
+    public CheckinResult checkIn(String clinicId, String appointmentId, String patientId, boolean validateAppointment) {
+        // Validate non-null and non-empty
+        validateNonEmpty(clinicId, "clinicId");
+        validateNonEmpty(patientId, "patientId");
+        validateNonEmpty(appointmentId, "appointmentId");
 
-        // Fetch user profile (throws if invalid UUID)
-        User user = userService.findBySupabaseUserId(UUID.fromString(patientId));
+        // Validate UUID format for patientId
+        UUID patientUuid;
+        try {
+            patientUuid = UUID.fromString(patientId);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid patientId format: " + patientId + ". Must be a valid UUID.");
+        }
 
-        // 1) allocate next sequence (first time -> 1 because INCR on 0/nonexistent starts at 1)
+        // Validate UUID format for appointmentId
+        if (!appointmentId.isEmpty()) {
+            try {
+                UUID.fromString(appointmentId);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException(
+                        "Invalid appointmentId format: " + appointmentId + ". Must be a valid UUID.");
+            }
+        }
+
+        // Fetch user profile (throws RuntimeException if user not found)
+        User user;
+        try {
+            user = userService.findBySupabaseUserId(patientUuid);
+        } catch (RuntimeException e) {
+            throw new RuntimeException("Patient not found with ID: " + patientId + ". " + e.getMessage(), e);
+        }
+
+        // Optional: Validate appointment exists if AppointmentService is available AND
+        // validation is requested
+        if (validateAppointment && appointmentService != null && !appointmentId.isEmpty()) {
+            try {
+                UUID appointmentUuid = UUID.fromString(appointmentId);
+                appointmentService.getAppointmentById(appointmentUuid);
+            } catch (IllegalArgumentException e) {
+                // Already validated above, but catch just in case
+                throw new IllegalArgumentException("Invalid appointmentId format: " + appointmentId);
+            } catch (RuntimeException e) {
+                throw new RuntimeException("Appointment not found with ID: " + appointmentId, e);
+            }
+        }
+
+        // 1) allocate next sequence (first time -> 1 because INCR on 0/nonexistent
+        // starts at 1)
         long seq = Optional.ofNullable(
-                strTpl.opsForValue().increment(kSeq(clinicId))
-        ).orElse(1L);
+                strTpl.opsForValue().increment(kSeq(clinicId))).orElse(1L);
 
         // 2) store patient metadata (HASH)
         Map<String, String> meta = new LinkedHashMap<>();
@@ -105,19 +155,32 @@ public class RedisQueueService {
     }
 
     /**
+     * Check a patient into a clinic queue. Returns (position, queueNumber).
+     * Convenience method that validates appointments by default.
+     * 
+     * @throws IllegalArgumentException if any parameter is invalid
+     * @throws RuntimeException         if user or appointment validation fails
+     */
+    public CheckinResult checkIn(String clinicId, String appointmentId, String patientId) {
+        return checkIn(clinicId, appointmentId, patientId, true);
+    }
+
+    /**
      * Atomically dequeue the next patient via Lua.
      * Lua returns: [ appointmentId, nowServing, k1, v1, k2, v2, ... ]
-     * We parse hash fields to obtain patientId and (redundantly) seq -> queueNumber.
+     * We parse hash fields to obtain patientId and (redundantly) seq ->
+     * queueNumber.
+     * 
+     * @throws IllegalArgumentException if clinicId is invalid
      */
     public CallNextResult callNext(String clinicId) {
-        Objects.requireNonNull(clinicId, "clinicId");
+        validateNonEmpty(clinicId, "clinicId");
 
         // KEYS: queue, events, nowServing
         List<String> keys = List.of(
                 kQueue(clinicId),
                 kEvents(clinicId),
-                kNowServing(clinicId)
-        );
+                kNowServing(clinicId));
         List<String> args = List.of("patient:"); // prefix expected by Lua: kPatient = "patient:" + id
 
         List<?> res = strTpl.execute(dequeueScript, keys, args.toArray());
@@ -143,11 +206,23 @@ public class RedisQueueService {
 
     /**
      * Snapshot of caller's current position by appointmentId.
-     * This keeps your existing PositionSnapshot type unchanged (clinicId, position, nowServing),
-     * and we expose the stable ticket via getQueueNumber(appointmentId) when needed by controller.
+     * This keeps your existing PositionSnapshot type unchanged (clinicId, position,
+     * nowServing),
+     * and we expose the stable ticket via getQueueNumber(appointmentId) when needed
+     * by controller.
+     * 
+     * @throws IllegalArgumentException if appointmentId is invalid
      */
     public PositionSnapshot getCurrentPosition(String appointmentId) {
-        Objects.requireNonNull(appointmentId, "appointmentId");
+        validateNonEmpty(appointmentId, "appointmentId");
+
+        // Validate UUID format
+        try {
+            UUID.fromString(appointmentId);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "Invalid appointmentId format: " + appointmentId + ". Must be a valid UUID.");
+        }
 
         Map<Object, Object> meta = strTpl.opsForHash().entries(kPatient(appointmentId));
         String clinicId = (String) meta.get("clinicId");
@@ -160,21 +235,21 @@ public class RedisQueueService {
         int position = (rank == null ? 0 : (int) (rank + 1));
 
         long nowServing = getNowServingSeqSafe(clinicId);
-        long queueNumber = parseLongSafe((String) meta.get("seq"), 0L);   // NEW
+        long queueNumber = parseLongSafe((String) meta.get("seq"), 0L); // NEW
 
         return new PositionSnapshot(clinicId, position, nowServing, queueNumber);
     }
 
     // Resets now Serving and seq
     public void resetQnumber(String clinicId) {
-        Objects.requireNonNull(clinicId, "clinicId cannot be null");
+        validateNonEmpty(clinicId, "clinicId");
         strTpl.opsForValue().set(kSeq(clinicId), "0");
         strTpl.opsForValue().set(kNowServing(clinicId), "0");
     }
 
     /** Aggregate status for a clinic queue. */
     public QueueStatus getQueueStatus(String clinicId) {
-        Objects.requireNonNull(clinicId, "clinicId");
+        validateNonEmpty(clinicId, "clinicId");
         Long waiting = strTpl.opsForZSet().zCard(kQueue(clinicId));
         long nowServing = getNowServingSeqSafe(clinicId);
         return new QueueStatus(clinicId, nowServing, waiting == null ? 0 : waiting.intValue());
@@ -182,6 +257,16 @@ public class RedisQueueService {
 
     /** Stable ticket number for an appointment (seq stored in the hash). */
     public long getQueueNumber(String appointmentId) {
+        validateNonEmpty(appointmentId, "appointmentId");
+
+        // Validate UUID format
+        try {
+            UUID.fromString(appointmentId);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "Invalid appointmentId format: " + appointmentId + ". Must be a valid UUID.");
+        }
+
         String seq = (String) strTpl.opsForHash().get(kPatient(appointmentId), "seq");
         return parseLongSafe(seq, 0L);
     }
@@ -203,6 +288,22 @@ public class RedisQueueService {
             return (s == null) ? dflt : Long.parseLong(s);
         } catch (NumberFormatException e) {
             return dflt;
+        }
+    }
+
+    /**
+     * Validates that a string is not null and not empty (after trimming).
+     * 
+     * @param value     the value to validate
+     * @param fieldName the name of the field for error messages
+     * @throws IllegalArgumentException if value is null or empty
+     */
+    private void validateNonEmpty(String value, String fieldName) {
+        if (value == null) {
+            throw new IllegalArgumentException(fieldName + " cannot be null");
+        }
+        if (value.trim().isEmpty()) {
+            throw new IllegalArgumentException(fieldName + " cannot be empty");
         }
     }
 }
