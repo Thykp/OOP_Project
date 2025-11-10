@@ -370,11 +370,23 @@ public class RedisQueueService {
     /**
      * Update doctor assignment for an appointment. Fetches doctor info and updates
      * appointment hash. Validates that doctor exists in database.
+     * Only updates doctor fields - does not create a new appointment hash.
+     * The appointment hash should already exist from checkIn().
      */
     public void updateDoctorAssignment(String appointmentId, String doctorId, String clinicId) {
         if (appointmentId == null || appointmentId.trim().isEmpty()) {
             return;
         }
+
+        // Check if appointment hash exists - if not, this method shouldn't be called
+        // as the appointment should be created via checkIn() first
+        Map<Object, Object> existingMeta = strTpl.opsForHash().entries(kAppointment(appointmentId));
+        if (existingMeta == null || existingMeta.isEmpty()) {
+            throw new IllegalStateException(
+                    "Cannot update doctor assignment: Appointment hash does not exist for appointmentId: "
+                            + appointmentId + ". Appointment must be created via checkIn() first.");
+        }
+
         if (doctorId != null && !doctorId.trim().isEmpty()) {
             if (doctorRepository == null) {
                 throw new RuntimeException("DoctorRepository is not available. Cannot validate doctorId: " + doctorId);
@@ -384,7 +396,8 @@ public class RedisQueueService {
             Optional<Doctor> doctorOpt = doctorRepository.findByDoctorId(doctorId);
             if (doctorOpt.isPresent()) {
                 Doctor doctor = doctorOpt.get();
-                // Update appointment hash with doctor information
+                // Update appointment hash with doctor information (preserves existing
+                // patient/appointment fields)
                 strTpl.opsForHash().put(kAppointment(appointmentId), "doctorId", doctor.getDoctorId());
                 strTpl.opsForHash().put(kAppointment(appointmentId), "doctorName",
                         doctor.getDoctorName() != null ? doctor.getDoctorName() : "");
