@@ -4,7 +4,9 @@ import com.is442.backend.dto.CallNextResult;
 import com.is442.backend.dto.NotificationEvent;
 import com.is442.backend.dto.PositionSnapshot;
 import com.is442.backend.dto.QueueStatus;
+import com.is442.backend.model.Doctor;
 import com.is442.backend.model.User;
+import com.is442.backend.repository.DoctorRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -29,19 +31,14 @@ public class RedisQueueService {
         return "clinic:" + clinicId + ":queue";
     }
 
-    // Events => track the events of the queue
-    private static String kEvents(String clinicId) {
-        return "clinic:" + clinicId + ":events";
-    }
-
     // Now Serving => track the last served patient
     private static String kNowServing(String clinicId) {
         return "clinic:" + clinicId + ":nowServing";
     }
 
-    // Stores appointment meta data
-    private static String kPatient(String appointmentId) {
-        return "patient:" + appointmentId;
+    // Stores appointment metadata (combines patient and doctor information)
+    private static String kAppointment(String appointmentId) {
+        return "appointment:" + appointmentId;
     }
 
     private final StringRedisTemplate strTpl; // strings, hashes, zsets
@@ -56,6 +53,9 @@ public class RedisQueueService {
 
     @Autowired(required = false)
     private NotificationEventProducer notificationEventProducer;
+
+    @Autowired(required = false)
+    private DoctorRepository doctorRepository;
 
     public RedisQueueService(StringRedisTemplate strTpl,
             RedisTemplate<String, Object> jsonTpl,
@@ -136,7 +136,7 @@ public class RedisQueueService {
         long seq = Optional.ofNullable(
                 strTpl.opsForValue().increment(kSeq(clinicId))).orElse(1L);
 
-        // 2) store patient metadata (HASH)
+        // 2) store appointment metadata (HASH) - combines patient and doctor info
         Map<String, String> meta = new LinkedHashMap<>();
         meta.put("appointmentId", appointmentId);
         meta.put("patientId", patientId);
@@ -146,23 +146,40 @@ public class RedisQueueService {
         meta.put("email", user.getEmail());
         meta.put("name", user.getFirstName() + " " + user.getLastName());
         meta.put("createdAt", Instant.now().toString());
-        // Store doctorId in metadata if provided
-        if (doctorId != null && !doctorId.trim().isEmpty()) {
-            meta.put("doctorId", doctorId);
-        }
-        strTpl.opsForHash().putAll(kPatient(appointmentId), meta);
 
-        // 3) enqueue in ZSET with seq as score (FIFO)
+        // 3) Validate and fetch doctor information if provided
+        if (doctorId != null && !doctorId.trim().isEmpty()) {
+            if (doctorRepository == null) {
+                throw new RuntimeException("DoctorRepository is not available. Cannot validate doctorId: " + doctorId);
+            }
+
+            Optional<Doctor> doctorOpt = doctorRepository.findByDoctorId(doctorId);
+            if (doctorOpt.isPresent()) {
+                Doctor doctor = doctorOpt.get();
+                meta.put("doctorId", doctor.getDoctorId());
+                meta.put("doctorName", doctor.getDoctorName() != null ? doctor.getDoctorName() : "");
+                meta.put("doctorSpeciality", doctor.getSpeciality() != null ? doctor.getSpeciality() : "");
+                meta.put("clinicName", doctor.getClinicName() != null ? doctor.getClinicName() : "");
+                meta.put("clinicAddress", doctor.getClinicAddress() != null ? doctor.getClinicAddress() : "");
+            } else {
+                // Doctor not found in database - throw exception
+                throw new IllegalArgumentException("Doctor not found with ID: " + doctorId);
+            }
+        }
+
+        strTpl.opsForHash().putAll(kAppointment(appointmentId), meta);
+
+        // 4) enqueue in ZSET with seq as score (FIFO)
         strTpl.opsForZSet().add(kQueue(clinicId), appointmentId, (double) seq);
 
-        // 4) compute 1-based position via ZRANK
+        // 5) compute 1-based position via ZRANK
         Long rank = strTpl.opsForZSet().rank(kQueue(clinicId), appointmentId);
         int position = (rank == null ? 0 : (int) (rank + 1));
 
-        // 5) register clinic id for dashboards
+        // 6) register clinic id for dashboards
         strTpl.opsForSet().add(KEY_CLINICS, clinicId);
 
-        // 6) Send N3_AWAY notification if position is 3
+        // 7) Send N3_AWAY notification if position is 3
         if (position == 3 && notificationEventProducer != null) {
             sendN3AwayNotification(clinicId, appointmentId, patientId, user);
         }
@@ -194,12 +211,11 @@ public class RedisQueueService {
     public CallNextResult callNext(String clinicId, String doctorId) {
         validateNonEmpty(clinicId, "clinicId");
 
-        // KEYS: queue, events, nowServing
+        // KEYS: queue, nowServing (events removed)
         List<String> keys = List.of(
                 kQueue(clinicId),
-                kEvents(clinicId),
                 kNowServing(clinicId));
-        List<String> args = List.of("patient:"); // prefix expected by Lua: kPatient = "patient:" + id
+        List<String> args = List.of("appointment:"); // prefix expected by Lua: kAppointment = "appointment:" + id
 
         List<?> res = strTpl.execute(dequeueScript, keys, args.toArray());
         if (res == null || res.isEmpty() || Boolean.FALSE.equals(res.get(0))) {
@@ -218,9 +234,9 @@ public class RedisQueueService {
         String patientId = fields.getOrDefault("patientId", "");
         long queueNumber = parseLongSafe(fields.get("seq"), 0L);
 
-        // Update doctorId in Redis metadata and appointment if provided
+        // Update doctor assignment if provided
         if (doctorId != null && !doctorId.trim().isEmpty() && appointmentId != null && !appointmentId.isEmpty()) {
-            updateDoctorIdInAppointment(appointmentId, doctorId);
+            updateDoctorAssignment(appointmentId, doctorId, clinicId);
 
             // Update appointment in database if AppointmentService is available
             // Note: For walk-in appointments, this may not exist yet (created
@@ -289,7 +305,7 @@ public class RedisQueueService {
                     "Invalid appointmentId format: " + appointmentId + ". Must be a valid UUID.");
         }
 
-        Map<Object, Object> meta = strTpl.opsForHash().entries(kPatient(appointmentId));
+        Map<Object, Object> meta = strTpl.opsForHash().entries(kAppointment(appointmentId));
         String clinicId = (String) meta.get("clinicId");
         if (clinicId == null) {
             // likely dequeued already
@@ -332,7 +348,7 @@ public class RedisQueueService {
                     "Invalid appointmentId format: " + appointmentId + ". Must be a valid UUID.");
         }
 
-        String seq = (String) strTpl.opsForHash().get(kPatient(appointmentId), "seq");
+        String seq = (String) strTpl.opsForHash().get(kAppointment(appointmentId), "seq");
         return parseLongSafe(seq, 0L);
     }
 
@@ -342,22 +358,46 @@ public class RedisQueueService {
         return (clinics == null) ? Set.of() : clinics;
     }
 
-    /** Get doctorId from appointment metadata stored in Redis. */
+    /** Get doctorId from appointment metadata. */
     public String getDoctorIdFromAppointment(String appointmentId) {
         if (appointmentId == null || appointmentId.trim().isEmpty()) {
             return null;
         }
-        String doctorId = (String) strTpl.opsForHash().get(kPatient(appointmentId), "doctorId");
+        String doctorId = (String) strTpl.opsForHash().get(kAppointment(appointmentId), "doctorId");
         return (doctorId != null && !doctorId.trim().isEmpty()) ? doctorId : null;
     }
 
-    /** Update doctorId in appointment metadata stored in Redis. */
-    public void updateDoctorIdInAppointment(String appointmentId, String doctorId) {
+    /**
+     * Update doctor assignment for an appointment. Fetches doctor info and updates
+     * appointment hash. Validates that doctor exists in database.
+     */
+    public void updateDoctorAssignment(String appointmentId, String doctorId, String clinicId) {
         if (appointmentId == null || appointmentId.trim().isEmpty()) {
             return;
         }
         if (doctorId != null && !doctorId.trim().isEmpty()) {
-            strTpl.opsForHash().put(kPatient(appointmentId), "doctorId", doctorId);
+            if (doctorRepository == null) {
+                throw new RuntimeException("DoctorRepository is not available. Cannot validate doctorId: " + doctorId);
+            }
+
+            // Fetch doctor information from database and validate existence
+            Optional<Doctor> doctorOpt = doctorRepository.findByDoctorId(doctorId);
+            if (doctorOpt.isPresent()) {
+                Doctor doctor = doctorOpt.get();
+                // Update appointment hash with doctor information
+                strTpl.opsForHash().put(kAppointment(appointmentId), "doctorId", doctor.getDoctorId());
+                strTpl.opsForHash().put(kAppointment(appointmentId), "doctorName",
+                        doctor.getDoctorName() != null ? doctor.getDoctorName() : "");
+                strTpl.opsForHash().put(kAppointment(appointmentId), "doctorSpeciality",
+                        doctor.getSpeciality() != null ? doctor.getSpeciality() : "");
+                strTpl.opsForHash().put(kAppointment(appointmentId), "clinicName",
+                        doctor.getClinicName() != null ? doctor.getClinicName() : "");
+                strTpl.opsForHash().put(kAppointment(appointmentId), "clinicAddress",
+                        doctor.getClinicAddress() != null ? doctor.getClinicAddress() : "");
+            } else {
+                // Doctor not found in database - throw exception
+                throw new IllegalArgumentException("Doctor not found with ID: " + doctorId);
+            }
         }
     }
 
@@ -417,9 +457,18 @@ public class RedisQueueService {
             clinicId = getStringFromMeta(meta, "clinicId", "");
         }
 
-        // Get doctorId from meta if not provided (fallback)
+        // Get doctorId and doctorName from appointment if not provided (fallback)
+        String doctorName = "";
         if (doctorId == null || doctorId.trim().isEmpty()) {
-            doctorId = getStringFromMeta(meta, "doctorId", "");
+            doctorId = getDoctorIdFromAppointment(appointmentId);
+            if (doctorId == null) {
+                doctorId = "";
+            }
+        }
+
+        // Get doctorName from metadata if available
+        if (doctorId != null && !doctorId.trim().isEmpty()) {
+            doctorName = getStringFromMeta(meta, "doctorName", "");
         }
 
         // Build message based on event type
@@ -435,13 +484,14 @@ public class RedisQueueService {
                     name, queueNumber);
         }
 
-        // Build comprehensive JSON payload with clinicId and doctorId
+        // Build comprehensive JSON payload with clinicId, doctorId, and doctorName
         return String.format(
-                "{\"subject\":\"%s\",\"body\":\"%s\",\"clinicId\":\"%s\",\"doctorId\":\"%s\",\"patient\":{\"name\":\"%s\",\"email\":\"%s\",\"phone\":\"%s\",\"appointment_id\":\"%s\",\"queue_number\":\"%s\"}}",
+                "{\"subject\":\"%s\",\"body\":\"%s\",\"clinicId\":\"%s\",\"doctorId\":\"%s\",\"doctorName\":\"%s\",\"patient\":{\"name\":\"%s\",\"email\":\"%s\",\"phone\":\"%s\",\"appointment_id\":\"%s\",\"queue_number\":\"%s\"}}",
                 escapeJson(subject),
                 escapeJson(body),
                 escapeJson(clinicId),
                 escapeJson(doctorId != null ? doctorId : ""),
+                escapeJson(doctorName),
                 escapeJson(name),
                 escapeJson(email),
                 escapeJson(phone),
@@ -485,11 +535,15 @@ public class RedisQueueService {
         }
 
         try {
-            // Get patient metadata from Redis hash
-            Map<Object, Object> meta = strTpl.opsForHash().entries(kPatient(appointmentId));
+            // Get appointment metadata from Redis hash (includes both patient and doctor
+            // info)
+            Map<Object, Object> meta = strTpl.opsForHash().entries(kAppointment(appointmentId));
 
-            // Get doctorId from metadata if available
-            String doctorId = getStringFromMeta(meta, "doctorId", "");
+            // Get doctorId from appointment metadata
+            String doctorId = getDoctorIdFromAppointment(appointmentId);
+            if (doctorId == null) {
+                doctorId = "";
+            }
 
             // Build payload with all patient information including clinicId and doctorId
             String payload = buildNotificationPayload("N3_AWAY", meta, appointmentId, clinicId, doctorId);
@@ -588,15 +642,18 @@ public class RedisQueueService {
             if (appointmentList.size() >= 3) {
                 String appointmentIdAtPosition3 = appointmentList.get(2); // 0-indexed, so index 2 = position 3
 
-                // Get patient metadata from Redis
-                Map<Object, Object> meta = strTpl.opsForHash().entries(kPatient(appointmentIdAtPosition3));
+                // Get appointment metadata from Redis (includes both patient and doctor info)
+                Map<Object, Object> meta = strTpl.opsForHash().entries(kAppointment(appointmentIdAtPosition3));
 
                 if (meta != null && !meta.isEmpty()) {
                     String patientId = (String) meta.get("patientId");
 
                     if (patientId != null && !patientId.trim().isEmpty()) {
-                        // Get doctorId from metadata if available
-                        String doctorId = getStringFromMeta(meta, "doctorId", "");
+                        // Get doctorId from appointment metadata
+                        String doctorId = getDoctorIdFromAppointment(appointmentIdAtPosition3);
+                        if (doctorId == null) {
+                            doctorId = "";
+                        }
 
                         // Build payload with all patient information including clinicId and doctorId
                         String payload = buildNotificationPayload("N3_AWAY", meta, appointmentIdAtPosition3, clinicId,
