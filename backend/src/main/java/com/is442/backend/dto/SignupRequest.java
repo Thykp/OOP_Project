@@ -13,6 +13,7 @@ public class SignupRequest {
     private String dateOfBirth;
     private String gender;
     private String clinicName;
+    private String clinicId; // new field
     private String position;
 
     // Getters and Setters
@@ -88,6 +89,10 @@ public class SignupRequest {
     public void setClinicName(String clinicName) {
         this.clinicName = clinicName;
     }
+
+    public String getClinicId() { return clinicId; }
+
+    public void setClinicId(String clinicId) { this.clinicId = clinicId; }
 
     public String getPosition() {
         return position;

@@ -1,11 +1,18 @@
 package com.is442.backend.controller;
 
-import com.is442.backend.model.*;
-import com.is442.backend.service.*;
-import com.is442.backend.dto.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.*;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.is442.backend.dto.SignupRequest;
+import com.is442.backend.model.ClinicStaff;
+import com.is442.backend.model.Patient;
+import com.is442.backend.model.SystemAdministrator;
+import com.is442.backend.service.UserService;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -40,11 +47,12 @@ public class AuthController {
                     System.out.print(dto.getClinicName());
                     System.out.print(dto.getPosition());
                     if (dto.getClinicName() == null || dto.getClinicName().isEmpty() ||
+                            dto.getClinicId() == null || dto.getClinicId().isEmpty() ||
                             dto.getPosition() == null || dto.getPosition().isEmpty()) {
                         // Return error response if any value is missing
                         return ResponseEntity
                                 .badRequest()
-                                .body("Clinic name and position must be provided for staff registration");
+                                .body("Clinic name, clinic id and position must be provided for staff registration");
                     }
                     ClinicStaff staff = new ClinicStaff();
                     staff.setSupabaseUserId(dto.getSupabaseUserId());
@@ -55,6 +63,7 @@ public class AuthController {
                     staff.setStatus("ACTIVE");
 
                     staff.setClinicName(dto.getClinicName());
+                    staff.setClinicId(dto.getClinicId());
                     staff.setPosition(dto.getPosition());
                     return ResponseEntity.ok(userService.registerUser(staff));
                 }
