@@ -155,8 +155,12 @@ public class RedisQueueService {
 
     public void resetQnumber(String clinicId) {
         Objects.requireNonNull(clinicId, "clinicId cannot be null");
+
         // Reset the sequence counter to 0 for the specified clinic
         strTpl.opsForValue().set(kSeq(clinicId), "0");
+
+        // Reset nowServing to 0 (no one served yet)
+        strTpl.opsForValue().set(kNowServing(clinicId), "0");
     }
 
     /** Aggregate status for a clinic queue. */
