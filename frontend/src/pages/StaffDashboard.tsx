@@ -92,12 +92,13 @@ export default function StaffDashboard() {
   const baseURL = import.meta.env.VITE_API_BASE_URL;
 
   // Queue management state
-  const [queueItems, setQueueItems] = useState<Appointment[]>([]);
-  const [fastTrackItems, setFastTrackItems] = useState<Appointment[]>([]);
-  const [isPaused, setIsPaused] = useState(false);
+  // Legacy local queue placeholders (now unused after backend/SSE integration) removed
 
   // Get staff's clinic from user metadata
   const staffClinicId = user?.user_metadata?.clinicId
+  console.log(staffClinicId)
+
+  
   const staffClinicName = user?.user_metadata?.clinicName
 
   // Fetch appointments for staff's clinic only
@@ -457,6 +458,30 @@ export default function StaffDashboard() {
     fetchCompletedAppointments();
     fetchDoctors();
   }, [])
+
+  // Global WebSocket subscription for slot/appointment changes (so no manual refresh needed)
+  useEffect(() => {
+    // Connect once on dashboard mount
+  connectSocket();
+    const { unsubscribe } = subscribeToSlots((update: any) => {
+      if (!update) return;
+      // Any slot removal or change can imply a new appointment booked or rescheduled
+      // We simply refetch to keep lists in sync.
+      fetchAppointments();
+      fetchCompletedAppointments();
+    });
+    // Fallback: periodic refresh (covers status changes made by other staff users that don't emit websocket events)
+    const interval = setInterval(() => {
+      fetchAppointments();
+      fetchCompletedAppointments();
+    }, 15000); // 15s gentle poll
+    return () => {
+      clearInterval(interval);
+      unsubscribe();
+      // We intentionally do NOT disconnect socket here to allow other pages to reuse it; disconnect when leaving app entirely.
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Helper function to format date as dd/mm/yyyy
   const formatDate = (dateString: string | number | Date) => {
