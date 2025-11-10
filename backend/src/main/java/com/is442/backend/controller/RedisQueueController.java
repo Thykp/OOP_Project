@@ -1,8 +1,10 @@
 package com.is442.backend.controller;
 
 import com.is442.backend.dto.ErrorResponse;
+import com.is442.backend.service.AppointmentService;
 import com.is442.backend.service.KafkaQueueEventProducer;
 import com.is442.backend.service.RedisQueueService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
@@ -20,6 +22,9 @@ public class RedisQueueController {
 
     private final RedisQueueService redisQueueService;
     private final KafkaQueueEventProducer events;
+
+    @Autowired(required = false)
+    private AppointmentService appointmentService;
 
     public RedisQueueController(RedisQueueService redisQueueService,
             @Nullable KafkaQueueEventProducer events) {
@@ -62,6 +67,18 @@ public class RedisQueueController {
             // Only validate appointment if it was provided by the user (not auto-generated)
             RedisQueueService.CheckinResult result = redisQueueService.checkIn(
                     clinicId, appointmentId, patientId, appointmentProvided);
+
+            // If appointment was auto-generated (walk-in), create it asynchronously in the
+            // background
+            if (!appointmentProvided && appointmentService != null) {
+                try {
+                    UUID appointmentUuid = UUID.fromString(appointmentId);
+                    appointmentService.createWalkInAppointmentAsync(appointmentUuid, patientId, clinicId);
+                } catch (IllegalArgumentException e) {
+                    // Log but don't fail the check-in if UUID parsing fails
+                    // This shouldn't happen since we just generated it, but handle gracefully
+                }
+            }
 
             // Publish real-time event (keeps same payload shape)
             if (events != null) {

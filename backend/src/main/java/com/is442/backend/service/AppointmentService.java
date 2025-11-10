@@ -2,6 +2,7 @@ package com.is442.backend.service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -11,8 +12,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Query;
 
 import com.is442.backend.dto.AppointmentRequest;
 import com.is442.backend.dto.AppointmentResponse;
@@ -31,6 +37,9 @@ public class AppointmentService {
 
     private final AppointmentRepository appointmentRepository;
     private final SimpMessagingTemplate messagingTemplate;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Autowired // needed so springboot know to inject this
     private DoctorRepository doctorRepository;
@@ -92,8 +101,7 @@ public class AppointmentService {
                     saved.getBookingDate().toString(),
                     saved.getStartTime().toString(),
                     saved.getEndTime().toString(),
-                    "REMOVE"
-            );
+                    "REMOVE");
             // broadcast on /topic/slots — clients may filter by clinicId/doctorId
             messagingTemplate.convertAndSend("/topic/slots", update);
         } catch (Exception e) {
@@ -210,7 +218,7 @@ public class AppointmentService {
                     } else {
                         patientName = "Unknown";
                     }
-                    return new AppointmentResponse(appointment, doctorName, clinicName, patientName,clinicType);
+                    return new AppointmentResponse(appointment, doctorName, clinicName, patientName, clinicType);
                 })
                 .collect(Collectors.toList());
     }
@@ -311,5 +319,91 @@ public class AppointmentService {
         validateAdvanceNotice(appointment);
 
         appointmentRepository.deleteById(id);
+    }
+
+    /**
+     * Creates a walk-in appointment asynchronously in the background.
+     * This method is called when a patient checks in without a pre-existing
+     * appointment.
+     * 
+     * @param appointmentId the UUID of the appointment (already generated)
+     * @param patientId     the patient's UUID
+     * @param clinicId      the clinic identifier
+     */
+    @Async("appointmentTaskExecutor")
+    public void createWalkInAppointmentAsync(UUID appointmentId, String patientId, String clinicId) {
+        try {
+            logger.info("Creating walk-in appointment: appointmentId={}, patientId={}, clinicId={}",
+                    appointmentId, patientId, clinicId);
+
+            // For walk-in appointments, default doctor_id to UNASSIGNED
+            // A doctor can be assigned later when the patient is seen
+            createWalkInAppointmentWithDoctor(appointmentId, patientId, clinicId, "UNASSIGNED");
+
+        } catch (Exception e) {
+            logger.error("Error creating walk-in appointment: appointmentId={}, patientId={}, clinicId={}, error={}",
+                    appointmentId, patientId, clinicId, e.getMessage(), e);
+            // Don't throw exception - this is async and we don't want to break the check-in
+            // flow
+        }
+    }
+
+    /**
+     * Helper method to create the walk-in appointment with a specific doctor.
+     * Uses native SQL INSERT to bypass Hibernate's entity management and handle
+     * manually set UUIDs.
+     */
+    private void createWalkInAppointmentWithDoctor(UUID appointmentId, String patientId, String clinicId,
+            String doctorId) {
+        // Check if appointment already exists (might have been created in another
+        // transaction)
+        if (appointmentRepository.findById(appointmentId).isPresent()) {
+            logger.info("Walk-in appointment already exists: appointmentId={}, skipping creation", appointmentId);
+            return;
+        }
+
+        LocalDate today = LocalDate.now();
+        LocalTime now = LocalTime.now();
+        // Set end time to 1 hour from now (default duration for walk-ins)
+        LocalTime endTime = now.plusHours(1);
+        LocalDateTime createdAt = LocalDateTime.now();
+
+        // Use native SQL INSERT to bypass Hibernate's entity management
+        // This allows us to manually set the UUID without conflicts with
+        // @GeneratedValue
+        String sql = "INSERT INTO appointment (appointment_id, patient_id, doctor_id, clinic_id, " +
+                "booking_date, start_time, end_time, status, created_at, updated_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        Query query = entityManager.createNativeQuery(sql);
+        query.setParameter(1, appointmentId);
+        query.setParameter(2, patientId);
+        query.setParameter(3, doctorId);
+        query.setParameter(4, clinicId);
+        query.setParameter(5, today);
+        query.setParameter(6, now);
+        query.setParameter(7, null);
+        query.setParameter(8, "WALK-IN");
+        query.setParameter(9, createdAt);
+        query.setParameter(10, createdAt);
+
+        try {
+            query.executeUpdate();
+            entityManager.flush();
+            logger.info("Successfully created walk-in appointment: appointmentId={}, status=WALK-IN",
+                    appointmentId);
+        } catch (Exception e) {
+            // Check if it's a duplicate key error (appointment was created in another
+            // transaction)
+            String errorMsg = e.getMessage();
+            if (errorMsg != null && (errorMsg.contains("duplicate key") ||
+                    errorMsg.contains("unique constraint") ||
+                    errorMsg.contains("Duplicate entry"))) {
+                logger.info("Walk-in appointment already exists (duplicate key): appointmentId={}, skipping",
+                        appointmentId);
+            } else {
+                throw e; // Re-throw if it's a different error
+            }
+        }
     }
 }
