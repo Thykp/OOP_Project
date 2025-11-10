@@ -372,8 +372,8 @@ public class AppointmentService {
         // This allows us to manually set the UUID without conflicts with
         // @GeneratedValue
         String sql = "INSERT INTO appointment (appointment_id, patient_id, doctor_id, clinic_id, " +
-                "booking_date, start_time, end_time, status, created_at, updated_at) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                "booking_date, start_time, end_time, status, type, created_at, updated_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         Query query = entityManager.createNativeQuery(sql);
         query.setParameter(1, appointmentId);
@@ -383,14 +383,15 @@ public class AppointmentService {
         query.setParameter(5, today);
         query.setParameter(6, now);
         query.setParameter(7, null);
-        query.setParameter(8, "WALK-IN");
-        query.setParameter(9, createdAt);
+        query.setParameter(8, "CHECKED-IN");
+        query.setParameter(9, "WALK_IN");
         query.setParameter(10, createdAt);
+        query.setParameter(11, createdAt);
 
         try {
             query.executeUpdate();
             entityManager.flush();
-            logger.info("Successfully created walk-in appointment: appointmentId={}, status=WALK-IN",
+            logger.info("Successfully created walk-in appointment: appointmentId={}, status=CHECKED-IN",
                     appointmentId);
         } catch (Exception e) {
             // Check if it's a duplicate key error (appointment was created in another

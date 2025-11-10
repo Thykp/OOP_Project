@@ -41,6 +41,9 @@ public class Appointment {
     @Column(name = "status", nullable = false)
     private String status = "SCHEDULED";
 
+    @Column(name = "type")
+    private String type;
+
     @Column(name = "created_at", updatable = false)
     @JsonProperty("created_at")
     private LocalDateTime createdAt;
@@ -61,6 +64,7 @@ public class Appointment {
         this.startTime = startTime;
         this.endTime = endTime;
         this.status = "SCHEDULED";
+        this.type = "BOOKING";
     }
 
     @PrePersist
@@ -152,5 +156,13 @@ public class Appointment {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
     }
 }
