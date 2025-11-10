@@ -20,13 +20,12 @@ function App() {
           <RoleProtectedRoute role={["ROLE_ADMIN"]}>
             <SignUpPage />
           </RoleProtectedRoute>} />
+          
         <Route path="/viewappointment" element={
           <RoleProtectedRoute role={["ROLE_STAFF"]}>
             <StaffDashboard />
           </RoleProtectedRoute>
         } />
-
-      
 
         <Route
           path="/dashboard"

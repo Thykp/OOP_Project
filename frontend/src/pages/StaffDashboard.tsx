@@ -91,8 +91,6 @@ export default function StaffDashboard() {
 
   const baseURL = import.meta.env.VITE_API_BASE_URL;
 
-  // Queue management state
-  // Legacy local queue placeholders (now unused after backend/SSE integration) removed
 
   // Get staff's clinic from user metadata
   const staffClinicId = user?.user_metadata?.clinicId
