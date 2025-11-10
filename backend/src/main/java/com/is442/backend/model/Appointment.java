@@ -1,4 +1,5 @@
 package com.is442.backend.model;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import java.time.*;
@@ -7,7 +8,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "appointment")
 public class Appointment {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "appointment_id")
@@ -34,12 +35,15 @@ public class Appointment {
     @JsonProperty("start_time")
     private LocalTime startTime;
 
-    @Column(name = "end_time", nullable = false)
+    @Column(name = "end_time", nullable = true)
     @JsonProperty("end_time")
     private LocalTime endTime;
 
     @Column(name = "status", nullable = false)
     private String status = "SCHEDULED";
+
+    @Column(name = "type")
+    private String type;
 
     @Column(name = "created_at", updatable = false)
     @JsonProperty("created_at")
@@ -52,8 +56,8 @@ public class Appointment {
     public Appointment() {
     }
 
-    public Appointment(String patientId, String doctorId, String clinicId, 
-                      LocalDate bookingDate, LocalTime startTime, LocalTime endTime) {
+    public Appointment(String patientId, String doctorId, String clinicId,
+            LocalDate bookingDate, LocalTime startTime, LocalTime endTime) {
         this.patientId = patientId;
         this.doctorId = doctorId;
         this.clinicId = clinicId;
@@ -61,6 +65,7 @@ public class Appointment {
         this.startTime = startTime;
         this.endTime = endTime;
         this.status = "SCHEDULED";
+        this.type = "BOOKING";
     }
 
     @PrePersist
@@ -152,5 +157,13 @@ public class Appointment {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
     }
 }

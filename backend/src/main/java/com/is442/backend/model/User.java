@@ -35,6 +35,9 @@ public abstract class User {
     @Column(name = "role")
     private String role;
 
+    @Column(name = "phone")
+    private String phone;
+
     @Column(name = "status")
     private String status;
 
@@ -98,6 +101,10 @@ public abstract class User {
         this.role = role;
     }
 
+    public String getPhone() {return phone;}
+
+    public void setPhone(String phone) {this.phone = phone;}
+    
     public String getStatus() {
         return status;
     }

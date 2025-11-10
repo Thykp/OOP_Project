@@ -1,0 +1,79 @@
+name: Auto Sync Main to All Branches
+
+permissions:
+  contents: write
+
+# This workflow runs only when code is pushed to the 'main' branch.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+
+# Define a single job to handle the branch syncing
+jobs:
+  sync_branches:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository with full history
+        # Actions that manipulate history or push to multiple branches require full history
+        uses: actions/checkout@v4
+        with:
+          # Crucial: fetches all branches and their history
+          fetch-depth: 0
+          # Use the default GitHub token with write permissions for this action
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git User
+        # Set the identity for the automated merge commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge 'main' into all other branches
+        # This is the core logic using a shell script
+        run: |
+          # Fetch all branches to ensure local refs are current
+          git fetch origin
+          
+          # Get a list of all remote branches, excluding 'main'
+          ALL_BRANCHES=$(git branch -r | grep -v '\->' | sed 's/origin\///' | grep -v 'main$')
+          
+          for BRANCH in $ALL_BRANCHES; do
+            echo "--- Processing branch: $BRANCH ---"
+          
+            # 1. Checkout the target branch
+            git checkout $BRANCH
+          
+            # 2. Try to merge 'main' into the current branch
+            # First try fast-forward, then fallback to regular merge if needed
+            if git merge origin/main --ff-only; then
+              echo "Fast-forward merge successful for '$BRANCH'."
+            elif git merge origin/main --no-edit; then
+              echo "Regular merge successful for '$BRANCH'."
+            else
+              # Merge conflict occurred
+              echo "::warning title=Merge Conflict Detected::Automatic merge failed for branch '$BRANCH'. A merge conflict has occurred and needs to be resolved manually by the feature branch owner."
+              git merge --abort
+              echo "-----------------------------------"
+              continue
+            fi
+          
+            # 3. Push the successful merge
+            if git push origin $BRANCH; then
+              echo "Successfully pushed to '$BRANCH'."
+            else
+              echo "Error: Failed to push changes to '$BRANCH'. Check branch protection rules."
+            fi
+            echo "-----------------------------------"
+          done
+
+      - name: Switch back to main branch
+        # Leave the runner in a clean state
+        run: git checkout main

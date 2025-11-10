@@ -27,7 +27,7 @@ public class KafkaConfig {
     @Bean
     public NewTopic queueUpdatesTopic() {
         return TopicBuilder.name("clinic-queue-updates")
-                .partitions(3)
+                .partitions(20)
                 .replicas(1)
                 .build();
     }
@@ -35,7 +35,7 @@ public class KafkaConfig {
     @Bean
     public NewTopic notificationEventsTopic() {
         return TopicBuilder.name("notification-events")
-                .partitions(3)
+                .partitions(20)
                 .replicas(1)
                 .build();
     }

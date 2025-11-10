@@ -44,6 +44,9 @@ public class AppointmentResponse {
 
     private String status;
 
+    @JsonProperty("type")
+    private String type;
+
     @JsonProperty("created_at")
     private LocalDateTime createdAt;
 
@@ -62,6 +65,7 @@ public class AppointmentResponse {
         this.startTime = appointment.getStartTime();
         this.endTime = appointment.getEndTime();
         this.status = appointment.getStatus();
+        this.type = appointment.getType();
         this.createdAt = appointment.getCreatedAt();
         this.updatedAt = appointment.getUpdatedAt();
     }
@@ -78,6 +82,7 @@ public class AppointmentResponse {
         this.startTime = appointment.getStartTime();
         this.endTime = appointment.getEndTime();
         this.status = appointment.getStatus();
+        this.type = appointment.getType();
         this.createdAt = appointment.getCreatedAt();
         this.updatedAt = appointment.getUpdatedAt();
 
@@ -97,6 +102,7 @@ public class AppointmentResponse {
         this.startTime = appointment.getStartTime();
         this.endTime = appointment.getEndTime();
         this.status = appointment.getStatus();
+        this.type = appointment.getType();
         this.createdAt = appointment.getCreatedAt();
         this.updatedAt = appointment.getUpdatedAt();
 
@@ -204,5 +210,13 @@ public class AppointmentResponse {
 
     public void setClinicType(String clinicType) {
         this.clinicType = clinicType;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
     }
 }
