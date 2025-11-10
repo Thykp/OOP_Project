@@ -1,20 +1,20 @@
 "use client"
 
+import { PageLayout } from "@/components/page-layout"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { supabase } from "@/lib/supabase"
+import { Check, Eye, EyeOff, X } from "lucide-react"
 import type React from "react"
 import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Eye, EyeOff, Check, X } from "lucide-react"
-import { PageLayout } from "@/components/page-layout"
-import { supabase } from "@/lib/supabase"
 
 
-type Role = "ROLE_PATIENT" | "ROLE_STAFF" | "ROLE_DOCTOR" | "ROLE_ADMIN"
+type Role = "ROLE_PATIENT" | "ROLE_STAFF" | "ROLE_ADMIN"
 
 
 export default function SignUpPage() {
@@ -39,6 +39,7 @@ export default function SignUpPage() {
     agreeToMarketing: false,
     role: "ROLE_PATIENT" as Role,
     clinicName: "",
+    clinicId: "",
     position: ""
   })
 
@@ -101,6 +102,7 @@ export default function SignUpPage() {
             gender: formData.gender,
             marketingOptIn: formData.agreeToMarketing,
             clinicName: formData.clinicName,
+            clinicId: formData.clinicId,
             position: formData.position
           },
         },
@@ -125,6 +127,7 @@ export default function SignUpPage() {
           gender: formData.gender,
           dateOfBirth: formData.dateOfBirth,
           clinicName: formData.clinicName,
+          clinicId: formData.clinicId,
           position: formData.position
         }),
       });
@@ -170,33 +173,38 @@ export default function SignUpPage() {
 
 
   // Get Clinic from Db
-  type ClinicOption = { value: string; label: string; };
+  type ClinicOption = { clinicId: string; clinicName: string; label: string };
   const [clinicOptions, setClinicOptions] = useState<ClinicOption[]>([]);
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
   useEffect(() => {
     const fetchClinics = async () => {
       try {
-        const gpRes = await fetch("http://localhost:8080/api/clinics/gp?limit=100");
+        const gpRes = await fetch(`${API_BASE}/api/clinics/gp?limit=100`);
+        if (!gpRes.ok) throw new Error(`GP clinics HTTP ${gpRes.status}`)
         const gpData = await gpRes.json();
-        const gpOptions = gpData.map((clinic: { clinicName: any }) => ({
-          value: clinic.clinicName,   // or clinic.name or whatever your property is
-          label: clinic.clinicName,
+        const gpOptions = gpData.map((clinic: any) => ({
+          clinicId: clinic.clinicId,
+          clinicName: clinic.clinicName,
+          label: `${clinic.clinicName} (${clinic.clinicId})`,
         }));
-        const spRes = await fetch("http://localhost:8080/api/clinics/specialist?limit=100");
+        const spRes = await fetch(`${API_BASE}/api/clinics/specialist?limit=100`);
+        if (!spRes.ok) throw new Error(`Specialist clinics HTTP ${spRes.status}`)
         const spData = await spRes.json();
 
-        const spOptions = spData.map((clinic: { clinicName: any }) => ({
-          value: clinic.clinicName,
-          label: clinic.clinicName,
+        const spOptions = spData.map((clinic: any) => ({
+          clinicId: clinic.ihpClinicId,
+          clinicName: clinic.clinicName,
+          label: `${clinic.clinicName} (${clinic.ihpClinicId})`,
         }));
         // Combine and sort alphabetically by label
-        const combinedOptions = [...gpOptions, ...spOptions].sort((a, b) =>
-          a.label.localeCompare(b.label)
-        );
+        const combinedOptions = [...gpOptions, ...spOptions].sort((a, b) => a.label.localeCompare(b.label));
 
         setClinicOptions(combinedOptions);
-      } catch (err) {
+      } catch (err: any) {
         console.error("error fetching clinics: ", err);
+        // Optional: show a friendly message inline
+        // setServerErr("Unable to load clinics. Please confirm the backend is running on " + API_BASE);
       }
     }
     fetchClinics();
@@ -227,7 +235,6 @@ export default function SignUpPage() {
                       <SelectContent>
                         <SelectItem value="ROLE_PATIENT">Patient</SelectItem>
                         <SelectItem value="ROLE_STAFF">Staff</SelectItem>
-                        <SelectItem value="ROLE_DOCTOR">Doctor</SelectItem>
                         <SelectItem value="ROLE_ADMIN">Admin</SelectItem>
                       </SelectContent>
                     </Select>
@@ -256,19 +263,24 @@ export default function SignUpPage() {
                           </SelectContent>
                         </Select>
                       </div>
-                      {/* Clinic Dropdown */}
+                      {/* Clinic Dropdown (select by ID, show "Name (ID)") */}
                       <div className="space-y-2 col-span-3 w-full">
                         <Label htmlFor="clinic" className="text-sm font-medium text-gray-700">Clinic</Label>
                         <Select
-                          value={formData.clinicName}
-                          onValueChange={value => handleInputChange("clinicName", value)}
+                          value={formData.clinicId}
+                          onValueChange={value => {
+                            // value is clinicId; find matching option to get name
+                            const opt = clinicOptions.find(o => o.clinicId === value)
+                            handleInputChange("clinicId", value)
+                            handleInputChange("clinicName", opt?.clinicName || "")
+                          }}
                         >
                           <SelectTrigger className="h-11 w-full">
                             <SelectValue placeholder="Select clinic" />
                           </SelectTrigger>
                           <SelectContent className="max-h-64 overflow-y-auto">
                             {clinicOptions.map(option => (
-                              <SelectItem key={option.value} value={option.value}>
+                              <SelectItem key={option.clinicId} value={option.clinicId}>
                                 {option.label}
                               </SelectItem>
                             ))}
