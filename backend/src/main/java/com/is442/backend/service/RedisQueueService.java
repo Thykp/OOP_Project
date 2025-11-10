@@ -108,31 +108,34 @@ public class RedisQueueService {
     public CallNextResult callNext(String clinicId) {
         Objects.requireNonNull(clinicId, "clinicId");
 
-        List<String> keys = List.of(kQueue(clinicId), kEvents(clinicId));
+        // CHANGED: include nowServing key as KEYS[3]
+        List<String> keys = List.of(
+                kQueue(clinicId),
+                kEvents(clinicId),
+                kNowServing(clinicId) // NEW
+        );
+
         List<String> args = List.of("patient:"); // prefix expected by Lua
 
         List<?> res = strTpl.execute(dequeueScript, keys, args.toArray());
-        if (res.isEmpty() || Boolean.FALSE.equals(res.get(0))) {
+        if (res == null || res.isEmpty() || Boolean.FALSE.equals(res.get(0))) {
             return CallNextResult.empty(clinicId);
         }
 
-        // res format: [ appointmentId, k1, v1, k2, v2, ... ]
+        // NEW: Lua returns [ appointmentId, nowServing, k1, v1, k2, v2, ... ]
         String appointmentId = (String) res.get(0);
+        long nowServing = parseLongSafe((String) res.get(1), 0L);
+
         Map<String, String> fields = new LinkedHashMap<>();
-        for (int i = 1; i + 1 < res.size(); i += 2) {
+        for (int i = 2; i + 1 < res.size(); i += 2) {
             fields.put((String) res.get(i), (String) res.get(i + 1));
         }
-
         String patientId = fields.getOrDefault("patientId", "");
-        long servedSeq = parseLongSafe(fields.get("seq"), 0L);
 
-        if (servedSeq > 0) {
-            strTpl.opsForValue().set(kNowServing(clinicId), String.valueOf(servedSeq));
-        }
-
-        // Once dequeued, position is 0 (being served)
-        return new CallNextResult(clinicId, appointmentId, patientId, 0);
+        // position stays 0 to indicate “being served”
+        return new CallNextResult(clinicId, appointmentId, patientId, 0, nowServing); // CHANGED
     }
+
 
     /** Snapshot of caller's current position by appointmentId. */
     public PositionSnapshot getCurrentPosition(String appointmentId) {

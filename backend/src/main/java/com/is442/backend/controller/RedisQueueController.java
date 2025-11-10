@@ -52,15 +52,23 @@ public class RedisQueueController {
 
         var result = redisQueueService.callNext(clinicId);
 
-        // Publish real-time event
         if (events != null) {
             events.publishQueueEvent(new QueueEvent(
-                    "NOW_SERVING", clinicId, result.appointmentId(),
-                    result.patientId(), result.position(), System.currentTimeMillis()));
+                    "NOW_SERVING",
+                    clinicId,
+                    result.appointmentId(),
+                    result.patientId(),
+                    (int) result.nowServing(),              // CHANGED: publish actual ticket
+                    System.currentTimeMillis()
+            ));
         }
 
-        return Map.of("status", "ok", "nowServing", result.position(),
-                "appointmentId", result.appointmentId());
+        return Map.of(
+                "status", "ok",
+                "nowServing", result.nowServing(),          // CHANGED: return real ticket number
+                "appointmentId", result.appointmentId()
+        );
+
     }
 
     // GET endpoint
