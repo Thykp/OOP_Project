@@ -1,4 +1,5 @@
 package com.is442.backend.model;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import java.time.*;
@@ -7,7 +8,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "appointment")
 public class Appointment {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "appointment_id")
@@ -34,7 +35,7 @@ public class Appointment {
     @JsonProperty("start_time")
     private LocalTime startTime;
 
-    @Column(name = "end_time", nullable = false)
+    @Column(name = "end_time", nullable = true)
     @JsonProperty("end_time")
     private LocalTime endTime;
 
@@ -55,8 +56,8 @@ public class Appointment {
     public Appointment() {
     }
 
-    public Appointment(String patientId, String doctorId, String clinicId, 
-                      LocalDate bookingDate, LocalTime startTime, LocalTime endTime) {
+    public Appointment(String patientId, String doctorId, String clinicId,
+            LocalDate bookingDate, LocalTime startTime, LocalTime endTime) {
         this.patientId = patientId;
         this.doctorId = doctorId;
         this.clinicId = clinicId;

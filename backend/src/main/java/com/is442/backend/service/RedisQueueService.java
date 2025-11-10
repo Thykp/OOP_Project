@@ -75,10 +75,13 @@ public class RedisQueueService {
      * @param patientId           the patient identifier
      * @param validateAppointment if true, validates that the appointment exists in
      *                            the database
+     * @param doctorId            optional doctor ID to associate with the
+     *                            appointment
      * @throws IllegalArgumentException if any parameter is invalid
      * @throws RuntimeException         if user or appointment validation fails
      */
-    public CheckinResult checkIn(String clinicId, String appointmentId, String patientId, boolean validateAppointment) {
+    public CheckinResult checkIn(String clinicId, String appointmentId, String patientId, boolean validateAppointment,
+            String doctorId) {
         // Validate non-null and non-empty
         validateNonEmpty(clinicId, "clinicId");
         validateNonEmpty(patientId, "patientId");
@@ -139,6 +142,10 @@ public class RedisQueueService {
         meta.put("email", user.getEmail());
         meta.put("name", user.getFirstName() + " " + user.getLastName());
         meta.put("createdAt", Instant.now().toString());
+        // Store doctorId in metadata if provided
+        if (doctorId != null && !doctorId.trim().isEmpty()) {
+            meta.put("doctorId", doctorId);
+        }
         strTpl.opsForHash().putAll(kPatient(appointmentId), meta);
 
         // 3) enqueue in ZSET with seq as score (FIFO)
@@ -162,7 +169,7 @@ public class RedisQueueService {
      * @throws RuntimeException         if user or appointment validation fails
      */
     public CheckinResult checkIn(String clinicId, String appointmentId, String patientId) {
-        return checkIn(clinicId, appointmentId, patientId, true);
+        return checkIn(clinicId, appointmentId, patientId, true, null);
     }
 
     /**
@@ -171,9 +178,11 @@ public class RedisQueueService {
      * We parse hash fields to obtain patientId and (redundantly) seq ->
      * queueNumber.
      * 
+     * @param clinicId the clinic identifier
+     * @param doctorId optional doctor ID to assign to the appointment
      * @throws IllegalArgumentException if clinicId is invalid
      */
-    public CallNextResult callNext(String clinicId) {
+    public CallNextResult callNext(String clinicId, String doctorId) {
         validateNonEmpty(clinicId, "clinicId");
 
         // KEYS: queue, events, nowServing
@@ -200,8 +209,42 @@ public class RedisQueueService {
         String patientId = fields.getOrDefault("patientId", "");
         long queueNumber = parseLongSafe(fields.get("seq"), 0L);
 
+        // Update doctorId in Redis metadata and appointment if provided
+        if (doctorId != null && !doctorId.trim().isEmpty() && appointmentId != null && !appointmentId.isEmpty()) {
+            updateDoctorIdInAppointment(appointmentId, doctorId);
+
+            // Update appointment in database if AppointmentService is available
+            // Note: For walk-in appointments, this may not exist yet (created
+            // asynchronously)
+            // So we handle the case gracefully without failing the call-next operation
+            if (appointmentService != null) {
+                try {
+                    UUID appointmentUuid = UUID.fromString(appointmentId);
+                    boolean updated = appointmentService.updateAppointmentDoctorId(appointmentUuid, doctorId);
+                    if (!updated) {
+                        // Appointment doesn't exist yet - this is OK for walk-ins
+                        // The doctorId is already stored in Redis, and when the appointment
+                        // is created asynchronously, it will use the doctorId from Redis if available
+                    }
+                } catch (Exception e) {
+                    // Log but don't fail the call-next if update fails
+                    // This is a non-critical operation
+                }
+            }
+        }
+
         // position=0 to mean "this appointment is now being served"
         return new CallNextResult(clinicId, appointmentId, patientId, 0, nowServing, queueNumber);
+    }
+
+    /**
+     * Atomically dequeue the next patient via Lua.
+     * Convenience method without doctorId parameter.
+     * 
+     * @throws IllegalArgumentException if clinicId is invalid
+     */
+    public CallNextResult callNext(String clinicId) {
+        return callNext(clinicId, null);
     }
 
     /**
@@ -275,6 +318,25 @@ public class RedisQueueService {
     public Set<String> listClinics() {
         Set<String> clinics = strTpl.opsForSet().members(KEY_CLINICS);
         return (clinics == null) ? Set.of() : clinics;
+    }
+
+    /** Get doctorId from appointment metadata stored in Redis. */
+    public String getDoctorIdFromAppointment(String appointmentId) {
+        if (appointmentId == null || appointmentId.trim().isEmpty()) {
+            return null;
+        }
+        String doctorId = (String) strTpl.opsForHash().get(kPatient(appointmentId), "doctorId");
+        return (doctorId != null && !doctorId.trim().isEmpty()) ? doctorId : null;
+    }
+
+    /** Update doctorId in appointment metadata stored in Redis. */
+    public void updateDoctorIdInAppointment(String appointmentId, String doctorId) {
+        if (appointmentId == null || appointmentId.trim().isEmpty()) {
+            return;
+        }
+        if (doctorId != null && !doctorId.trim().isEmpty()) {
+            strTpl.opsForHash().put(kPatient(appointmentId), "doctorId", doctorId);
+        }
     }
 
     // Helpers

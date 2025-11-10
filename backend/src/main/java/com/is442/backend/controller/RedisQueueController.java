@@ -63,20 +63,48 @@ public class RedisQueueController {
                         .body(new ErrorResponse("patientId is required"));
             }
 
+            // Extract optional doctorId from JSON body currently optional => will make it
+            // required in the future
+            Object doctorIdObj = body.get("doctorId");
+            String doctorId = (doctorIdObj != null
+                    && !String.valueOf(doctorIdObj).equals("null")
+                    && !String.valueOf(doctorIdObj).toString().trim().isEmpty())
+                            ? String.valueOf(doctorIdObj)
+                            : null;
+
             // Service computes both
             // Only validate appointment if it was provided by the user (not auto-generated)
             RedisQueueService.CheckinResult result = redisQueueService.checkIn(
-                    clinicId, appointmentId, patientId, appointmentProvided);
+                    clinicId, appointmentId, patientId, appointmentProvided, doctorId);
 
             // If appointment was auto-generated (walk-in), create it asynchronously in the
             // background
             if (!appointmentProvided && appointmentService != null) {
                 try {
                     UUID appointmentUuid = UUID.fromString(appointmentId);
-                    appointmentService.createWalkInAppointmentAsync(appointmentUuid, patientId, clinicId);
+                    // Use provided doctorId or default to UNASSIGNED
+                    String doctorIdForAppointment = (doctorId != null && !doctorId.trim().isEmpty())
+                            ? doctorId
+                            : "UNASSIGNED";
+                    appointmentService.createWalkInAppointmentAsync(appointmentUuid, patientId, clinicId,
+                            doctorIdForAppointment);
                 } catch (IllegalArgumentException e) {
                     // Log but don't fail the check-in if UUID parsing fails
                     // This shouldn't happen since we just generated it, but handle gracefully
+                }
+            } else if (appointmentProvided && doctorId != null && !doctorId.trim().isEmpty()
+                    && appointmentService != null) {
+                // Update existing appointment's doctor_id if doctorId is provided
+                try {
+                    UUID appointmentUuid = UUID.fromString(appointmentId);
+                    boolean updated = appointmentService.updateAppointmentDoctorId(appointmentUuid, doctorId);
+                    if (!updated) {
+                        // Appointment doesn't exist - this shouldn't happen for provided appointments
+                        // but handle gracefully
+                    }
+                } catch (Exception e) {
+                    // Log but don't fail the check-in if update fails
+                    // This is a non-critical operation
                 }
             }
 
@@ -84,7 +112,8 @@ public class RedisQueueController {
             if (events != null) {
                 events.publishQueueEvent(new QueueEvent(
                         "POSITION_CHANGED", clinicId, appointmentId, patientId,
-                        result.position(), result.queueNumber(), System.currentTimeMillis()));
+                        result.position(), result.queueNumber(), System.currentTimeMillis()),
+                        doctorId); // Pass doctorId for Kafka headers
             }
 
             return ResponseEntity.ok(Map.of(
@@ -126,7 +155,15 @@ public class RedisQueueController {
                         .body(new ErrorResponse("clinicId is required"));
             }
 
-            CallNextResult result = redisQueueService.callNext(clinicId);
+            // Extract optional doctorId from JSON body
+            Object doctorIdObj = body.get("doctorId");
+            String doctorId = (doctorIdObj != null
+                    && !String.valueOf(doctorIdObj).equals("null")
+                    && !String.valueOf(doctorIdObj).toString().trim().isEmpty())
+                            ? String.valueOf(doctorIdObj)
+                            : null;
+
+            CallNextResult result = redisQueueService.callNext(clinicId, doctorId);
 
             // Check if queue is empty
             if (result.appointmentId() == null || result.appointmentId().isEmpty()) {
@@ -135,6 +172,12 @@ public class RedisQueueController {
                         "message", "Queue is empty",
                         "nowServing", result.nowServing(),
                         "appointmentId", ""));
+            }
+
+            // Get final doctorId (from request or from Redis metadata)
+            String finalDoctorId = doctorId;
+            if (finalDoctorId == null || finalDoctorId.trim().isEmpty()) {
+                finalDoctorId = redisQueueService.getDoctorIdFromAppointment(result.appointmentId());
             }
 
             // Publish event using the actual nowServing ticket number
@@ -146,7 +189,8 @@ public class RedisQueueController {
                         result.patientId(),
                         (int) result.nowServing(),
                         result.queueNumber(),
-                        System.currentTimeMillis()));
+                        System.currentTimeMillis()),
+                        finalDoctorId); // Pass doctorId for Kafka headers
             }
 
             return ResponseEntity.ok(Map.of(

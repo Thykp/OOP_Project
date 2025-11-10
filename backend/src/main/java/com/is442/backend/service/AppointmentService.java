@@ -329,16 +329,18 @@ public class AppointmentService {
      * @param appointmentId the UUID of the appointment (already generated)
      * @param patientId     the patient's UUID
      * @param clinicId      the clinic identifier
+     * @param doctorId      the doctor ID to assign (can be "UNASSIGNED" if not
+     *                      provided)
      */
     @Async("appointmentTaskExecutor")
-    public void createWalkInAppointmentAsync(UUID appointmentId, String patientId, String clinicId) {
+    public void createWalkInAppointmentAsync(UUID appointmentId, String patientId, String clinicId, String doctorId) {
         try {
-            logger.info("Creating walk-in appointment: appointmentId={}, patientId={}, clinicId={}",
-                    appointmentId, patientId, clinicId);
+            logger.info("Creating walk-in appointment: appointmentId={}, patientId={}, clinicId={}, doctorId={}",
+                    appointmentId, patientId, clinicId, doctorId);
 
-            // For walk-in appointments, default doctor_id to UNASSIGNED
-            // A doctor can be assigned later when the patient is seen
-            createWalkInAppointmentWithDoctor(appointmentId, patientId, clinicId, "UNASSIGNED");
+            // Use provided doctorId or default to UNASSIGNED
+            String doctorIdToUse = (doctorId != null && !doctorId.trim().isEmpty()) ? doctorId : "UNASSIGNED";
+            createWalkInAppointmentWithDoctor(appointmentId, patientId, clinicId, doctorIdToUse);
 
         } catch (Exception e) {
             logger.error("Error creating walk-in appointment: appointmentId={}, patientId={}, clinicId={}, error={}",
@@ -364,8 +366,8 @@ public class AppointmentService {
 
         LocalDate today = LocalDate.now();
         LocalTime now = LocalTime.now();
-        // Set end time to 1 hour from now (default duration for walk-ins)
-        LocalTime endTime = now.plusHours(1);
+        // end_time can be null for walk-in appointments but has some issues, we put an estimated end time first
+        LocalTime endTime = LocalTime.now().plusHours(1);
         LocalDateTime createdAt = LocalDateTime.now();
 
         // Use native SQL INSERT to bypass Hibernate's entity management
@@ -382,7 +384,7 @@ public class AppointmentService {
         query.setParameter(4, clinicId);
         query.setParameter(5, today);
         query.setParameter(6, now);
-        query.setParameter(7, null);
+        query.setParameter(7, endTime);
         query.setParameter(8, "CHECKED-IN");
         query.setParameter(9, "WALK_IN");
         query.setParameter(10, createdAt);
@@ -405,6 +407,38 @@ public class AppointmentService {
             } else {
                 throw e; // Re-throw if it's a different error
             }
+        }
+    }
+
+    /**
+     * Updates the doctor_id field of an existing appointment.
+     * Returns true if the update was successful, false if the appointment doesn't
+     * exist.
+     * 
+     * @param appointmentId the UUID of the appointment
+     * @param doctorId      the doctor ID to assign
+     * @return true if update was successful, false if appointment not found
+     */
+    @Transactional
+    public boolean updateAppointmentDoctorId(UUID appointmentId, String doctorId) {
+        try {
+            Optional<Appointment> appointmentOpt = appointmentRepository.findById(appointmentId);
+            if (appointmentOpt.isEmpty()) {
+                logger.warn("Appointment not found for doctor_id update: appointmentId={}, doctorId={}. " +
+                        "This may be a walk-in appointment that hasn't been created yet.", appointmentId, doctorId);
+                return false;
+            }
+
+            Appointment appointment = appointmentOpt.get();
+            appointment.setDoctorId(doctorId);
+            appointmentRepository.save(appointment);
+
+            logger.info("Updated appointment doctor_id: appointmentId={}, doctorId={}", appointmentId, doctorId);
+            return true;
+        } catch (Exception e) {
+            logger.error("Error updating appointment doctor_id: appointmentId={}, doctorId={}, error={}",
+                    appointmentId, doctorId, e.getMessage(), e);
+            return false;
         }
     }
 }
