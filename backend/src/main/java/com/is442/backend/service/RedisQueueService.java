@@ -211,10 +211,35 @@ public class RedisQueueService {
     public CallNextResult callNext(String clinicId, String doctorId) {
         validateNonEmpty(clinicId, "clinicId");
 
+        // If doctorId is provided, peek at the first appointment and update doctor info
+        // BEFORE dequeue (since dequeue deletes the hash)
+        // This ensures doctor info is included in the data returned by the Lua script
+        if (doctorId != null && !doctorId.trim().isEmpty()) {
+            // Get the first appointment ID from the queue (without removing it)
+            Set<String> firstAppointment = strTpl.opsForZSet().range(kQueue(clinicId), 0, 0);
+            if (firstAppointment != null && !firstAppointment.isEmpty()) {
+                String appointmentIdToUpdate = firstAppointment.iterator().next();
+                if (appointmentIdToUpdate != null && !appointmentIdToUpdate.trim().isEmpty()) {
+                    try {
+                        // Update doctor info in the appointment hash before it gets deleted by dequeue
+                        updateDoctorAssignment(appointmentIdToUpdate, doctorId, clinicId);
+                    } catch (IllegalStateException e) {
+                        // Appointment hash doesn't exist - this shouldn't happen but handle gracefully
+                        // Continue with dequeue anyway
+                    } catch (IllegalArgumentException e) {
+                        // Doctor not found - rethrow as this is a validation error
+                        throw e;
+                    }
+                }
+            }
+        }
+
         // KEYS: queue, nowServing (events removed)
         List<String> keys = List.of(
                 kQueue(clinicId),
                 kNowServing(clinicId));
+        // ARGS: prefix (doctorId is not needed - doctor info is updated in Java before
+        // calling this script)
         List<String> args = List.of("appointment:"); // prefix expected by Lua: kAppointment = "appointment:" + id
 
         List<?> res = strTpl.execute(dequeueScript, keys, args.toArray());
@@ -234,33 +259,30 @@ public class RedisQueueService {
         String patientId = fields.getOrDefault("patientId", "");
         long queueNumber = parseLongSafe(fields.get("seq"), 0L);
 
-        // Update doctor assignment if provided
-        if (doctorId != null && !doctorId.trim().isEmpty() && appointmentId != null && !appointmentId.isEmpty()) {
-            updateDoctorAssignment(appointmentId, doctorId, clinicId);
-
-            // Update appointment in database if AppointmentService is available
-            // Note: For walk-in appointments, this may not exist yet (created
-            // asynchronously)
-            // So we handle the case gracefully without failing the call-next operation
-            if (appointmentService != null) {
-                try {
-                    UUID appointmentUuid = UUID.fromString(appointmentId);
-                    boolean updated = appointmentService.updateAppointmentDoctorId(appointmentUuid, doctorId);
-                    if (!updated) {
-                        // Appointment doesn't exist yet - this is OK for walk-ins
-                        // The doctorId is already stored in Redis, and when the appointment
-                        // is created asynchronously, it will use the doctorId from Redis if available
-                    }
-                } catch (Exception e) {
-                    // Log but don't fail the call-next if update fails
-                    // This is a non-critical operation
+        // Update appointment in database if AppointmentService is available
+        // Note: For walk-in appointments, this may not exist yet (created
+        // asynchronously)
+        // So we handle the case gracefully without failing the call-next operation
+        if (doctorId != null && !doctorId.trim().isEmpty() && appointmentService != null) {
+            try {
+                UUID appointmentUuid = UUID.fromString(appointmentId);
+                boolean updated = appointmentService.updateAppointmentDoctorId(appointmentUuid, doctorId);
+                if (!updated) {
+                    // Appointment doesn't exist yet - this is OK for walk-ins
+                    // The doctorId is already stored in Redis (before dequeue), and when the
+                    // appointment
+                    // is created asynchronously, it will use the doctorId from Redis if available
                 }
+            } catch (Exception e) {
+                // Log but don't fail the call-next if update fails
+                // This is a non-critical operation
             }
         }
 
         // Send NOW_SERVING notification to the patient being called
-        // Note: fields contains all patient hash data retrieved BEFORE deletion in Lua
-        // script
+        // Note: fields contains all appointment hash data retrieved BEFORE deletion in
+        // Lua
+        // script, including the updated doctor info
         if (notificationEventProducer != null && appointmentId != null && !appointmentId.isEmpty()) {
             sendNowServingNotification(clinicId, appointmentId, patientId, fields, doctorId);
         }

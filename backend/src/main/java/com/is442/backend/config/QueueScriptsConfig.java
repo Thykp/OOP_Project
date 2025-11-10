@@ -32,6 +32,7 @@ public class QueueScriptsConfig {
               redis.call('SET', nskey, tostring(seq))
 
               -- return [pid, nowServing, ...pdata as k1,v1,k2,v2,...]
+              -- pdata includes all appointment fields including doctor info (updated in Java before dequeue)
               local result = { pid, tostring(seq) }
               for i=1,#pdata,2 do
                 table.insert(result, pdata[i])
