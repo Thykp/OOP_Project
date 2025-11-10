@@ -1,15 +1,15 @@
 "use client"
 
+import { Bell, Calendar as CalendarIcon, CheckCircle, Clock, History, User } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Clock, User, Bell, History, CheckCircle, Calendar as CalendarIcon } from "lucide-react"
 
 import { PageLayout } from "@/components/page-layout"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 import {
@@ -23,9 +23,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
+import Loader from "@/components/Loader"
 import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/context/auth-context"
-import Loader from "@/components/Loader"
 
 interface Appointment {
   appointment_id: string
@@ -99,13 +99,32 @@ export default function PatientDashboard() {
     return `${day}/${month}/${year}`
   }
 
-  const formatTime = (timeString: string) => {
-    const [hours24, minutes] = timeString.split(":")
-    let hours = parseInt(hours24, 10)
-    const ampm = hours >= 12 ? "PM" : "AM"
-    hours = hours % 12
-    if (hours === 0) hours = 12
-    return `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`
+  const formatTime = (timeString: any) => {
+    if (!timeString) return 'N/A'
+    
+    // Handle array format [hour, minute, second] from LocalTime
+    if (Array.isArray(timeString)) {
+      const [hours24, minutes] = timeString
+      let hours = hours24
+      const ampm = hours >= 12 ? "PM" : "AM"
+      hours = hours % 12
+      if (hours === 0) hours = 12
+      return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${ampm}`
+    }
+    
+    // Handle string format "HH:MM" or "HH:MM:SS"
+    if (typeof timeString === 'string') {
+      const parts = timeString.split(":")
+      if (parts.length < 2) return timeString
+      const [hours24, minutes] = parts
+      let hours = parseInt(hours24, 10)
+      const ampm = hours >= 12 ? "PM" : "AM"
+      hours = hours % 12
+      if (hours === 0) hours = 12
+      return `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`
+    }
+    
+    return 'N/A'
   }
 
 

@@ -152,6 +152,7 @@ public class TimeSlotService {
 
     public List<AvailableDateSlotsDto> getAvailableDatesWithSlots(String speciality, String clinicId, List<String> doctorIds) {
         LocalDate today = LocalDate.now();
+        LocalTime currentTime = LocalTime.now();
         LocalDate end = today.plusWeeks(8);
         List<AvailableDateSlotsDto> result = new ArrayList<>();
 
@@ -192,23 +193,36 @@ public class TimeSlotService {
             Map<LocalDate, List<Appointment>> bookedByDate = bookedByDoctorAndDate.getOrDefault(doctor.getDoctorId(), Map.of());
 
             for (LocalDate date = today; !date.isAfter(end); date = date.plusDays(1)) {
-                String dayOfWeek = date.getDayOfWeek().name();
+                final LocalDate currentDate = date; // Make effectively final for lambda
+                String dayOfWeek = currentDate.getDayOfWeek().name();
                 List<TimeSlot> slotsForDay = slotsByDay.getOrDefault(dayOfWeek, Collections.emptyList());
 
                 if (slotsForDay.isEmpty()) continue;
 
-                List<Appointment> booked = bookedByDate.getOrDefault(date, Collections.emptyList());
+                List<Appointment> booked = bookedByDate.getOrDefault(currentDate, Collections.emptyList());
 
                 // Debug logging
-                System.out.println("Date: " + date + " | Doctor: " + doctor.getDoctorId() + " | Slots: " + slotsForDay.size() + " | Booked: " + booked.size());
+                System.out.println("Date: " + currentDate + " | Doctor: " + doctor.getDoctorId() + " | Slots: " + slotsForDay.size() + " | Booked: " + booked.size());
 
                 List<TimeSlot> available = slotsForDay.stream()
                         .filter(slot -> {
+                            // Filter out booked appointments
                             boolean isBooked = booked.stream().anyMatch(app -> isSameSlot(app, slot));
                             if (isBooked) {
-                                System.out.println("  -> FILTERED OUT: " + slot.getStartTime() + "-" + slot.getEndTime() + " for " + doctor.getDoctorName());
+                                System.out.println("  -> FILTERED OUT (BOOKED): " + slot.getStartTime() + "-" + slot.getEndTime() + " for " + doctor.getDoctorName());
+                                return false;
                             }
-                            return !isBooked;
+                            
+                            // Filter out past time slots for today
+                            if (currentDate.equals(today)) {
+                                LocalTime slotStartTime = slot.getStartTime();
+                                if (slotStartTime != null && slotStartTime.isBefore(currentTime)) {
+                                    System.out.println("  -> FILTERED OUT (PAST TIME): " + slot.getStartTime() + "-" + slot.getEndTime() + " for " + doctor.getDoctorName());
+                                    return false;
+                                }
+                            }
+                            
+                            return true;
                         })
                         .collect(Collectors.toList());
                 
@@ -217,7 +231,7 @@ public class TimeSlotService {
                 if (!available.isEmpty()) {
                     List<TimeSlotDto> dtoSlots = available.stream().map(this::toDto).collect(Collectors.toList());
                     AvailableDateSlotsDto entry = new AvailableDateSlotsDto(
-                            date,
+                            currentDate,
                             doctor.getDoctorId(),
                             doctor.getDoctorName(),
                             doctor.getClinicId(),

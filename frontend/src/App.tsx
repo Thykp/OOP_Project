@@ -3,7 +3,7 @@ import LandingPage from './pages/LandingPage'
 import SignInPage from './pages/SignInPage'
 import SignUpPage from './pages/SignUpPage'
 import PatientDashboard from './pages/PatientDashboard'
-import ViewAppointment from './pages/ViewAppointment'
+import StaffDashboard from './pages/StaffDashboard'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminClinicConfig from './pages/AdminClinicConfig'
 import AdminUserManagement from './pages/AdminUserManagement'
@@ -24,9 +24,12 @@ function App() {
           </RoleProtectedRoute>} />
         <Route path="/viewappointment" element={
           <RoleProtectedRoute role={["ROLE_STAFF"]}>
-            <ViewAppointment />
+            <StaffDashboard />
           </RoleProtectedRoute>
         } />
+
+      
+
         <Route
           path="/dashboard"
           element={
