@@ -10,6 +10,6 @@ public class PatientService {
     @Autowired
     private PatientRepository patientRepository;
     // signupmethod 
- 
+
 
 }
