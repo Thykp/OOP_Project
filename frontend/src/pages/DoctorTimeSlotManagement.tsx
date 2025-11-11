@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { Trash2, Calendar, Clock, Users } from "lucide-react";
+import { Trash2, Calendar, Clock, Users, ArrowLeft } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -48,7 +48,7 @@ export default function AdminClinicConfig() {
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDoctor, setSelectedDoctor] = useState<string>("");
-  const [filterDay, setFilterDay] = useState<string>("ALL");
+  const [filterDay] = useState<string>("ALL");
   const [error, setError] = useState<string | null>(null);
 
   const [clinics, setClinics] = useState<string[]>([]);
@@ -227,6 +227,10 @@ export default function AdminClinicConfig() {
         <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between">
 
           <div>
+            <Link to="/admin/dashboard" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">
+              <ArrowLeft className="w-4 h-4" />
+              Back to Dashboard
+            </Link>
             <div className="flex items-center gap-3 mb-2">
               <Users className="w-8 h-8 text-blue-600" />
               <h1 className="text-4xl font-bold text-gray-900 mb-2">Clinic Doctor Time Slot Management</h1>

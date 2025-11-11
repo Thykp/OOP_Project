@@ -1,11 +1,9 @@
 "use client"
 
 import { Link } from "react-router-dom"
-import { useEffect, useState } from "react"
-import { Link } from "react-router-dom"
 import { PageLayout } from "@/components/page-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, Calendar, Clock, ArrowLeft } from "lucide-react"
+import { Users, Clock, ArrowLeft } from "lucide-react"
 
 export default function ClinicConfigMenu() {
   return (

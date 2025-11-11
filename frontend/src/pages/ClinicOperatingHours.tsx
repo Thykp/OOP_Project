@@ -1,4 +1,5 @@
-import { useEffect, useState, type JSXElementConstructor, type Key, type ReactElement, type ReactNode, type ReactPortal } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -6,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { PageLayout } from "@/components/page-layout";
-import { Clock } from "lucide-react"
+import { Clock, ArrowLeft } from "lucide-react"
 
 
 interface Clinic {
@@ -99,21 +100,6 @@ export default function ClinicOperatingHours() {
     const [clinics, setClinics] = useState<Clinic[]>([]);
     const [selectedClinic, setSelectedClinic] = useState<string>(""); // store sn as string!
     const [error, setError] = useState<string | null>(null);
-
-    const [editingHours, setEditingHours] = useState<{ [key: string]: string }>({
-        monToFriAm: "",
-        monToFriPm: "",
-        monToFriNight: "",
-        satAm: "",
-        satPm: "",
-        satNight: "",
-        sunAm: "",
-        sunPm: "",
-        sunNight: "",
-        publicHolidayAm: "",
-        publicHolidayPm: "",
-        publicHolidayNight: ""
-    });
 
     type SlotTime = { start: string, end: string, open: boolean };
 
@@ -246,6 +232,10 @@ export default function ClinicOperatingHours() {
         <PageLayout>
             <div className="container mx-auto max-w-7xl px-4 py-8">
                 <div className="mb-8">
+                    <Link to="/admin/dashboard" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">
+                        <ArrowLeft className="w-4 h-4" />
+                        Back to Dashboard
+                    </Link>
                     <div className="flex items-center gap-3 mb-2">
                         <Clock className="w-8 h-8 text-green-600" />
                         <h1 className="text-4xl font-bold text-gray-900 mb-2">Configure Clinic Operating Hours</h1>
