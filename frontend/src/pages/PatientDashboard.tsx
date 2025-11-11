@@ -33,6 +33,7 @@ interface Appointment {
   clinic_id: string
   clinic_name: string
   clinic_type: string
+  clinic_address?: string
   created_at: string
   doctor_id: string
   doctor_name: string
@@ -120,27 +121,53 @@ export default function PatientDashboard() {
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL
 
-  const fetchAppointments = () => {
+  const fetchAppointments = async () => {
     if (!user?.id) {
       setLoading(false)
       return
     }
     setLoading(true)
-    fetch(`${API_BASE}/api/appointments/patient/${user.id}/upcoming`)
-      .then((response) => {
-        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`)
-        return response.json()
+    try {
+      const response = await fetch(`${API_BASE}/api/appointments/patient/${user.id}/upcoming`)
+      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`)
+      const data = await response.json()
+      
+      // Fetch all GP and Specialist clinics once
+      const [gpClinicsRes, specialistClinicsRes] = await Promise.all([
+        fetch(`${API_BASE}/api/clinics/gp?limit=100`),
+        fetch(`${API_BASE}/api/clinics/specialist?limit=100`)
+      ])
+      
+      const gpClinics = gpClinicsRes.ok ? await gpClinicsRes.json() : []
+      const specialistClinics = specialistClinicsRes.ok ? await specialistClinicsRes.json() : []
+      
+      // Enrich appointments with clinic addresses
+      const enrichedAppointments = data.map((apt: Appointment) => {
+        // Try to find in GP clinics first
+        let clinic = gpClinics.find((c: any) => c.clinicId === apt.clinic_id)
+        
+        // If not found in GP, try Specialist clinics
+        if (!clinic) {
+          clinic = specialistClinics.find((c: any) => c.ihpClinicId === apt.clinic_id)
+        }
+        
+        return { 
+          ...apt, 
+          clinic_address: clinic?.address || 'Address not available' 
+        }
       })
-      .then((data) => setAppointments(data))
-      .catch((err) => {
-        console.error("Error fetching appointments:", err)
-        toast({
-          variant: "destructive",
-          title: "Unable to load appointments",
-          description: "Please try again shortly.",
-        })
+      
+      setAppointments(enrichedAppointments)
+    } catch (err) {
+      console.error("Error fetching appointments:", err)
+      toast({
+        variant: "destructive",
+        title: "Unable to load appointments",
+        description: "Please try again shortly.",
       })
-      .finally(() => setLoading(false))
+    } finally {
+      setLoading(false)
+    }
   }
 
   const fetchPastAppointments = async () => {
@@ -388,12 +415,17 @@ export default function PatientDashboard() {
                                   {appointment.clinic_type}
                                 </Badge>
                               </div>
+                              {appointment.clinic_address && (
+                                <p className="text-xs text-gray-500 mt-1">{appointment.clinic_address}</p>
+                              )}
                             </div>
                           </div>
 
                           <div className="text-right">
                             <p className="font-semibold">{formatDate(appointment.booking_date)}</p>
-                            <p className="text-sm text-gray-600">{formatTime(appointment.start_time)}</p>
+                            <p className="text-sm text-gray-600">
+                              {formatTime(appointment.start_time)} - {formatTime(appointment.end_time)}
+                            </p>
 
                             <div className="flex gap-2 mt-2">
                               {/* Reschedule */}
