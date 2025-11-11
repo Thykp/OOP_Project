@@ -34,6 +34,9 @@ public class BackendClassScanner {
         // Strategy 2: Try to scan from source files
         if (classes.isEmpty()) {
             classes.addAll(scanFromSourceFiles());
+            if (classes.isEmpty()) {
+                System.err.println("[WARNING] No classes found when scanning source files. This may be because classes are not compiled. Please ensure all source files are compiled before running the scanner.");
+            }
         }
 
         // Strategy 3: Fallback - try to load known classes directly
