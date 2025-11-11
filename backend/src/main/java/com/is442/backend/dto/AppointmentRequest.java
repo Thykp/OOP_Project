@@ -33,6 +33,10 @@ public class AppointmentRequest {
     @JsonProperty("end_time")
     private LocalTime endTime;
 
+    // Optional type: defaults to BOOKING if not provided; use WALK_IN for walk-in flow
+    @JsonProperty("type")
+    private String type;
+
     public AppointmentRequest() {
     }
 
@@ -82,5 +86,13 @@ public class AppointmentRequest {
 
     public void setEndTime(LocalTime endTime) {
         this.endTime = endTime;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
     }
 }
