@@ -1,0 +1,874 @@
+<?xml version="1.0" encoding="UTF-8"?><XMI xmlns:UML="href://org.omg/UML/1.3" xmi.version="1.1">
+    <XMI.header>
+        <XMI.documentation>
+            <XMI.exporter>PlantUML</XMI.exporter>
+            <XMI.exporterVersion>1.2024.3</XMI.exporterVersion>
+        </XMI.documentation>
+        <XMI.metamodel xmi.name="UML" xmi.version="1.4"/>
+    </XMI.header>
+    <XMI.content>
+        <UML:Model name="PlantUML" xmi.id="model1">
+            <UML:Namespace.ownedElement>
+                <UML:Class name="Appointment" xmi.id="cl0002">
+                    <UML:ModelElement.stereotype>
+                        <UML:Stereotype name="Entity"/>
+                    </UML:ModelElement.stereotype>
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="{id} UUID appointmentId" visibility="private" xmi.id="att124"/>
+                        <UML:Attribute name="String patientId" visibility="private" xmi.id="att125"/>
+                        <UML:Attribute name="String doctorId" visibility="private" xmi.id="att126"/>
+                        <UML:Attribute name="String clinicId" visibility="private" xmi.id="att127"/>
+                        <UML:Attribute name="LocalDate bookingDate" visibility="private" xmi.id="att128"/>
+                        <UML:Attribute name="LocalTime startTime" visibility="private" xmi.id="att129"/>
+                        <UML:Attribute name="LocalTime endTime" visibility="private" xmi.id="att130"/>
+                        <UML:Attribute name="String status" visibility="private" xmi.id="att131"/>
+                        <UML:Attribute name="String type" visibility="private" xmi.id="att132"/>
+                        <UML:Attribute name="LocalDateTime createdAt" visibility="private" xmi.id="att133"/>
+                        <UML:Attribute name="LocalDateTime updatedAt" visibility="private" xmi.id="att134"/>
+                        <UML:Attribute name="--" xmi.id="att135"/>
+                        <UML:Operation name="setType(String)" visibility="public" xmi.id="att136"/>
+                        <UML:Operation name="setStartTime(LocalTime)" visibility="public" xmi.id="att137"/>
+                        <UML:Operation name="LocalTime getStartTime()" visibility="public" xmi.id="att138"/>
+                        <UML:Operation name="String getType()" visibility="public" xmi.id="att139"/>
+                        <UML:Operation name="String getDoctorId()" visibility="public" xmi.id="att140"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="TimeSlotService" xmi.id="cl0003">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="TimeSlotRepository timeSlotRepository" visibility="private" xmi.id="att141"/>
+                        <UML:Attribute name="DoctorRepository doctorRepository" visibility="private" xmi.id="att142"/>
+                        <UML:Attribute name="AppointmentRepository appointmentRepository" visibility="private" xmi.id="att143"/>
+                        <UML:Attribute name="--" xmi.id="att144"/>
+                        <UML:Operation name="List&lt;TimeSlotDto&gt; getTimeSlotsByDoctor(String)" visibility="public" xmi.id="att145"/>
+                        <UML:Operation name="List&lt;AvailableDateSlotsDto&gt; getAvailableDatesWithSlots(String, String, List)" visibility="public" xmi.id="att146"/>
+                        <UML:Operation name="List&lt;TimeSlotDto&gt; getAllTimeSlotsForAdmin()" visibility="public" xmi.id="att147"/>
+                        <UML:Operation name="List&lt;TimeSlot&gt; getAllTimeSlots()" visibility="public" xmi.id="att148"/>
+                        <UML:Operation name="List&lt;TimeSlotDto&gt; getAvailableSlotsByClinicAndDate(String, String, LocalDate, List)" visibility="public" xmi.id="att149"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="QueueSseService" xmi.id="cl0004">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="Map&lt;String, String&gt;&gt; clinicSinks" visibility="private" xmi.id="att150"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="SignupRequest" xmi.id="cl0005">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="UUID supabaseUserId" visibility="private" xmi.id="att151"/>
+                        <UML:Attribute name="String email" visibility="private" xmi.id="att152"/>
+                        <UML:Attribute name="String firstName" visibility="private" xmi.id="att153"/>
+                        <UML:Attribute name="String lastName" visibility="private" xmi.id="att154"/>
+                        <UML:Attribute name="String role" visibility="private" xmi.id="att155"/>
+                        <UML:Attribute name="String phone" visibility="private" xmi.id="att156"/>
+                        <UML:Attribute name="String dateOfBirth" visibility="private" xmi.id="att157"/>
+                        <UML:Attribute name="String gender" visibility="private" xmi.id="att158"/>
+                        <UML:Attribute name="String clinicName" visibility="private" xmi.id="att159"/>
+                        <UML:Attribute name="String clinicId" visibility="private" xmi.id="att160"/>
+                        <UML:Attribute name="String position" visibility="private" xmi.id="att161"/>
+                        <UML:Attribute name="--" xmi.id="att162"/>
+                        <UML:Operation name="String getPosition()" visibility="public" xmi.id="att163"/>
+                        <UML:Operation name="setRole(String)" visibility="public" xmi.id="att164"/>
+                        <UML:Operation name="setDateOfBirth(String)" visibility="public" xmi.id="att165"/>
+                        <UML:Operation name="setClinicId(String)" visibility="public" xmi.id="att166"/>
+                        <UML:Operation name="String getClinicName()" visibility="public" xmi.id="att167"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="TimeSlot" xmi.id="cl0006">
+                    <UML:ModelElement.stereotype>
+                        <UML:Stereotype name="Entity"/>
+                    </UML:ModelElement.stereotype>
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="{id} Long id" visibility="private" xmi.id="att168"/>
+                        <UML:Attribute name="String doctorId" visibility="private" xmi.id="att169"/>
+                        <UML:Attribute name="String doctorName" visibility="private" xmi.id="att170"/>
+                        <UML:Attribute name="String dayOfWeek" visibility="private" xmi.id="att171"/>
+                        <UML:Attribute name="LocalTime startTime" visibility="private" xmi.id="att172"/>
+                        <UML:Attribute name="LocalTime endTime" visibility="private" xmi.id="att173"/>
+                        <UML:Attribute name="--" xmi.id="att174"/>
+                        <UML:Operation name="setStartTime(LocalTime)" visibility="public" xmi.id="att175"/>
+                        <UML:Operation name="LocalTime getStartTime()" visibility="public" xmi.id="att176"/>
+                        <UML:Operation name="String getDayOfWeek()" visibility="public" xmi.id="att177"/>
+                        <UML:Operation name="setDayOfWeek(String)" visibility="public" xmi.id="att178"/>
+                        <UML:Operation name="String getDoctorName()" visibility="public" xmi.id="att179"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="DoctorService" xmi.id="cl0007">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="DoctorRepository doctorRepository" visibility="private" xmi.id="att180"/>
+                        <UML:Attribute name="--" xmi.id="att181"/>
+                        <UML:Operation name="List&lt;DoctorDto&gt; getAllDoctors()" visibility="public" xmi.id="att182"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="DoctorController" xmi.id="cl0008">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="DoctorService doctorService" visibility="private" xmi.id="att183"/>
+                        <UML:Attribute name="--" xmi.id="att184"/>
+                        <UML:Operation name="ResponseEntity&lt;DoctorDto&gt;&gt; getAllDoctors()" visibility="public" xmi.id="att185"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="RedisQueueService" xmi.id="cl0009">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="StringRedisTemplate strTpl" visibility="private" xmi.id="att186"/>
+                        <UML:Attribute name="RedisTemplate&lt;String, Object&gt; jsonTpl" visibility="private" xmi.id="att187"/>
+                        <UML:Attribute name="DefaultRedisScript&lt;List&gt; dequeueScript" visibility="private" xmi.id="att188"/>
+                        <UML:Attribute name="UserService userService" visibility="private" xmi.id="att189"/>
+                        <UML:Attribute name="AppointmentService appointmentService" visibility="private" xmi.id="att190"/>
+                        <UML:Attribute name="NotificationEventProducer notificationEventProducer" visibility="private" xmi.id="att191"/>
+                        <UML:Attribute name="DoctorRepository doctorRepository" visibility="private" xmi.id="att192"/>
+                        <UML:Attribute name="--" xmi.id="att193"/>
+                        <UML:Operation name="String getDoctorIdFromAppointment(String)" visibility="public" xmi.id="att194"/>
+                        <UML:Operation name="long getNowServingSeqSafe(String)" visibility="private" xmi.id="att195"/>
+                        <UML:Operation name="PositionSnapshot getCurrentPosition(String)" visibility="public" xmi.id="att196"/>
+                        <UML:Operation name="long getQueueNumber(String)" visibility="public" xmi.id="att197"/>
+                        <UML:Operation name="QueueStatus getQueueStatus(String)" visibility="public" xmi.id="att198"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="StaffResponse" xmi.id="cl0010">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="String clinicName" visibility="private" xmi.id="att199"/>
+                        <UML:Attribute name="String clinicId" visibility="private" xmi.id="att200"/>
+                        <UML:Attribute name="String position" visibility="private" xmi.id="att201"/>
+                        <UML:Attribute name="--" xmi.id="att202"/>
+                        <UML:Operation name="String getPosition()" visibility="public" xmi.id="att203"/>
+                        <UML:Operation name="setClinicId(String)" visibility="public" xmi.id="att204"/>
+                        <UML:Operation name="String getClinicName()" visibility="public" xmi.id="att205"/>
+                        <UML:Operation name="setPosition(String)" visibility="public" xmi.id="att206"/>
+                        <UML:Operation name="setClinicName(String)" visibility="public" xmi.id="att207"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="KafkaQueueEventProducer" xmi.id="cl0011">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="KafkaTemplate&lt;String, String&gt; kafkaTemplate" visibility="private" xmi.id="att208"/>
+                        <UML:Attribute name="ObjectMapper om" visibility="private" xmi.id="att209"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="QueueStatus" xmi.id="cl0012">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="String clinicId" visibility="private" xmi.id="att210"/>
+                        <UML:Attribute name="long nowServing" visibility="private" xmi.id="att211"/>
+                        <UML:Attribute name="int totalWaiting" visibility="private" xmi.id="att212"/>
+                        <UML:Attribute name="--" xmi.id="att213"/>
+                        <UML:Operation name="int getTotalWaiting()" visibility="public" xmi.id="att214"/>
+                        <UML:Operation name="long getNowServing()" visibility="public" xmi.id="att215"/>
+                        <UML:Operation name="String getClinicId()" visibility="public" xmi.id="att216"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="UserRequest" xmi.id="cl0013">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="UUID supabaseUserId" visibility="private" xmi.id="att217"/>
+                        <UML:Attribute name="String email" visibility="private" xmi.id="att218"/>
+                        <UML:Attribute name="String firstName" visibility="private" xmi.id="att219"/>
+                        <UML:Attribute name="String lastName" visibility="private" xmi.id="att220"/>
+                        <UML:Attribute name="String role" visibility="private" xmi.id="att221"/>
+                        <UML:Attribute name="String status" visibility="private" xmi.id="att222"/>
+                        <UML:Attribute name="--" xmi.id="att223"/>
+                        <UML:Operation name="setRole(String)" visibility="public" xmi.id="att224"/>
+                        <UML:Operation name="String getFirstName()" visibility="public" xmi.id="att225"/>
+                        <UML:Operation name="UUID getSupabaseUserId()" visibility="public" xmi.id="att226"/>
+                        <UML:Operation name="setSupabaseUserId(UUID)" visibility="public" xmi.id="att227"/>
+                        <UML:Operation name="setFirstName(String)" visibility="public" xmi.id="att228"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="CallNextResult" xmi.id="cl0014">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="String clinicId" visibility="private" xmi.id="att229"/>
+                        <UML:Attribute name="String appointmentId" visibility="private" xmi.id="att230"/>
+                        <UML:Attribute name="String patientId" visibility="private" xmi.id="att231"/>
+                        <UML:Attribute name="int position" visibility="private" xmi.id="att232"/>
+                        <UML:Attribute name="long nowServing" visibility="private" xmi.id="att233"/>
+                        <UML:Attribute name="long queueNumber" visibility="private" xmi.id="att234"/>
+                        <UML:Attribute name="--" xmi.id="att235"/>
+                        <UML:Operation name="boolean equals(Object)" visibility="public" xmi.id="att236"/>
+                        <UML:Operation name="String toString()" visibility="public" xmi.id="att237"/>
+                        <UML:Operation name="int hashCode()" visibility="public" xmi.id="att238"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="HealthController" xmi.id="cl0015">
+                    <UML:Classifier.feature/>
+                </UML:Class>
+                <UML:Class name="CheckinResult" xmi.id="cl0016">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="int position" visibility="private" xmi.id="att239"/>
+                        <UML:Attribute name="long queueNumber" visibility="private" xmi.id="att240"/>
+                        <UML:Attribute name="--" xmi.id="att241"/>
+                        <UML:Operation name="boolean equals(Object)" visibility="public" xmi.id="att242"/>
+                        <UML:Operation name="String toString()" visibility="public" xmi.id="att243"/>
+                        <UML:Operation name="int hashCode()" visibility="public" xmi.id="att244"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="SpecialistClinicDto" xmi.id="cl0017">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="Integer sn" visibility="private" xmi.id="att245"/>
+                        <UML:Attribute name="String ihpClinicId" visibility="private" xmi.id="att246"/>
+                        <UML:Attribute name="String region" visibility="private" xmi.id="att247"/>
+                        <UML:Attribute name="String area" visibility="private" xmi.id="att248"/>
+                        <UML:Attribute name="String clinicName" visibility="private" xmi.id="att249"/>
+                        <UML:Attribute name="String address" visibility="private" xmi.id="att250"/>
+                        <UML:Attribute name="String telephoneNum" visibility="private" xmi.id="att251"/>
+                        <UML:Attribute name="String speciality" visibility="private" xmi.id="att252"/>
+                        <UML:Attribute name="String monToFriAm" visibility="private" xmi.id="att253"/>
+                        <UML:Attribute name="String monToFriPm" visibility="private" xmi.id="att254"/>
+                        <UML:Attribute name="String monToFriNight" visibility="private" xmi.id="att255"/>
+                        <UML:Attribute name="String satAm" visibility="private" xmi.id="att256"/>
+                        <UML:Attribute name="String satPm" visibility="private" xmi.id="att257"/>
+                        <UML:Attribute name="String satNight" visibility="private" xmi.id="att258"/>
+                        <UML:Attribute name="String sunAm" visibility="private" xmi.id="att259"/>
+                        <UML:Attribute name="String sunPm" visibility="private" xmi.id="att260"/>
+                        <UML:Attribute name="String sunNight" visibility="private" xmi.id="att261"/>
+                        <UML:Attribute name="String publicHolidayAm" visibility="private" xmi.id="att262"/>
+                        <UML:Attribute name="String publicHolidayPm" visibility="private" xmi.id="att263"/>
+                        <UML:Attribute name="String publicHolidayNight" visibility="private" xmi.id="att264"/>
+                        <UML:Attribute name="--" xmi.id="att265"/>
+                        <UML:Operation name="String getPublicHolidayNight()" visibility="public" xmi.id="att266"/>
+                        <UML:Operation name="setPublicHolidayNight(String)" visibility="public" xmi.id="att267"/>
+                        <UML:Operation name="String toString()" visibility="public" xmi.id="att268"/>
+                        <UML:Operation name="String getAddress()" visibility="public" xmi.id="att269"/>
+                        <UML:Operation name="String getRegion()" visibility="public" xmi.id="att270"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="AppointmentResponse" xmi.id="cl0018">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="UUID appointmentId" visibility="private" xmi.id="att271"/>
+                        <UML:Attribute name="String patientId" visibility="private" xmi.id="att272"/>
+                        <UML:Attribute name="String patientName" visibility="private" xmi.id="att273"/>
+                        <UML:Attribute name="String doctorId" visibility="private" xmi.id="att274"/>
+                        <UML:Attribute name="String doctorName" visibility="private" xmi.id="att275"/>
+                        <UML:Attribute name="String clinicId" visibility="private" xmi.id="att276"/>
+                        <UML:Attribute name="String clinicName" visibility="private" xmi.id="att277"/>
+                        <UML:Attribute name="String clinicType" visibility="private" xmi.id="att278"/>
+                        <UML:Attribute name="LocalDate bookingDate" visibility="private" xmi.id="att279"/>
+                        <UML:Attribute name="LocalTime startTime" visibility="private" xmi.id="att280"/>
+                        <UML:Attribute name="LocalTime endTime" visibility="private" xmi.id="att281"/>
+                        <UML:Attribute name="String status" visibility="private" xmi.id="att282"/>
+                        <UML:Attribute name="String type" visibility="private" xmi.id="att283"/>
+                        <UML:Attribute name="LocalDateTime createdAt" visibility="private" xmi.id="att284"/>
+                        <UML:Attribute name="LocalDateTime updatedAt" visibility="private" xmi.id="att285"/>
+                        <UML:Attribute name="--" xmi.id="att286"/>
+                        <UML:Operation name="setType(String)" visibility="public" xmi.id="att287"/>
+                        <UML:Operation name="setStartTime(LocalTime)" visibility="public" xmi.id="att288"/>
+                        <UML:Operation name="LocalTime getStartTime()" visibility="public" xmi.id="att289"/>
+                        <UML:Operation name="String getType()" visibility="public" xmi.id="att290"/>
+                        <UML:Operation name="String getDoctorName()" visibility="public" xmi.id="att291"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="TimeSlotRequest" xmi.id="cl0019">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="String doctorId" visibility="private" xmi.id="att292"/>
+                        <UML:Attribute name="String doctorName" visibility="private" xmi.id="att293"/>
+                        <UML:Attribute name="String dayOfWeek" visibility="private" xmi.id="att294"/>
+                        <UML:Attribute name="String startTime" visibility="private" xmi.id="att295"/>
+                        <UML:Attribute name="String endTime" visibility="private" xmi.id="att296"/>
+                        <UML:Attribute name="--" xmi.id="att297"/>
+                        <UML:Operation name="setStartTime(String)" visibility="public" xmi.id="att298"/>
+                        <UML:Operation name="String getStartTime()" visibility="public" xmi.id="att299"/>
+                        <UML:Operation name="String getDayOfWeek()" visibility="public" xmi.id="att300"/>
+                        <UML:Operation name="setDayOfWeek(String)" visibility="public" xmi.id="att301"/>
+                        <UML:Operation name="String getDoctorName()" visibility="public" xmi.id="att302"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="TimeSlotDto" xmi.id="cl0020">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="Long id" visibility="private" xmi.id="att303"/>
+                        <UML:Attribute name="String doctorId" visibility="private" xmi.id="att304"/>
+                        <UML:Attribute name="String doctorName" visibility="private" xmi.id="att305"/>
+                        <UML:Attribute name="String dayOfWeek" visibility="private" xmi.id="att306"/>
+                        <UML:Attribute name="LocalTime startTime" visibility="private" xmi.id="att307"/>
+                        <UML:Attribute name="LocalTime endTime" visibility="private" xmi.id="att308"/>
+                        <UML:Attribute name="boolean isAvailable" visibility="private" xmi.id="att309"/>
+                        <UML:Attribute name="--" xmi.id="att310"/>
+                        <UML:Operation name="setStartTime(LocalTime)" visibility="public" xmi.id="att311"/>
+                        <UML:Operation name="LocalTime getStartTime()" visibility="public" xmi.id="att312"/>
+                        <UML:Operation name="String getDayOfWeek()" visibility="public" xmi.id="att313"/>
+                        <UML:Operation name="setDayOfWeek(String)" visibility="public" xmi.id="att314"/>
+                        <UML:Operation name="setAvailable(boolean)" visibility="public" xmi.id="att315"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="PatientService" xmi.id="cl0021">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="PatientRepository patientRepository" visibility="private" xmi.id="att316"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="ClinicService" xmi.id="cl0022">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="GpClinicRepository gpRepo" visibility="private" xmi.id="att317"/>
+                        <UML:Attribute name="SpecialistClinicRepository spRepo" visibility="private" xmi.id="att318"/>
+                        <UML:Attribute name="KafkaQueueEventProducer queueEventProducer" visibility="private" xmi.id="att319"/>
+                        <UML:Attribute name="--" xmi.id="att320"/>
+                        <UML:Operation name="List&lt;SpecialistClinicDto&gt; getSpecialistClinics(int)" visibility="public" xmi.id="att321"/>
+                        <UML:Operation name="List&lt;GpClinicDto&gt; getGpClinics(int)" visibility="public" xmi.id="att322"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="DoctorDto" xmi.id="cl0023">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="String doctorId" visibility="private" xmi.id="att323"/>
+                        <UML:Attribute name="String doctorName" visibility="private" xmi.id="att324"/>
+                        <UML:Attribute name="String clinicName" visibility="private" xmi.id="att325"/>
+                        <UML:Attribute name="String clinicAddress" visibility="private" xmi.id="att326"/>
+                        <UML:Attribute name="String speciality" visibility="private" xmi.id="att327"/>
+                        <UML:Attribute name="String clinicId" visibility="private" xmi.id="att328"/>
+                        <UML:Attribute name="--" xmi.id="att329"/>
+                        <UML:Operation name="String toString()" visibility="public" xmi.id="att330"/>
+                        <UML:Operation name="String getDoctorName()" visibility="public" xmi.id="att331"/>
+                        <UML:Operation name="String getDoctorId()" visibility="public" xmi.id="att332"/>
+                        <UML:Operation name="setDoctorId(String)" visibility="public" xmi.id="att333"/>
+                        <UML:Operation name="setClinicId(String)" visibility="public" xmi.id="att334"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="StaffRequest" xmi.id="cl0024">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="String clinicName" visibility="private" xmi.id="att335"/>
+                        <UML:Attribute name="String position" visibility="private" xmi.id="att336"/>
+                        <UML:Attribute name="--" xmi.id="att337"/>
+                        <UML:Operation name="String getPosition()" visibility="public" xmi.id="att338"/>
+                        <UML:Operation name="String getClinicName()" visibility="public" xmi.id="att339"/>
+                        <UML:Operation name="setPosition(String)" visibility="public" xmi.id="att340"/>
+                        <UML:Operation name="setClinicName(String)" visibility="public" xmi.id="att341"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="QueueStreamController" xmi.id="cl0025">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="QueueSseService sse" visibility="private" xmi.id="att342"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="KafkaQueueEventConsumer" xmi.id="cl0026">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="QueueSseService sse" visibility="private" xmi.id="att343"/>
+                        <UML:Attribute name="ObjectMapper om" visibility="private" xmi.id="att344"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="BackendClassScanner" xmi.id="cl0027">
+                    <UML:Classifier.feature/>
+                </UML:Class>
+                <UML:Class name="User" xmi.id="cl0028">
+                    <UML:ModelElement.stereotype>
+                        <UML:Stereotype name="abstract"/>
+                    </UML:ModelElement.stereotype>
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="{id} UUID supabaseUserId" visibility="private" xmi.id="att345"/>
+                        <UML:Attribute name="String email" visibility="private" xmi.id="att346"/>
+                        <UML:Attribute name="String firstName" visibility="private" xmi.id="att347"/>
+                        <UML:Attribute name="String lastName" visibility="private" xmi.id="att348"/>
+                        <UML:Attribute name="String role" visibility="private" xmi.id="att349"/>
+                        <UML:Attribute name="String phone" visibility="private" xmi.id="att350"/>
+                        <UML:Attribute name="String status" visibility="private" xmi.id="att351"/>
+                        <UML:Attribute name="--" xmi.id="att352"/>
+                        <UML:Operation name="setRole(String)" visibility="public" xmi.id="att353"/>
+                        <UML:Operation name="String getFirstName()" visibility="public" xmi.id="att354"/>
+                        <UML:Operation name="UUID getSupabaseUserId()" visibility="public" xmi.id="att355"/>
+                        <UML:Operation name="setSupabaseUserId(UUID)" visibility="public" xmi.id="att356"/>
+                        <UML:Operation name="setFirstName(String)" visibility="public" xmi.id="att357"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="RedisQueueController" xmi.id="cl0029">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="RedisQueueService redisQueueService" visibility="private" xmi.id="att358"/>
+                        <UML:Attribute name="KafkaQueueEventProducer events" visibility="private" xmi.id="att359"/>
+                        <UML:Attribute name="AppointmentService appointmentService" visibility="private" xmi.id="att360"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="AvailableDateSlotsDto" xmi.id="cl0030">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="LocalDate date" visibility="private" xmi.id="att361"/>
+                        <UML:Attribute name="String doctorId" visibility="private" xmi.id="att362"/>
+                        <UML:Attribute name="String doctorName" visibility="private" xmi.id="att363"/>
+                        <UML:Attribute name="String clinicId" visibility="private" xmi.id="att364"/>
+                        <UML:Attribute name="String clinicName" visibility="private" xmi.id="att365"/>
+                        <UML:Attribute name="List&lt;TimeSlotDto&gt; timeSlots" visibility="private" xmi.id="att366"/>
+                        <UML:Attribute name="--" xmi.id="att367"/>
+                        <UML:Operation name="setDate(LocalDate)" visibility="public" xmi.id="att368"/>
+                        <UML:Operation name="LocalDate getDate()" visibility="public" xmi.id="att369"/>
+                        <UML:Operation name="String getDoctorName()" visibility="public" xmi.id="att370"/>
+                        <UML:Operation name="String getDoctorId()" visibility="public" xmi.id="att371"/>
+                        <UML:Operation name="setDoctorId(String)" visibility="public" xmi.id="att372"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="PositionSnapshot" xmi.id="cl0031">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="String clinicId" visibility="private" xmi.id="att373"/>
+                        <UML:Attribute name="int position" visibility="private" xmi.id="att374"/>
+                        <UML:Attribute name="long nowServing" visibility="private" xmi.id="att375"/>
+                        <UML:Attribute name="long queueNumber" visibility="private" xmi.id="att376"/>
+                        <UML:Attribute name="--" xmi.id="att377"/>
+                        <UML:Operation name="Object getPosition()" visibility="public" xmi.id="att378"/>
+                        <UML:Operation name="boolean equals(Object)" visibility="public" xmi.id="att379"/>
+                        <UML:Operation name="String toString()" visibility="public" xmi.id="att380"/>
+                        <UML:Operation name="int hashCode()" visibility="public" xmi.id="att381"/>
+                        <UML:Operation name="Object getNowServing()" visibility="public" xmi.id="att382"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="TreatmentNoteRequest" xmi.id="cl0032">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="String appointmentId" visibility="private" xmi.id="att383"/>
+                        <UML:Attribute name="String noteType" visibility="private" xmi.id="att384"/>
+                        <UML:Attribute name="String notes" visibility="private" xmi.id="att385"/>
+                        <UML:Attribute name="--" xmi.id="att386"/>
+                        <UML:Operation name="String getAppointmentId()" visibility="public" xmi.id="att387"/>
+                        <UML:Operation name="setAppointmentId(String)" visibility="public" xmi.id="att388"/>
+                        <UML:Operation name="String getNoteType()" visibility="public" xmi.id="att389"/>
+                        <UML:Operation name="setNoteType(String)" visibility="public" xmi.id="att390"/>
+                        <UML:Operation name="String getNotes()" visibility="public" xmi.id="att391"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="QueueEvent" xmi.id="cl0033">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="String type" visibility="private" xmi.id="att392"/>
+                        <UML:Attribute name="String clinicId" visibility="private" xmi.id="att393"/>
+                        <UML:Attribute name="String appointmentId" visibility="private" xmi.id="att394"/>
+                        <UML:Attribute name="String patientId" visibility="private" xmi.id="att395"/>
+                        <UML:Attribute name="Integer position" visibility="private" xmi.id="att396"/>
+                        <UML:Attribute name="Long queueNumber" visibility="private" xmi.id="att397"/>
+                        <UML:Attribute name="Long ts" visibility="private" xmi.id="att398"/>
+                        <UML:Attribute name="--" xmi.id="att399"/>
+                        <UML:Operation name="boolean equals(Object)" visibility="public" xmi.id="att400"/>
+                        <UML:Operation name="String toString()" visibility="public" xmi.id="att401"/>
+                        <UML:Operation name="int hashCode()" visibility="public" xmi.id="att402"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="TimeSlotController" xmi.id="cl0034">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="TimeSlotService timeSlotService" visibility="private" xmi.id="att403"/>
+                        <UML:Attribute name="--" xmi.id="att404"/>
+                        <UML:Operation name="ResponseEntity&lt;TimeSlotDto&gt;&gt; getTimeSlotsByDoctor(String)" visibility="public" xmi.id="att405"/>
+                        <UML:Operation name="ResponseEntity&lt;AvailableDateSlotsDto&gt;&gt; getAvailableDatesWithSlots(String, String, List)" visibility="public" xmi.id="att406"/>
+                        <UML:Operation name="ResponseEntity&lt;TimeSlotDto&gt;&gt; getAllTimeSlots()" visibility="public" xmi.id="att407"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="UserController" xmi.id="cl0035">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="UserService userService" visibility="private" xmi.id="att408"/>
+                        <UML:Attribute name="--" xmi.id="att409"/>
+                        <UML:Operation name="ResponseEntity&lt;StaffResponse&gt; getStaffBySupabaseId(UUID)" visibility="public" xmi.id="att410"/>
+                        <UML:Operation name="ResponseEntity&lt;StaffResponse&gt;&gt; getAllClinicStaff()" visibility="public" xmi.id="att411"/>
+                        <UML:Operation name="ResponseEntity&lt;PatientResponse&gt; getPatientByEmail(String)" visibility="public" xmi.id="att412"/>
+                        <UML:Operation name="ResponseEntity&lt;PatientResponse&gt;&gt; getAllPatients()" visibility="public" xmi.id="att413"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="Record" xmi.id="cl0036">
+                    <UML:ModelElement.stereotype>
+                        <UML:Stereotype name="abstract"/>
+                    </UML:ModelElement.stereotype>
+                    <UML:Classifier.feature>
+                        <UML:Operation name="boolean equals(Object)" visibility="public" xmi.id="att414"/>
+                        <UML:Operation name="String toString()" visibility="public" xmi.id="att415"/>
+                        <UML:Operation name="int hashCode()" visibility="public" xmi.id="att416"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="PatientRequest" xmi.id="cl0037">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="String phone" visibility="private" xmi.id="att417"/>
+                        <UML:Attribute name="String dateOfBirth" visibility="private" xmi.id="att418"/>
+                        <UML:Attribute name="String gender" visibility="private" xmi.id="att419"/>
+                        <UML:Attribute name="--" xmi.id="att420"/>
+                        <UML:Operation name="setDateOfBirth(String)" visibility="public" xmi.id="att421"/>
+                        <UML:Operation name="String getDateOfBirth()" visibility="public" xmi.id="att422"/>
+                        <UML:Operation name="String getPhone()" visibility="public" xmi.id="att423"/>
+                        <UML:Operation name="setPhone(String)" visibility="public" xmi.id="att424"/>
+                        <UML:Operation name="String getGender()" visibility="public" xmi.id="att425"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="GpClinicDto" xmi.id="cl0038">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="Integer sn" visibility="private" xmi.id="att426"/>
+                        <UML:Attribute name="String pcn" visibility="private" xmi.id="att427"/>
+                        <UML:Attribute name="String clinicId" visibility="private" xmi.id="att428"/>
+                        <UML:Attribute name="String clinicName" visibility="private" xmi.id="att429"/>
+                        <UML:Attribute name="String address" visibility="private" xmi.id="att430"/>
+                        <UML:Attribute name="String telephoneNum" visibility="private" xmi.id="att431"/>
+                        <UML:Attribute name="String openingHours" visibility="private" xmi.id="att432"/>
+                        <UML:Attribute name="String closingHours" visibility="private" xmi.id="att433"/>
+                        <UML:Attribute name="--" xmi.id="att434"/>
+                        <UML:Operation name="String toString()" visibility="public" xmi.id="att435"/>
+                        <UML:Operation name="String getAddress()" visibility="public" xmi.id="att436"/>
+                        <UML:Operation name="String getClinicName()" visibility="public" xmi.id="att437"/>
+                        <UML:Operation name="String getClinicId()" visibility="public" xmi.id="att438"/>
+                        <UML:Operation name="setOpeningHours(String)" visibility="public" xmi.id="att439"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="SpecialistClinic" xmi.id="cl0039">
+                    <UML:ModelElement.stereotype>
+                        <UML:Stereotype name="Entity"/>
+                    </UML:ModelElement.stereotype>
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="{id} Integer sn" visibility="private" xmi.id="att440"/>
+                        <UML:Attribute name="String ihpClinicId" visibility="private" xmi.id="att441"/>
+                        <UML:Attribute name="String region" visibility="private" xmi.id="att442"/>
+                        <UML:Attribute name="String area" visibility="private" xmi.id="att443"/>
+                        <UML:Attribute name="String monToFriAm" visibility="private" xmi.id="att444"/>
+                        <UML:Attribute name="String monToFriPm" visibility="private" xmi.id="att445"/>
+                        <UML:Attribute name="String monToFriNight" visibility="private" xmi.id="att446"/>
+                        <UML:Attribute name="String satAm" visibility="private" xmi.id="att447"/>
+                        <UML:Attribute name="String satPm" visibility="private" xmi.id="att448"/>
+                        <UML:Attribute name="String satNight" visibility="private" xmi.id="att449"/>
+                        <UML:Attribute name="String sunAm" visibility="private" xmi.id="att450"/>
+                        <UML:Attribute name="String sunPm" visibility="private" xmi.id="att451"/>
+                        <UML:Attribute name="String sunNight" visibility="private" xmi.id="att452"/>
+                        <UML:Attribute name="String publicHolidayAm" visibility="private" xmi.id="att453"/>
+                        <UML:Attribute name="String publicHolidayPm" visibility="private" xmi.id="att454"/>
+                        <UML:Attribute name="String publicHolidayNight" visibility="private" xmi.id="att455"/>
+                        <UML:Attribute name="String remarks" visibility="private" xmi.id="att456"/>
+                        <UML:Attribute name="String speciality" visibility="private" xmi.id="att457"/>
+                        <UML:Attribute name="--" xmi.id="att458"/>
+                        <UML:Operation name="String getPublicHolidayNight()" visibility="public" xmi.id="att459"/>
+                        <UML:Operation name="setPublicHolidayNight(String)" visibility="public" xmi.id="att460"/>
+                        <UML:Operation name="String getRegion()" visibility="public" xmi.id="att461"/>
+                        <UML:Operation name="setRegion(String)" visibility="public" xmi.id="att462"/>
+                        <UML:Operation name="setPublicHolidayPm(String)" visibility="public" xmi.id="att463"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="ClinicController" xmi.id="cl0040">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="ClinicService clinicService" visibility="private" xmi.id="att464"/>
+                        <UML:Attribute name="--" xmi.id="att465"/>
+                        <UML:Operation name="ResponseEntity&lt;SpecialistClinicDto&gt;&gt; getSpecialistClinics(int)" visibility="public" xmi.id="att466"/>
+                        <UML:Operation name="ResponseEntity&lt;GpClinicDto&gt;&gt; getGpClinics(int)" visibility="public" xmi.id="att467"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="UserService" xmi.id="cl0041">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="UserRepository userRepository" visibility="private" xmi.id="att468"/>
+                        <UML:Attribute name="PatientRepository patientRepository" visibility="private" xmi.id="att469"/>
+                        <UML:Attribute name="--" xmi.id="att470"/>
+                        <UML:Operation name="List&lt;StaffResponse&gt; getAllClinicStaff()" visibility="public" xmi.id="att471"/>
+                        <UML:Operation name="List&lt;PatientResponse&gt; getAllPatients()" visibility="public" xmi.id="att472"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="AppointmentController" xmi.id="cl0042">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="AppointmentService appointmentService" visibility="private" xmi.id="att473"/>
+                        <UML:Attribute name="--" xmi.id="att474"/>
+                        <UML:Operation name="ResponseEntity&lt;AppointmentResponse&gt;&gt; getAllAppointments()" visibility="public" xmi.id="att475"/>
+                        <UML:Operation name="ResponseEntity&lt;AppointmentResponse&gt; getAppointmentById(UUID)" visibility="public" xmi.id="att476"/>
+                        <UML:Operation name="ResponseEntity&lt;AppointmentResponse&gt;&gt; getAppointmentsByPatient(String)" visibility="public" xmi.id="att477"/>
+                        <UML:Operation name="ResponseEntity&lt;AppointmentResponse&gt;&gt; getAppointmentsByDoctor(String)" visibility="public" xmi.id="att478"/>
+                        <UML:Operation name="ResponseEntity&lt;AppointmentResponse&gt;&gt; getUpcomingAppointments(String)" visibility="public" xmi.id="att479"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="Patient" xmi.id="cl0043">
+                    <UML:ModelElement.stereotype>
+                        <UML:Stereotype name="Entity"/>
+                    </UML:ModelElement.stereotype>
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="String phone" visibility="private" xmi.id="att480"/>
+                        <UML:Attribute name="String dateOfBirth" visibility="private" xmi.id="att481"/>
+                        <UML:Attribute name="String gender" visibility="private" xmi.id="att482"/>
+                        <UML:Attribute name="--" xmi.id="att483"/>
+                        <UML:Operation name="setDateOfBirth(String)" visibility="public" xmi.id="att484"/>
+                        <UML:Operation name="String getDateOfBirth()" visibility="public" xmi.id="att485"/>
+                        <UML:Operation name="String getPhone()" visibility="public" xmi.id="att486"/>
+                        <UML:Operation name="setPhone(String)" visibility="public" xmi.id="att487"/>
+                        <UML:Operation name="String getGender()" visibility="public" xmi.id="att488"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="SystemAdministrator" xmi.id="cl0044">
+                    <UML:ModelElement.stereotype>
+                        <UML:Stereotype name="Entity"/>
+                    </UML:ModelElement.stereotype>
+                    <UML:Classifier.feature/>
+                </UML:Class>
+                <UML:Class name="NotificationEvent" xmi.id="cl0045">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="String type" visibility="private" xmi.id="att489"/>
+                        <UML:Attribute name="String clinicId" visibility="private" xmi.id="att490"/>
+                        <UML:Attribute name="String appointmentId" visibility="private" xmi.id="att491"/>
+                        <UML:Attribute name="String patientId" visibility="private" xmi.id="att492"/>
+                        <UML:Attribute name="String channel" visibility="private" xmi.id="att493"/>
+                        <UML:Attribute name="String payload" visibility="private" xmi.id="att494"/>
+                        <UML:Attribute name="Long ts" visibility="private" xmi.id="att495"/>
+                        <UML:Attribute name="--" xmi.id="att496"/>
+                        <UML:Operation name="boolean equals(Object)" visibility="public" xmi.id="att497"/>
+                        <UML:Operation name="String toString()" visibility="public" xmi.id="att498"/>
+                        <UML:Operation name="int hashCode()" visibility="public" xmi.id="att499"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="Doctor" xmi.id="cl0046">
+                    <UML:ModelElement.stereotype>
+                        <UML:Stereotype name="Entity"/>
+                    </UML:ModelElement.stereotype>
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="{id} Long id" visibility="private" xmi.id="att500"/>
+                        <UML:Attribute name="String doctorId" visibility="private" xmi.id="att501"/>
+                        <UML:Attribute name="String doctorName" visibility="private" xmi.id="att502"/>
+                        <UML:Attribute name="String clinicName" visibility="private" xmi.id="att503"/>
+                        <UML:Attribute name="String clinicId" visibility="private" xmi.id="att504"/>
+                        <UML:Attribute name="String clinicAddress" visibility="private" xmi.id="att505"/>
+                        <UML:Attribute name="String speciality" visibility="private" xmi.id="att506"/>
+                        <UML:Attribute name="--" xmi.id="att507"/>
+                        <UML:Operation name="String getDoctorName()" visibility="public" xmi.id="att508"/>
+                        <UML:Operation name="String getDoctorId()" visibility="public" xmi.id="att509"/>
+                        <UML:Operation name="setDoctorId(String)" visibility="public" xmi.id="att510"/>
+                        <UML:Operation name="setClinicId(String)" visibility="public" xmi.id="att511"/>
+                        <UML:Operation name="String getClinicName()" visibility="public" xmi.id="att512"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="AuthController" xmi.id="cl0047">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="UserService userService" visibility="private" xmi.id="att513"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="ErrorResponse" xmi.id="cl0048">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="String message" visibility="private" xmi.id="att514"/>
+                        <UML:Attribute name="--" xmi.id="att515"/>
+                        <UML:Operation name="String getMessage()" visibility="public" xmi.id="att516"/>
+                        <UML:Operation name="setMessage(String)" visibility="public" xmi.id="att517"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="AppointmentService" xmi.id="cl0049">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="AppointmentRepository appointmentRepository" visibility="private" xmi.id="att518"/>
+                        <UML:Attribute name="SimpMessagingTemplate messagingTemplate" visibility="private" xmi.id="att519"/>
+                        <UML:Attribute name="EntityManager entityManager" visibility="private" xmi.id="att520"/>
+                        <UML:Attribute name="DoctorRepository doctorRepository" visibility="private" xmi.id="att521"/>
+                        <UML:Attribute name="PatientRepository patientRepository" visibility="private" xmi.id="att522"/>
+                        <UML:Attribute name="--" xmi.id="att523"/>
+                        <UML:Operation name="List&lt;AppointmentResponse&gt; getAllAppointments()" visibility="public" xmi.id="att524"/>
+                        <UML:Operation name="AppointmentResponse getAppointmentById(UUID)" visibility="public" xmi.id="att525"/>
+                        <UML:Operation name="List&lt;AppointmentResponse&gt; getAppointmentsByPatient(String)" visibility="public" xmi.id="att526"/>
+                        <UML:Operation name="List&lt;AppointmentResponse&gt; getAppointmentsByDoctor(String)" visibility="public" xmi.id="att527"/>
+                        <UML:Operation name="List&lt;AppointmentResponse&gt; getUpcomingAppointments()" visibility="public" xmi.id="att528"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="UserResponse" xmi.id="cl0050">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="UUID supabaseUserId" visibility="private" xmi.id="att529"/>
+                        <UML:Attribute name="String email" visibility="private" xmi.id="att530"/>
+                        <UML:Attribute name="String firstName" visibility="private" xmi.id="att531"/>
+                        <UML:Attribute name="String lastName" visibility="private" xmi.id="att532"/>
+                        <UML:Attribute name="String role" visibility="private" xmi.id="att533"/>
+                        <UML:Attribute name="String status" visibility="private" xmi.id="att534"/>
+                        <UML:Attribute name="--" xmi.id="att535"/>
+                        <UML:Operation name="setRole(String)" visibility="public" xmi.id="att536"/>
+                        <UML:Operation name="String getFirstName()" visibility="public" xmi.id="att537"/>
+                        <UML:Operation name="UUID getSupabaseUserId()" visibility="public" xmi.id="att538"/>
+                        <UML:Operation name="setSupabaseUserId(UUID)" visibility="public" xmi.id="att539"/>
+                        <UML:Operation name="setFirstName(String)" visibility="public" xmi.id="att540"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="Clinic" xmi.id="cl0051">
+                    <UML:ModelElement.stereotype>
+                        <UML:Stereotype name="abstract"/>
+                    </UML:ModelElement.stereotype>
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="String clinicName" visibility="protected" xmi.id="att541"/>
+                        <UML:Attribute name="String address" visibility="protected" xmi.id="att542"/>
+                        <UML:Attribute name="String telephoneNum" visibility="protected" xmi.id="att543"/>
+                        <UML:Attribute name="--" xmi.id="att544"/>
+                        <UML:Operation name="String getAddress()" visibility="public" xmi.id="att545"/>
+                        <UML:Operation name="String getClinicName()" visibility="public" xmi.id="att546"/>
+                        <UML:Operation name="setClinicName(String)" visibility="public" xmi.id="att547"/>
+                        <UML:Operation name="String getTelephoneNum()" visibility="public" xmi.id="att548"/>
+                        <UML:Operation name="setAddress(String)" visibility="public" xmi.id="att549"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="AppointmentRequest" xmi.id="cl0052">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="String patientId" visibility="private" xmi.id="att550"/>
+                        <UML:Attribute name="String doctorId" visibility="private" xmi.id="att551"/>
+                        <UML:Attribute name="String clinicId" visibility="private" xmi.id="att552"/>
+                        <UML:Attribute name="LocalDate bookingDate" visibility="private" xmi.id="att553"/>
+                        <UML:Attribute name="LocalTime startTime" visibility="private" xmi.id="att554"/>
+                        <UML:Attribute name="LocalTime endTime" visibility="private" xmi.id="att555"/>
+                        <UML:Attribute name="String type" visibility="private" xmi.id="att556"/>
+                        <UML:Attribute name="--" xmi.id="att557"/>
+                        <UML:Operation name="setType(String)" visibility="public" xmi.id="att558"/>
+                        <UML:Operation name="setStartTime(LocalTime)" visibility="public" xmi.id="att559"/>
+                        <UML:Operation name="LocalTime getStartTime()" visibility="public" xmi.id="att560"/>
+                        <UML:Operation name="String getType()" visibility="public" xmi.id="att561"/>
+                        <UML:Operation name="String getDoctorId()" visibility="public" xmi.id="att562"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="GpClinic" xmi.id="cl0053">
+                    <UML:ModelElement.stereotype>
+                        <UML:Stereotype name="Entity"/>
+                    </UML:ModelElement.stereotype>
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="{id} Integer sn" visibility="private" xmi.id="att563"/>
+                        <UML:Attribute name="String pcn" visibility="private" xmi.id="att564"/>
+                        <UML:Attribute name="String clinicId" visibility="private" xmi.id="att565"/>
+                        <UML:Attribute name="String openingHours" visibility="private" xmi.id="att566"/>
+                        <UML:Attribute name="String closingHours" visibility="private" xmi.id="att567"/>
+                        <UML:Attribute name="--" xmi.id="att568"/>
+                        <UML:Operation name="setClinicId(String)" visibility="public" xmi.id="att569"/>
+                        <UML:Operation name="String getClinicId()" visibility="public" xmi.id="att570"/>
+                        <UML:Operation name="setOpeningHours(String)" visibility="public" xmi.id="att571"/>
+                        <UML:Operation name="setClosingHours(String)" visibility="public" xmi.id="att572"/>
+                        <UML:Operation name="String getClosingHours()" visibility="public" xmi.id="att573"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="NotificationEventProducer" xmi.id="cl0054">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="KafkaTemplate&lt;String, String&gt; kafkaTemplate" visibility="private" xmi.id="att574"/>
+                        <UML:Attribute name="ObjectMapper om" visibility="private" xmi.id="att575"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="PatientResponse" xmi.id="cl0055">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="String phone" visibility="private" xmi.id="att576"/>
+                        <UML:Attribute name="String dateOfBirth" visibility="private" xmi.id="att577"/>
+                        <UML:Attribute name="String gender" visibility="private" xmi.id="att578"/>
+                        <UML:Attribute name="--" xmi.id="att579"/>
+                        <UML:Operation name="setDateOfBirth(String)" visibility="public" xmi.id="att580"/>
+                        <UML:Operation name="String getDateOfBirth()" visibility="public" xmi.id="att581"/>
+                        <UML:Operation name="String getPhone()" visibility="public" xmi.id="att582"/>
+                        <UML:Operation name="setPhone(String)" visibility="public" xmi.id="att583"/>
+                        <UML:Operation name="String getGender()" visibility="public" xmi.id="att584"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="TreatmentNote" xmi.id="cl0056">
+                    <UML:ModelElement.stereotype>
+                        <UML:Stereotype name="Entity"/>
+                    </UML:ModelElement.stereotype>
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="{id} Long id" visibility="private" xmi.id="att585"/>
+                        <UML:Attribute name="UUID appointmentId" visibility="private" xmi.id="att586"/>
+                        <UML:Attribute name="String noteType" visibility="private" xmi.id="att587"/>
+                        <UML:Attribute name="String notes" visibility="private" xmi.id="att588"/>
+                        <UML:Attribute name="String createdBy" visibility="private" xmi.id="att589"/>
+                        <UML:Attribute name="OffsetDateTime createdAt" visibility="private" xmi.id="att590"/>
+                        <UML:Attribute name="OffsetDateTime updatedAt" visibility="private" xmi.id="att591"/>
+                        <UML:Attribute name="--" xmi.id="att592"/>
+                        <UML:Operation name="setId(Long)" visibility="public" xmi.id="att593"/>
+                        <UML:Operation name="Long getId()" visibility="public" xmi.id="att594"/>
+                        <UML:Operation name="OffsetDateTime getCreatedAt()" visibility="public" xmi.id="att595"/>
+                        <UML:Operation name="UUID getAppointmentId()" visibility="public" xmi.id="att596"/>
+                        <UML:Operation name="OffsetDateTime getUpdatedAt()" visibility="public" xmi.id="att597"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="ClinicStaff" xmi.id="cl0057">
+                    <UML:ModelElement.stereotype>
+                        <UML:Stereotype name="Entity"/>
+                    </UML:ModelElement.stereotype>
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="String clinicName" visibility="private" xmi.id="att598"/>
+                        <UML:Attribute name="String clinicId" visibility="private" xmi.id="att599"/>
+                        <UML:Attribute name="String position" visibility="private" xmi.id="att600"/>
+                        <UML:Attribute name="--" xmi.id="att601"/>
+                        <UML:Operation name="String getPosition()" visibility="public" xmi.id="att602"/>
+                        <UML:Operation name="setClinicId(String)" visibility="public" xmi.id="att603"/>
+                        <UML:Operation name="String getClinicName()" visibility="public" xmi.id="att604"/>
+                        <UML:Operation name="setPosition(String)" visibility="public" xmi.id="att605"/>
+                        <UML:Operation name="setClinicName(String)" visibility="public" xmi.id="att606"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="SlotUpdateDto" xmi.id="cl0058">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="String clinicId" visibility="private" xmi.id="att607"/>
+                        <UML:Attribute name="String doctorId" visibility="private" xmi.id="att608"/>
+                        <UML:Attribute name="String bookingDate" visibility="private" xmi.id="att609"/>
+                        <UML:Attribute name="String startTime" visibility="private" xmi.id="att610"/>
+                        <UML:Attribute name="String endTime" visibility="private" xmi.id="att611"/>
+                        <UML:Attribute name="String action" visibility="private" xmi.id="att612"/>
+                        <UML:Attribute name="--" xmi.id="att613"/>
+                        <UML:Operation name="setStartTime(String)" visibility="public" xmi.id="att614"/>
+                        <UML:Operation name="String getStartTime()" visibility="public" xmi.id="att615"/>
+                        <UML:Operation name="String getDoctorId()" visibility="public" xmi.id="att616"/>
+                        <UML:Operation name="setDoctorId(String)" visibility="public" xmi.id="att617"/>
+                        <UML:Operation name="setBookingDate(String)" visibility="public" xmi.id="att618"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="TreatmentNoteService" xmi.id="cl0059">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="TreatmentNoteRepository treatmentNoteRepository" visibility="private" xmi.id="att619"/>
+                        <UML:Attribute name="AppointmentRepository appointmentRepository" visibility="private" xmi.id="att620"/>
+                        <UML:Attribute name="DoctorRepository doctorRepository" visibility="private" xmi.id="att621"/>
+                        <UML:Attribute name="UserRepository userRepository" visibility="private" xmi.id="att622"/>
+                        <UML:Attribute name="--" xmi.id="att623"/>
+                        <UML:Operation name="List&lt;TreatmentNoteResponse&gt; getTreatmentNotesByPatient(UUID)" visibility="public" xmi.id="att624"/>
+                        <UML:Operation name="TreatmentNoteResponse getLatestTreatmentNote(UUID)" visibility="public" xmi.id="att625"/>
+                        <UML:Operation name="List&lt;TreatmentNoteResponse&gt; getTreatmentNotesByAppointment(UUID)" visibility="public" xmi.id="att626"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="PlantUmlDiagramGenerator" xmi.id="cl0060">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="Set&lt;Class&lt;?&gt;&gt; processedClasses" visibility="private" xmi.id="att627"/>
+                        <UML:Attribute name="Map&lt;String, ClassInfo&gt; classInfoMap" visibility="private" xmi.id="att628"/>
+                        <UML:Attribute name="StringBuilder pumlBuilder" visibility="private" xmi.id="att629"/>
+                        <UML:Attribute name="--" xmi.id="att630"/>
+                        <UML:Operation name="String getTypeName(Class, Type)" visibility="private" xmi.id="att631"/>
+                        <UML:Operation name="String getVisibility(int)" visibility="private" xmi.id="att632"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="RescheduleRequest" xmi.id="cl0061">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="String doctorId" visibility="private" xmi.id="att633"/>
+                        <UML:Attribute name="String clinicId" visibility="private" xmi.id="att634"/>
+                        <UML:Attribute name="LocalDate bookingDate" visibility="private" xmi.id="att635"/>
+                        <UML:Attribute name="LocalTime startTime" visibility="private" xmi.id="att636"/>
+                        <UML:Attribute name="LocalTime endTime" visibility="private" xmi.id="att637"/>
+                        <UML:Attribute name="--" xmi.id="att638"/>
+                        <UML:Operation name="setStartTime(LocalTime)" visibility="public" xmi.id="att639"/>
+                        <UML:Operation name="LocalTime getStartTime()" visibility="public" xmi.id="att640"/>
+                        <UML:Operation name="String getDoctorId()" visibility="public" xmi.id="att641"/>
+                        <UML:Operation name="setDoctorId(String)" visibility="public" xmi.id="att642"/>
+                        <UML:Operation name="setBookingDate(LocalDate)" visibility="public" xmi.id="att643"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="MethodInfo" xmi.id="cl0062">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="String name" visibility="package" xmi.id="att644"/>
+                        <UML:Attribute name="String returnType" visibility="package" xmi.id="att645"/>
+                        <UML:Attribute name="String visibility" visibility="package" xmi.id="att646"/>
+                        <UML:Attribute name="List&lt;String&gt; parameters" visibility="package" xmi.id="att647"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="KafkaController" xmi.id="cl0063">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="KafkaQueueEventProducer producer" visibility="private" xmi.id="att648"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="TreatmentNoteController" xmi.id="cl0064">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="TreatmentNoteService treatmentNoteService" visibility="private" xmi.id="att649"/>
+                        <UML:Attribute name="--" xmi.id="att650"/>
+                        <UML:Operation name="ResponseEntity&lt;TreatmentNoteResponse&gt;&gt; getTreatmentNotesByPatient(String)" visibility="public" xmi.id="att651"/>
+                        <UML:Operation name="ResponseEntity&lt;TreatmentNoteResponse&gt; getLatestTreatmentNote(String)" visibility="public" xmi.id="att652"/>
+                        <UML:Operation name="ResponseEntity&lt;TreatmentNoteResponse&gt;&gt; getTreatmentNotesByAppointment(String)" visibility="public" xmi.id="att653"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="FieldInfo" xmi.id="cl0065">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="String name" visibility="package" xmi.id="att654"/>
+                        <UML:Attribute name="String type" visibility="package" xmi.id="att655"/>
+                        <UML:Attribute name="String visibility" visibility="package" xmi.id="att656"/>
+                        <UML:Attribute name="boolean isId" visibility="package" xmi.id="att657"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="TreatmentNoteResponse" xmi.id="cl0066">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="Long id" visibility="private" xmi.id="att658"/>
+                        <UML:Attribute name="UUID appointmentId" visibility="private" xmi.id="att659"/>
+                        <UML:Attribute name="UUID patientId" visibility="private" xmi.id="att660"/>
+                        <UML:Attribute name="String doctorId" visibility="private" xmi.id="att661"/>
+                        <UML:Attribute name="String doctorName" visibility="private" xmi.id="att662"/>
+                        <UML:Attribute name="String clinicId" visibility="private" xmi.id="att663"/>
+                        <UML:Attribute name="String clinicName" visibility="private" xmi.id="att664"/>
+                        <UML:Attribute name="String noteType" visibility="private" xmi.id="att665"/>
+                        <UML:Attribute name="String notes" visibility="private" xmi.id="att666"/>
+                        <UML:Attribute name="String createdBy" visibility="private" xmi.id="att667"/>
+                        <UML:Attribute name="String createdByName" visibility="private" xmi.id="att668"/>
+                        <UML:Attribute name="OffsetDateTime createdAt" visibility="private" xmi.id="att669"/>
+                        <UML:Attribute name="OffsetDateTime updatedAt" visibility="private" xmi.id="att670"/>
+                        <UML:Attribute name="--" xmi.id="att671"/>
+                        <UML:Operation name="setId(Long)" visibility="public" xmi.id="att672"/>
+                        <UML:Operation name="Long getId()" visibility="public" xmi.id="att673"/>
+                        <UML:Operation name="String getDoctorName()" visibility="public" xmi.id="att674"/>
+                        <UML:Operation name="String getDoctorId()" visibility="public" xmi.id="att675"/>
+                        <UML:Operation name="UUID getPatientId()" visibility="public" xmi.id="att676"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+                <UML:Class name="ClassInfo" xmi.id="cl0067">
+                    <UML:Classifier.feature>
+                        <UML:Attribute name="String name" visibility="package" xmi.id="att677"/>
+                        <UML:Attribute name="String fullName" visibility="package" xmi.id="att678"/>
+                        <UML:Attribute name="Class&lt;?&gt; superClass" visibility="package" xmi.id="att679"/>
+                        <UML:Attribute name="List&lt;Class&lt;?&gt;&gt; interfaces" visibility="package" xmi.id="att680"/>
+                        <UML:Attribute name="boolean isAbstract" visibility="package" xmi.id="att681"/>
+                        <UML:Attribute name="boolean isEntity" visibility="package" xmi.id="att682"/>
+                        <UML:Attribute name="boolean isMappedSuperclass" visibility="package" xmi.id="att683"/>
+                        <UML:Attribute name="List&lt;FieldInfo&gt; fields" visibility="package" xmi.id="att684"/>
+                        <UML:Attribute name="List&lt;MethodInfo&gt; methods" visibility="package" xmi.id="att685"/>
+                    </UML:Classifier.feature>
+                </UML:Class>
+            </UML:Namespace.ownedElement>
+        </UML:Model>
+    </XMI.content>
+</XMI>
