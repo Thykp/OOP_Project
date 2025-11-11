@@ -135,30 +135,85 @@ export default function AppointmentBooking() {
     connectSocket();
     const sub = subscribeToSlots((update: any) => {
       if (!update) return;
+      
+      
       const bookingDate = update.booking_date;
       const doctorId = update.doctor_id;
       const clinicId = update.clinic_id;
       const startTime = (update.start_time || '').substring(0, 5);
       const action = update.action;
 
-      if (action !== 'REMOVE') return;
+   
+
+      if (action !== 'REMOVE') {
+        return;
+      }
 
       setAvailableDatesWithSlots((prev: any[]) => {
-        if (!prev || prev.length === 0) return prev;
+        
+        if (!prev || prev.length === 0) {
+          return prev;
+        }
+
+        let removedCount = 0;
         const next = prev
           .map((entry: any) => {
-            if (entry.date !== bookingDate) return entry;
-            if (clinicId && entry.clinicId !== clinicId) return entry;
-            if (doctorId && entry.doctorId !== doctorId) return entry;
+            // Normalize entry.date to string format (yyyy-MM-dd)
+            let entryDateStr = '';
+            if (Array.isArray(entry.date)) {
+              // Handle array format [2025, 11, 12]
+              const [year, month, day] = entry.date;
+              entryDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            } else if (typeof entry.date === 'string') {
+              entryDateStr = entry.date;
+            } else {
+              entryDateStr = String(entry.date);
+            }
+
+            console.log('[BookAppointment] 🔍 Checking entry:', {
+              entryDate: entry.date,
+              entryDateNormalized: entryDateStr,
+              entryClinicId: entry.clinicId,
+              entryDoctorId: entry.doctorId,
+              slotCount: entry.timeSlots?.length
+            });
+
+            // Date comparison (normalized)
+            if (entryDateStr !== bookingDate) {
+              return entry;
+            }
+            
+            // Clinic comparison
+            if (clinicId && entry.clinicId !== clinicId) {
+              return entry;
+            }
+            
+            // Doctor comparison
+            if (doctorId && entry.doctorId !== doctorId) {
+              return entry;
+            }
+
 
             const newSlots = (entry.timeSlots || []).filter((slot: any) => {
               if (!slot) return true;
+              
+              let slotStart = '';
               if (typeof slot === 'string') {
-                const s = slot.split('-')[0].trim();
-                return s !== startTime;
+                slotStart = slot.split('-')[0].trim().substring(0, 5);
+              } else {
+                slotStart = (slot.startTime || slot.start_time || '').substring(0, 5);
               }
-              const s = (slot.startTime || slot.start_time || '').substring(0, 5);
-              return s !== startTime;
+              
+              const keep = slotStart !== startTime;
+              
+              if (!keep) {
+                removedCount++;
+                console.log(`[BookAppointment] 🗑️ REMOVING slot: ${slotStart} (matches ${startTime})`);
+              } else {
+                console.log(`[BookAppointment] ✓ Keeping slot: ${slotStart} (does not match ${startTime})`);
+              }
+              
+              return keep;
             });
 
             return {
@@ -168,6 +223,19 @@ export default function AppointmentBooking() {
           })
           .filter((e: any) => e.timeSlots && e.timeSlots.length > 0);
 
+        if (removedCount > 0) {
+          console.log(`[BookAppointment] ✅ Successfully removed ${removedCount} slot(s)`);
+        } else {
+          console.warn('[BookAppointment] ⚠️ No matching slot found to remove for', {
+            bookingDate,
+            doctorId,
+            clinicId,
+            startTime,
+            availableEntriesCount: prev.length
+          });
+        }
+
+        console.log('[BookAppointment] 📊 Updated availableDatesWithSlots:', next);
         return next;
       });
     });

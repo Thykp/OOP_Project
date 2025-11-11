@@ -5,9 +5,21 @@ import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-import com.is442.backend.dto.*;
+import com.is442.backend.dto.PatientRequest;
+import com.is442.backend.dto.PatientResponse;
+import com.is442.backend.dto.StaffRequest;
+import com.is442.backend.dto.StaffResponse;
 import com.is442.backend.service.UserService;
 
 @RestController
@@ -18,6 +30,13 @@ public class UserController {
 
     public UserController(UserService userService) {
         this.userService = userService;
+    }
+
+    // Search patients by partial email for autocomplete suggestions
+    @GetMapping("/patients/search")
+    public ResponseEntity<List<PatientResponse>> searchPatients(@RequestParam("q") String query) {
+        List<PatientResponse> matches = userService.searchPatientsByEmail(query);
+        return ResponseEntity.ok(matches);
     }
 
     // Get All Patients
@@ -32,6 +51,31 @@ public class UserController {
     public ResponseEntity<List<StaffResponse>> getAllClinicStaff() {
         List<StaffResponse> staff = userService.getAllClinicStaff();
         return ResponseEntity.ok(staff);
+    }
+
+    // Get single patient by email
+    @GetMapping("/patient/email/{email}")
+    public ResponseEntity<PatientResponse> getPatientByEmail(@PathVariable String email) {
+        try {
+            PatientResponse patient = userService.findPatientByEmail(email);
+            return ResponseEntity.ok(patient);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+    }
+
+    // Get single staff by Supabase user UUID (primary key)
+    @GetMapping("/staff/{supabaseUserId}")
+    public ResponseEntity<StaffResponse> getStaffBySupabaseId(@PathVariable UUID supabaseUserId) {
+        try {
+            var user = userService.findBySupabaseUserId(supabaseUserId);
+            if (!(user instanceof com.is442.backend.model.ClinicStaff staff)) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+            return ResponseEntity.ok(new StaffResponse(staff));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
     }
 
     // Update Patient details

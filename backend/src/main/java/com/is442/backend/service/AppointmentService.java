@@ -16,10 +16,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import jakarta.persistence.Query;
-
 import com.is442.backend.dto.AppointmentRequest;
 import com.is442.backend.dto.AppointmentResponse;
 import com.is442.backend.dto.RescheduleRequest;
@@ -29,6 +25,10 @@ import com.is442.backend.model.Patient;
 import com.is442.backend.repository.AppointmentRepository;
 import com.is442.backend.repository.DoctorRepository;
 import com.is442.backend.repository.PatientRepository;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Query;
 
 @Service
 @Transactional
@@ -86,6 +86,11 @@ public class AppointmentService {
                 request.getBookingDate(),
                 request.getStartTime(),
                 request.getEndTime());
+
+        // Allow caller to override default type (e.g., WALK_IN)
+        if (request.getType() != null && !request.getType().isBlank()) {
+            appointment.setType(request.getType());
+        }
 
         logger.info("Saving appointment entity: patient={}, doctor={}, clinic={}, date={}, start={}, end=",
                 appointment.getPatientId(), appointment.getDoctorId(), appointment.getClinicId(),

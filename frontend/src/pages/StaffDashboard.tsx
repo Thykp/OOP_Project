@@ -27,7 +27,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/context/auth-context"
 import { connectSocket, disconnectSocket, subscribeToSlots } from "@/lib/socket"
 import { cn } from "@/lib/utils"
-import { Calendar as CalendarIcon, CheckCircle2, Clock, FileText, User, UserPlus } from "lucide-react"
+import { AlertTriangle, Calendar as CalendarIcon, CheckCircle, CheckCircle2, Clock, FileText, User, UserPlus } from "lucide-react"
 import { useEffect, useState } from "react"
 
 
@@ -49,8 +49,9 @@ interface Appointment {
 }
 
 interface QueueItem extends Appointment {
-  queueNumber: number;
-  isFastTrack: boolean;
+  queueNumber: number;      // stable ticket from backend
+  isFastTrack: boolean;     // local flag for prioritisation
+  position?: number;        // live position when first checked in
 }
 
 export default function StaffDashboard() {
@@ -65,6 +66,7 @@ export default function StaffDashboard() {
   const [loading, setLoading] = useState(true)
   const [showWalkInDialog, setShowWalkInDialog] = useState(false)
   const [isSubmittingWalkIn, setIsSubmittingWalkIn] = useState(false)
+  const [showWalkInConfirmDialog, setShowWalkInConfirmDialog] = useState(false)
   
   // Notes dialog state
   const [showNotesDialog, setShowNotesDialog] = useState(false)
@@ -73,13 +75,10 @@ export default function StaffDashboard() {
   const [isSavingNotes, setIsSavingNotes] = useState(false)
   
   // Walk-in form data
-  const [walkInData, setWalkInData] = useState({
-    patientName: "",
-    patientPhone: "",
-    patientEmail: "",
-    date: new Date().toISOString().split('T')[0],
-    timeSlot: "",
-  })
+  const [walkInEmail, setWalkInEmail] = useState("")
+  const [emailSuggestions, setEmailSuggestions] = useState<any[]>([])
+  const [selectedPatient, setSelectedPatient] = useState<any | null>(null)
+  const [isSearchingEmail, setIsSearchingEmail] = useState(false)
 
   // Walk-in specific state
   const [walkInSelectedDate, setWalkInSelectedDate] = useState<Date>()
@@ -92,12 +91,25 @@ export default function StaffDashboard() {
   const baseURL = import.meta.env.VITE_API_BASE_URL;
 
 
-  // Get staff's clinic from user metadata
-  const staffClinicId = user?.user_metadata?.clinicId
+  // Resolve staff clinic info: prefer backend value over metadata
+  const [staffClinicId, setStaffClinicId] = useState<string | undefined>(user?.user_metadata?.clinicId)
   console.log(staffClinicId)
+  const [staffClinicName, setStaffClinicName] = useState<string | undefined>(user?.user_metadata?.clinicName)
 
-  
-  const staffClinicName = user?.user_metadata?.clinicName
+  useEffect(() => {
+    const supabaseId = user?.id
+    if (!supabaseId) return
+    const controller = new AbortController()
+    fetch(`${baseURL}/api/users/staff/${supabaseId}`, { signal: controller.signal })
+      .then(r => r.ok ? r.json() : null)
+      .then((data) => {
+        if (!data) return
+        if (data.clinic_id) setStaffClinicId(data.clinic_id)
+        if (data.clinic_name) setStaffClinicName(data.clinic_name)
+      })
+      .catch(() => {})
+    return () => controller.abort()
+  }, [user?.id, baseURL])
 
   // Fetch appointments for staff's clinic only
   const fetchAppointments = () => {
@@ -165,7 +177,7 @@ export default function StaffDashboard() {
         title: "Success",
         description: "Notes saved successfully",
       });
-
+ 
       fetchAppointments();
       fetchCompletedAppointments();
       setShowNotesDialog(false);
@@ -322,24 +334,92 @@ export default function StaffDashboard() {
     
     const { unsubscribe } = subscribeToSlots((update: any) => {
       if (!update) return;
+      
+      console.log('[StaffDashboard] 🔔 WebSocket update received:', update);
+      
       const dateStr = update.date || update.booking_date;
       const startStr = update.start_time || update.timeSlot?.split?.("-")?.[0];
       const action = update.action || 'REMOVE';
-      if (!dateStr || !startStr || action !== 'REMOVE') return;
+      
+      console.log('[StaffDashboard] 📋 Parsed update:', {
+        dateStr,
+        startStr,
+        action
+      });
+      
+      if (!dateStr || !startStr || action !== 'REMOVE') {
+        console.log('[StaffDashboard] ⏭️ Ignoring update (missing data or non-REMOVE action)');
+        return;
+      }
 
       const normalizedStart = (startStr as string).substring(0,5);
 
       setWalkInAvailableDates((prev) => {
-        return prev
+        console.log('[StaffDashboard] 📊 Current walkInAvailableDates:', prev);
+        
+        if (!prev || prev.length === 0) {
+          console.log('[StaffDashboard] ⚠️ No available dates to filter');
+          return prev;
+        }
+
+        let removedCount = 0;
+        const next = prev
           .map((entry: any) => {
-            if (entry.date !== dateStr) return entry;
+            // Normalize entry.date to string format (yyyy-MM-dd)
+            let entryDateStr = '';
+            if (Array.isArray(entry.date)) {
+              // Handle array format [2025, 11, 12]
+              const [year, month, day] = entry.date;
+              entryDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            } else if (typeof entry.date === 'string') {
+              entryDateStr = entry.date;
+            } else {
+              entryDateStr = String(entry.date);
+            }
+
+            console.log('[StaffDashboard] 🔍 Checking entry:', {
+              entryDate: entry.date,
+              entryDateNormalized: entryDateStr,
+              slotCount: entry.timeSlots?.length
+            });
+
+            if (entryDateStr !== dateStr) {
+              console.log(`[StaffDashboard] ❌ Date mismatch: ${entryDateStr} !== ${dateStr}`);
+              return entry;
+            }
+
+            console.log('[StaffDashboard] ✅ Entry matches date, filtering slots...');
+
             const newSlots = (entry.timeSlots || []).filter((slot: any) => {
               const s = (slot.startTime || slot.start_time || '').substring(0,5);
-              return s !== normalizedStart;
+              const keep = s !== normalizedStart;
+              
+              if (!keep) {
+                removedCount++;
+                console.log(`[StaffDashboard] 🗑️ REMOVING slot: ${s} (matches ${normalizedStart})`);
+              } else {
+                console.log(`[StaffDashboard] ✓ Keeping slot: ${s}`);
+              }
+              
+              return keep;
             });
+            
             return { ...entry, timeSlots: newSlots };
           })
           .filter((e: any) => e.timeSlots && e.timeSlots.length > 0);
+
+        if (removedCount > 0) {
+          console.log(`[StaffDashboard] ✅ Successfully removed ${removedCount} slot(s)`);
+        } else {
+          console.warn('[StaffDashboard] ⚠️ No matching slot found to remove for', {
+            dateStr,
+            normalizedStart,
+            availableEntriesCount: prev.length
+          });
+        }
+
+        console.log('[StaffDashboard] 📊 Updated walkInAvailableDates:', next);
+        return next;
       });
     });
 
@@ -350,17 +430,24 @@ export default function StaffDashboard() {
   }, [showWalkInDialog]);
 
   // Generate unique walk-in patient ID
-  const generateWalkInPatientId = (): string => {
-    return `WALKIN_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-  };
+  // Removed guest ID generation: enforce registered patient email only for walk-in creation
 
   // Handle Walk-in Appointment
   const handleWalkInSubmit = async () => {
-    if (!walkInData.patientName || !walkInSelectedDate || !walkInSelectedSlot) {
+    if (!walkInEmail || !walkInSelectedDate || !walkInSelectedSlot) {
       toast({
         variant: "destructive",
         title: "Missing Information",
-        description: "Please fill in all required fields.",
+        description: "Please fill in email, date and time slot.",
+      });
+      return;
+    }
+
+    if (!selectedPatient) {
+      toast({
+        variant: 'destructive',
+        title: 'Unregistered Email',
+        description: 'Patient is not registered. Create account before booking.'
       });
       return;
     }
@@ -372,18 +459,17 @@ export default function StaffDashboard() {
       const formattedStart = start_time.length > 5 ? start_time.substring(0, 5) : start_time;
       const formattedEnd = end_time.length > 5 ? end_time.substring(0, 5) : end_time;
 
-      const walkInPatientId = generateWalkInPatientId();
+  const walkInPatientId = selectedPatient?.supabase_user_id;
+  if (!walkInPatientId) throw new Error('Missing patient ID');
 
       const appointmentRequest = {
         patient_id: walkInPatientId,
-        patient_name: walkInData.patientName,
-        patient_phone: walkInData.patientPhone || null,
-        patient_email: walkInData.patientEmail || null,
         doctor_id: walkInSelectedSlot.doctorId,
         clinic_id: staffClinicId,
         booking_date: walkInSelectedDate.toLocaleDateString("en-CA"),
         start_time: formattedStart,
         end_time: formattedEnd,
+        type: "WALK_IN",
       };
 
       const res = await fetch(`${baseURL}/api/appointments`, {
@@ -408,17 +494,13 @@ export default function StaffDashboard() {
 
       toast({
         title: "Walk-in Appointment Created",
-        description: `Appointment for ${walkInData.patientName} has been scheduled.`,
+  description: `Appointment for ${selectedPatient.first_name} ${selectedPatient.last_name} has been scheduled.`,
       });
 
       // Reset form
-      setWalkInData({
-        patientName: "",
-        patientPhone: "",
-        patientEmail: "",
-        date: new Date().toISOString().split('T')[0],
-        timeSlot: "",
-      });
+      setWalkInEmail("")
+      setEmailSuggestions([])
+      setSelectedPatient(null)
       setWalkInSelectedDate(undefined);
       setWalkInSelectedSlot(null);
       setWalkInAvailableDates([]);
@@ -436,20 +518,74 @@ export default function StaffDashboard() {
     }
   };
 
-  // Add to queue
-  const addToQueue = (appointment: Appointment) => {
-    const queueItem: QueueItem = {
-      ...appointment,
-      queueNumber: queueAppointments.length + 1,
-      isFastTrack: false
-    };
-    setQueueAppointments(prev => [...prev, queueItem]);
-    updateApptStatus(appointment.appointment_id, "CHECKED_IN");
-    toast({
-      title: "Added to Queue",
-      description: `Queue number ${queueItem.queueNumber} assigned to ${appointment.patient_name}`,
-    });
+  // Validate walk-in form before confirmation
+  const validateWalkIn = (): string | null => {
+    if (!walkInEmail) return "Please enter patient email.";
+    if (!selectedPatient) return "Patient is not registered. Create account before booking.";
+    if (!walkInSelectedDate) return "Please select a date.";
+    if (!walkInSelectedSlot) return "Please select a time slot.";
+    if (!staffClinicId) return "Missing clinic context for staff user.";
+    return null;
   };
+
+  const handleWalkInConfirmClick = () => {
+    const err = validateWalkIn();
+    if (err) {
+      toast({ variant: "destructive", title: "Missing Information", description: err });
+      return;
+    }
+    setShowWalkInConfirmDialog(true);
+  };
+
+
+  // Backend-driven check-in (preferred over local queueNumber generation)
+  const handleCheckIn = async (appointment: Appointment) => {
+    if (!staffClinicId) {
+      toast({
+        variant: "destructive",
+        title: "Missing clinic",
+        description: "Cannot check in without clinic context",
+      });
+      return;
+    }
+    try {
+      const res = await fetch(`${baseURL}/api/queue/checkin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clinicId: staffClinicId,
+          appointmentId: appointment.appointment_id,
+          patientId: appointment.patient_id,
+          doctorId: appointment.doctor_id || null,
+        })
+      });
+      if (!res.ok) {
+        let msg = `Check-in failed (${res.status})`;
+        try { const j = await res.json(); if (j?.message) msg = j.message; } catch {}
+        throw new Error(msg);
+      }
+      const data = await res.json();
+      const queueNumber = data.queueNumber;
+      const position = data.position;
+      // Add to local display queue
+      const queueItem: QueueItem = { ...appointment, queueNumber, position, isFastTrack: false };
+      setQueueAppointments(prev => [...prev, queueItem]);
+      toast({
+        title: 'Checked In',
+        description: `${appointment.patient_name} queued (ticket ${queueNumber}, position ${position})`,
+      });
+      // Refresh appointments to reflect updated status
+      fetchAppointments();
+      fetchCompletedAppointments();
+    } catch (err: any) {
+      console.error('Check-in error:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Check-in failed',
+        description: err?.message || 'Unable to check in appointment',
+      });
+    }
+  }
 
   useEffect(() => {
     fetchAppointments();
@@ -785,8 +921,8 @@ export default function StaffDashboard() {
                             <div className="flex flex-wrap gap-2 md:flex-col md:items-end">
                               {appt.status === "SCHEDULED" && (
                                 <>
-                                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => addToQueue(appt)}>
-                                    Add to Queue
+                                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleCheckIn(appt)}>
+                                    Check In
                                   </Button>
                                   <Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50" onClick={() => updateApptStatus(appt.appointment_id, "NO_SHOW")}>
                                     No Show
@@ -908,13 +1044,9 @@ export default function StaffDashboard() {
         setShowWalkInDialog(open);
         if (!open) {
           // Reset all walk-in state when dialog closes
-          setWalkInData({
-            patientName: "",
-            patientPhone: "",
-            patientEmail: "",
-            date: new Date().toISOString().split('T')[0],
-            timeSlot: "",
-          });
+          setWalkInEmail("")
+          setEmailSuggestions([])
+          setSelectedPatient(null)
           setWalkInSelectedDate(undefined);
           setWalkInSelectedSlot(null);
           setWalkInAvailableDates([]);
@@ -931,52 +1063,71 @@ export default function StaffDashboard() {
           </SheetHeader>
 
           <div className="space-y-6 py-2">
-            {/* Patient Information */}
+            {/* Patient Email Only */}
             <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
               <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                 <User className="h-4 w-4" />
-                Patient Information
+                Patient Email
               </h3>
-              
-              <div>
-                <Label htmlFor="patientName" className="text-sm font-medium">
-                  Patient Name <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="patientName"
-                  value={walkInData.patientName}
-                  onChange={(e) => setWalkInData({ ...walkInData, patientName: e.target.value })}
-                  placeholder="Enter patient name"
-                  className="mt-1.5"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="patientPhone" className="text-sm font-medium">
-                 ne Number (Optional)
-                </Label>
-                <Input
-                  id="patientPhone"
-                  type="tel"
-                  value={walkInData.patientPhone}
-                  onChange={(e) => setWalkInData({ ...walkInData, patientPhone: e.target.value })}
-                  placeholder="Enter phone number"
-                  className="mt-1.5"
-                />
-              </div>
-
               <div>
                 <Label htmlFor="patientEmail" className="text-sm font-medium">
-                  Email (Optional)
+                  Email <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="patientEmail"
                   type="email"
-                  value={walkInData.patientEmail}
-                  onChange={(e) => setWalkInData({ ...walkInData, patientEmail: e.target.value })}
-                  placeholder="Enter email address"
+                  value={walkInEmail}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setWalkInEmail(val);
+                    setSelectedPatient(null);
+                    // trigger search
+                    if (val && val.length >= 2) {
+                      setIsSearchingEmail(true);
+                      const controller = new AbortController();
+                      fetch(`${baseURL}/api/users/patients/search?q=${encodeURIComponent(val)}`, { signal: controller.signal })
+                        .then(r => r.ok ? r.json() : [])
+                        .then((arr) => setEmailSuggestions(Array.isArray(arr) ? arr.slice(0, 8) : []))
+                        .catch(() => setEmailSuggestions([]))
+                        .finally(() => setIsSearchingEmail(false));
+                    } else {
+                      setEmailSuggestions([]);
+                    }
+                  }}
+                  placeholder="Enter patient email"
                   className="mt-1.5"
                 />
+                {/* Suggestions */}
+                {walkInEmail && emailSuggestions.length > 0 && (
+                  <div className="mt-2 border rounded-md bg-white max-h-40 overflow-y-auto">
+                    {emailSuggestions.map((sug, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className="w-full text-left px-3 py-2 hover:bg-gray-50"
+                        onClick={() => {
+                          setSelectedPatient(sug);
+                          setWalkInEmail(sug.email);
+                          setEmailSuggestions([]);
+                        }}
+                      >
+                        <div className="text-sm font-medium">{sug.first_name} {sug.last_name}</div>
+                        <div className="text-xs text-gray-600">{sug.email}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {walkInEmail && !selectedPatient && emailSuggestions.length === 0 && !isSearchingEmail && (
+                  <div className="mt-2 p-3 rounded border border-red-300 bg-red-50 text-red-700 text-xs flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 mt-0.5" />
+                    <span>Patient is not registered with SingHealth, please create account for patient before creating walk in appointment</span>
+                  </div>
+                )}
+                {selectedPatient && walkInEmail && selectedPatient.email && walkInEmail.toLowerCase() === selectedPatient.email.toLowerCase() && (
+                  <div className="mt-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1">
+                    Existing patient selected: {selectedPatient.first_name} {selectedPatient.last_name} ({selectedPatient.email})
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1088,13 +1239,9 @@ export default function StaffDashboard() {
               variant="outline" 
               onClick={() => {
                 setShowWalkInDialog(false);
-                setWalkInData({
-                  patientName: "",
-                  patientPhone: "",
-                  patientEmail: "",
-                  date: new Date().toISOString().split('T')[0],
-                  timeSlot: "",
-                });
+                setWalkInEmail("")
+                setEmailSuggestions([])
+                setSelectedPatient(null)
                 setWalkInSelectedDate(undefined);
                 setWalkInSelectedSlot(null);
               }} 
@@ -1104,8 +1251,8 @@ export default function StaffDashboard() {
               Cancel
             </Button>
             <Button 
-              onClick={handleWalkInSubmit} 
-              disabled={isSubmittingWalkIn}
+              onClick={handleWalkInConfirmClick}
+              disabled={isSubmittingWalkIn || !selectedPatient}
               className="flex-1 bg-green-600 hover:bg-green-700"
             >
               {isSubmittingWalkIn ? "Creating..." : "Create Appointment"}
@@ -1113,6 +1260,41 @@ export default function StaffDashboard() {
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      {/* Walk-in Confirmation Dialog */}
+      <Dialog open={showWalkInConfirmDialog} onOpenChange={setShowWalkInConfirmDialog}>
+        <DialogContent className="sm:max-w-xl">
+          <CheckCircle className="mx-auto h-12 w-12 text-green-600" />
+          <DialogHeader>
+            <DialogTitle className="text-center text-2xl">Confirm Walk-in</DialogTitle>
+            <DialogDescription />
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <p className="text-center font-semibold text-lg">Please confirm the appointment details:</p>
+            <div className="bg-muted p-5 rounded-lg space-y-3">
+              <p className="text-base"><span className="font-semibold">Patient:</span> {selectedPatient ? `${selectedPatient.first_name} ${selectedPatient.last_name}` : "-"}</p>
+              <p className="text-base"><span className="font-semibold">Email:</span> {walkInEmail || "-"}</p>
+              <p className="text-base"><span className="font-semibold">Clinic:</span> {staffClinicName || "-"}</p>
+              <p className="text-base"><span className="font-semibold">Doctor:</span> {walkInSelectedSlot?.doctorName || "-"}</p>
+              <p className="text-base"><span className="font-semibold">Date:</span> {walkInSelectedDate ? walkInSelectedDate.toLocaleDateString("en-SG") : "-"}</p>
+              <p className="text-base"><span className="font-semibold">Time:</span> {walkInSelectedSlot?.time || "-"}</p>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-3 sm:justify-center">
+            <Button variant="outline" onClick={() => setShowWalkInConfirmDialog(false)} disabled={isSubmittingWalkIn}>
+              Cancel
+            </Button>
+            <Button onClick={async () => {
+              await handleWalkInSubmit();
+              setShowWalkInConfirmDialog(false);
+            }} disabled={isSubmittingWalkIn}>
+              {isSubmittingWalkIn ? "Processing..." : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageLayout>
   )
 }

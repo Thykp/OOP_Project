@@ -15,6 +15,7 @@ import com.is442.backend.dto.StaffResponse;
 import com.is442.backend.model.ClinicStaff;
 import com.is442.backend.model.Patient;
 import com.is442.backend.model.User;
+import com.is442.backend.repository.PatientRepository;
 import com.is442.backend.repository.UserRepository;
 
 @Service
@@ -22,6 +23,9 @@ public class UserService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private PatientRepository patientRepository;
 
     public <T extends User> T registerUser(T user) {
         return userRepository.save(user);
@@ -31,6 +35,21 @@ public class UserService {
         return userRepository.findBySupabaseUserId(supabaseUserId)
                 .orElseThrow(() -> new RuntimeException("User not found with Supabase ID: " + supabaseUserId));
     }
+
+    // Find patient by email (returns PatientResponse or throws if not a patient)
+    @Transactional(readOnly = true)
+    public PatientResponse findPatientByEmail(String email) {
+        if (email == null || email.trim().isEmpty()) {
+            throw new RuntimeException("Email is required");
+        }
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Patient not found with email: " + email));
+        if (!(user instanceof Patient)) {
+            throw new RuntimeException("User with email does not have patient role");
+        }
+        return new PatientResponse((Patient) user);
+    }
+    
 
     // Get All Patients
     @Transactional(readOnly = true)
@@ -47,6 +66,17 @@ public class UserService {
         return userRepository.findAll().stream()
                 .filter(u -> u instanceof ClinicStaff)
                 .map(u -> new StaffResponse((ClinicStaff) u))
+                .collect(Collectors.toList());
+    }
+
+    // Search patients by partial email (case-insensitive)
+    @Transactional(readOnly = true)
+    public List<PatientResponse> searchPatientsByEmail(String emailPart) {
+        if (emailPart == null || emailPart.trim().isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        return patientRepository.findByEmailContainingIgnoreCase(emailPart.trim()).stream()
+                .map(PatientResponse::new)
                 .collect(Collectors.toList());
     }
 
