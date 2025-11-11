@@ -78,7 +78,11 @@ public class PlantUmlDiagramGenerator {
         
         // Process each class
         for (Class<?> clazz : backendClasses) {
-            processClass(clazz);
+            try {
+                processClass(clazz);
+            } catch (Exception e) {
+                System.err.println("Warning: Error processing class " + clazz.getName() + ": " + e.getMessage());
+            }
         }
         
         // Generate PlantUML output
@@ -94,6 +98,12 @@ public class PlantUmlDiagramGenerator {
         ClassInfo info = new ClassInfo();
         info.name = clazz.getSimpleName();
         info.fullName = clazz.getName();
+        
+        // Skip classes with empty or whitespace-only names (can happen with anonymous/synthetic classes)
+        if (info.name == null || info.name.trim().isEmpty()) {
+            return;
+        }
+        
         info.isAbstract = Modifier.isAbstract(clazz.getModifiers());
         info.isEntity = clazz.isAnnotationPresent(jakarta.persistence.Entity.class);
         info.isMappedSuperclass = clazz.isAnnotationPresent(jakarta.persistence.MappedSuperclass.class);

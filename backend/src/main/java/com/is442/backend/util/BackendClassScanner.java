@@ -153,13 +153,30 @@ public class BackendClassScanner {
                 scanDirectory(file, packageName + "." + file.getName(), classes);
             } else if (file.getName().endsWith(".class")) {
                 try {
-                    String className = packageName + "." + file.getName().substring(0, file.getName().length() - 6);
+                    String fileName = file.getName();
+                    // Skip module-info.class and other special files
+                    if (fileName.equals("module-info.class") || fileName.startsWith("package-info")) {
+                        continue;
+                    }
+
+                    String className = packageName + "." + fileName.substring(0, fileName.length() - 6);
                     Class<?> clazz = Class.forName(className);
+
+                    // Additional validation: check for empty simple name before adding
+                    String simpleName = clazz.getSimpleName();
+                    if (simpleName == null || simpleName.trim().isEmpty()) {
+                        System.err.println("Warning: Skipping class with empty name: " + className + " (file: "
+                                + file.getPath() + ")");
+                        continue;
+                    }
+
                     if (isValidClass(clazz)) {
                         classes.add(clazz);
                     }
                 } catch (Exception e) {
                     // Skip classes that can't be loaded
+                    System.err.println(
+                            "Warning: Could not load class from file " + file.getName() + ": " + e.getMessage());
                 }
             }
         }
@@ -177,9 +194,22 @@ public class BackendClassScanner {
                 String name = entry.getName();
 
                 if (name.startsWith(packagePath) && name.endsWith(".class")) {
+                    // Skip module-info.class and other special files
+                    if (name.endsWith("module-info.class") || name.contains("package-info")) {
+                        continue;
+                    }
+
                     String className = name.replace("/", ".").substring(0, name.length() - 6);
                     try {
                         Class<?> clazz = Class.forName(className);
+
+                        // Additional validation: check for empty simple name before adding
+                        String simpleName = clazz.getSimpleName();
+                        if (simpleName == null || simpleName.trim().isEmpty()) {
+                            System.err.println("Warning: Skipping class with empty name from JAR: " + className);
+                            continue;
+                        }
+
                         if (isValidClass(clazz)) {
                             classes.add(clazz);
                         }
@@ -230,7 +260,8 @@ public class BackendClassScanner {
 
     /**
      * Checks if a class should be included in the diagram.
-     * Excludes interfaces, enums, and inner classes.
+     * Excludes interfaces, enums, inner classes, classes with empty names,
+     * BackendApplication, and all config classes.
      */
     private static boolean isValidClass(Class<?> clazz) {
         if (clazz == null) {
@@ -247,8 +278,26 @@ public class BackendClassScanner {
             return false;
         }
 
+        // Exclude classes with empty or whitespace-only names (anonymous/synthetic
+        // classes
+        String simpleName = clazz.getSimpleName();
+        if (simpleName == null || simpleName.trim().isEmpty()) {
+            return false;
+        }
+
         // Only include classes from the backend package
         if (!clazz.getPackageName().startsWith(BASE_PACKAGE)) {
+            return false;
+        }
+
+        // Exclude BackendApplication
+        if (clazz.getSimpleName().equals("BackendApplication") &&
+                clazz.getPackageName().equals(BASE_PACKAGE)) {
+            return false;
+        }
+
+        // Exclude all classes in the config package
+        if (clazz.getPackageName().equals(BASE_PACKAGE + ".config")) {
             return false;
         }
 

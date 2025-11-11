@@ -3,9 +3,6 @@
 skinparam classAttributeIconSize 0
 title OOP Project - Class Diagram
 
-class  {
-}
-
 class Appointment <<Entity>> {
   - {id} UUID appointmentId
   - String patientId
@@ -20,10 +17,10 @@ class Appointment <<Entity>> {
   - LocalDateTime updatedAt
   --
   + setType(String)
-  + String getType()
   + setStartTime(LocalTime)
   + LocalTime getStartTime()
-  + setClinicId(String)
+  + String getType()
+  + String getDoctorId()
 }
 
 class TimeSlotService {
@@ -31,11 +28,11 @@ class TimeSlotService {
   - DoctorRepository doctorRepository
   - AppointmentRepository appointmentRepository
   --
-  + List<TimeSlotDto> getAllTimeSlotsForAdmin()
-  + List<AvailableDateSlotsDto> getAvailableDatesWithSlots(String, String, List)
   + List<TimeSlotDto> getTimeSlotsByDoctor(String)
-  + List<TimeSlotDto> getAvailableSlotsByClinicAndDate(String, String, LocalDate, List)
+  + List<AvailableDateSlotsDto> getAvailableDatesWithSlots(String, String, List)
+  + List<TimeSlotDto> getAllTimeSlotsForAdmin()
   + List<TimeSlot> getAllTimeSlots()
+  + List<TimeSlotDto> getAvailableSlotsByClinicAndDate(String, String, LocalDate, List)
 }
 
 class QueueSseService {
@@ -58,8 +55,8 @@ class SignupRequest {
   + String getPosition()
   + setRole(String)
   + setDateOfBirth(String)
-  + setClinicName(String)
-  + setLastName(String)
+  + setClinicId(String)
+  + String getClinicName()
 }
 
 class TimeSlot <<Entity>> {
@@ -70,11 +67,11 @@ class TimeSlot <<Entity>> {
   - LocalTime startTime
   - LocalTime endTime
   --
-  + String getDayOfWeek()
-  + setDayOfWeek(String)
   + setStartTime(LocalTime)
   + LocalTime getStartTime()
-  + String getDoctorId()
+  + String getDayOfWeek()
+  + setDayOfWeek(String)
+  + String getDoctorName()
 }
 
 class DoctorService {
@@ -98,11 +95,11 @@ class RedisQueueService {
   - NotificationEventProducer notificationEventProducer
   - DoctorRepository doctorRepository
   --
-  - String getStringFromMeta(Map, String, String)
   + String getDoctorIdFromAppointment(String)
   - long getNowServingSeqSafe(String)
-  + QueueStatus getQueueStatus(String)
+  + PositionSnapshot getCurrentPosition(String)
   + long getQueueNumber(String)
+  + QueueStatus getQueueStatus(String)
 }
 
 class StaffResponse {
@@ -111,10 +108,10 @@ class StaffResponse {
   - String position
   --
   + String getPosition()
-  + setClinicName(String)
   + setClinicId(String)
-  + String getClinicId()
   + String getClinicName()
+  + setPosition(String)
+  + setClinicName(String)
 }
 
 class KafkaQueueEventProducer {
@@ -127,9 +124,9 @@ class QueueStatus {
   - long nowServing
   - int totalWaiting
   --
-  + String getClinicId()
-  + long getNowServing()
   + int getTotalWaiting()
+  + long getNowServing()
+  + String getClinicId()
 }
 
 class UserRequest {
@@ -141,13 +138,10 @@ class UserRequest {
   - String status
   --
   + setRole(String)
-  + setLastName(String)
-  + setFirstName(String)
-  + String getLastName()
+  + String getFirstName()
   + UUID getSupabaseUserId()
-}
-
-class RedisConfig {
+  + setSupabaseUserId(UUID)
+  + setFirstName(String)
 }
 
 class CallNextResult {
@@ -161,9 +155,6 @@ class CallNextResult {
   + boolean equals(Object)
   + String toString()
   + int hashCode()
-}
-
-class WebSocketConfig {
 }
 
 class HealthController {
@@ -200,11 +191,11 @@ class SpecialistClinicDto {
   - String publicHolidayPm
   - String publicHolidayNight
   --
+  + String getPublicHolidayNight()
+  + setPublicHolidayNight(String)
   + String toString()
   + String getAddress()
   + String getRegion()
-  + String getClinicName()
-  + Integer getSn()
 }
 
 class AppointmentResponse {
@@ -225,10 +216,10 @@ class AppointmentResponse {
   - LocalDateTime updatedAt
   --
   + setType(String)
-  + String getType()
   + setStartTime(LocalTime)
   + LocalTime getStartTime()
-  + setClinicName(String)
+  + String getType()
+  + String getDoctorName()
 }
 
 class TimeSlotRequest {
@@ -238,19 +229,11 @@ class TimeSlotRequest {
   - String startTime
   - String endTime
   --
-  + String getDayOfWeek()
-  + setDayOfWeek(String)
   + setStartTime(String)
   + String getStartTime()
-  + String getDoctorId()
-}
-
-class DoctorSeeder {
-  - WebClient supabaseClient
-  - ObjectMapper om
-  - boolean seederEnabled
-  - int doctorCounter
-  - Set<String> usedDoctorNames
+  + String getDayOfWeek()
+  + setDayOfWeek(String)
+  + String getDoctorName()
 }
 
 class TimeSlotDto {
@@ -262,27 +245,15 @@ class TimeSlotDto {
   - LocalTime endTime
   - boolean isAvailable
   --
-  + String getDayOfWeek()
-  + setDayOfWeek(String)
   + setStartTime(LocalTime)
   + LocalTime getStartTime()
-  + String getDoctorId()
+  + String getDayOfWeek()
+  + setDayOfWeek(String)
+  + setAvailable(boolean)
 }
 
 class PatientService {
   - PatientRepository patientRepository
-}
-
-class ParameterizedTypeReference <<abstract>> {
-  - Type type
-  --
-  + boolean equals(Object)
-  + String toString()
-  + int hashCode()
-  + Type getType()
-}
-
-class QueueScriptsConfig {
 }
 
 class ClinicService {
@@ -290,8 +261,8 @@ class ClinicService {
   - SpecialistClinicRepository spRepo
   - KafkaQueueEventProducer queueEventProducer
   --
-  + List<GpClinicDto> getGpClinics(int)
   + List<SpecialistClinicDto> getSpecialistClinics(int)
+  + List<GpClinicDto> getGpClinics(int)
 }
 
 class DoctorDto {
@@ -303,10 +274,10 @@ class DoctorDto {
   - String clinicId
   --
   + String toString()
-  + setClinicName(String)
+  + String getDoctorName()
+  + String getDoctorId()
+  + setDoctorId(String)
   + setClinicId(String)
-  + String getClinicId()
-  + String getClinicName()
 }
 
 class StaffRequest {
@@ -314,9 +285,9 @@ class StaffRequest {
   - String position
   --
   + String getPosition()
-  + setClinicName(String)
   + String getClinicName()
   + setPosition(String)
+  + setClinicName(String)
 }
 
 class QueueStreamController {
@@ -341,10 +312,10 @@ class User <<abstract>> {
   - String status
   --
   + setRole(String)
-  + setLastName(String)
-  + setFirstName(String)
-  + String getLastName()
+  + String getFirstName()
   + UUID getSupabaseUserId()
+  + setSupabaseUserId(UUID)
+  + setFirstName(String)
 }
 
 class RedisQueueController {
@@ -363,12 +334,9 @@ class AvailableDateSlotsDto {
   --
   + setDate(LocalDate)
   + LocalDate getDate()
-  + setClinicName(String)
-  + setClinicId(String)
-  + String getClinicId()
-}
-
-class SecurityConfig {
+  + String getDoctorName()
+  + String getDoctorId()
+  + setDoctorId(String)
 }
 
 class PositionSnapshot {
@@ -381,7 +349,7 @@ class PositionSnapshot {
   + boolean equals(Object)
   + String toString()
   + int hashCode()
-  + Object getClinicId()
+  + Object getNowServing()
 }
 
 class TreatmentNoteRequest {
@@ -389,11 +357,11 @@ class TreatmentNoteRequest {
   - String noteType
   - String notes
   --
-  + String getNotes()
-  + setNotes(String)
-  + setNoteType(String)
-  + String getNoteType()
   + String getAppointmentId()
+  + setAppointmentId(String)
+  + String getNoteType()
+  + setNoteType(String)
+  + String getNotes()
 }
 
 class QueueEvent {
@@ -413,8 +381,8 @@ class QueueEvent {
 class TimeSlotController {
   - TimeSlotService timeSlotService
   --
-  + ResponseEntity<AvailableDateSlotsDto>> getAvailableDatesWithSlots(String, String, List)
   + ResponseEntity<TimeSlotDto>> getTimeSlotsByDoctor(String)
+  + ResponseEntity<AvailableDateSlotsDto>> getAvailableDatesWithSlots(String, String, List)
   + ResponseEntity<TimeSlotDto>> getAllTimeSlots()
 }
 
@@ -422,9 +390,9 @@ class UserController {
   - UserService userService
   --
   + ResponseEntity<StaffResponse> getStaffBySupabaseId(UUID)
-  + ResponseEntity<PatientResponse>> getAllPatients()
   + ResponseEntity<StaffResponse>> getAllClinicStaff()
   + ResponseEntity<PatientResponse> getPatientByEmail(String)
+  + ResponseEntity<PatientResponse>> getAllPatients()
 }
 
 class Record <<abstract>> {
@@ -440,9 +408,9 @@ class PatientRequest {
   --
   + setDateOfBirth(String)
   + String getDateOfBirth()
-  + setGender(String)
   + String getPhone()
   + setPhone(String)
+  + String getGender()
 }
 
 class GpClinicDto {
@@ -457,9 +425,9 @@ class GpClinicDto {
   --
   + String toString()
   + String getAddress()
-  + String getClinicId()
   + String getClinicName()
-  + Integer getSn()
+  + String getClinicId()
+  + setOpeningHours(String)
 }
 
 class SpecialistClinic <<Entity>> {
@@ -482,39 +450,36 @@ class SpecialistClinic <<Entity>> {
   - String remarks
   - String speciality
   --
+  + String getPublicHolidayNight()
+  + setPublicHolidayNight(String)
   + String getRegion()
   + setRegion(String)
-  + Integer getSn()
-  + String getArea()
-  + String getSatAm()
+  + setPublicHolidayPm(String)
 }
 
 class ClinicController {
   - ClinicService clinicService
   --
-  + ResponseEntity<GpClinicDto>> getGpClinics(int)
   + ResponseEntity<SpecialistClinicDto>> getSpecialistClinics(int)
+  + ResponseEntity<GpClinicDto>> getGpClinics(int)
 }
 
 class UserService {
   - UserRepository userRepository
   - PatientRepository patientRepository
   --
-  + List<PatientResponse> getAllPatients()
   + List<StaffResponse> getAllClinicStaff()
+  + List<PatientResponse> getAllPatients()
 }
 
 class AppointmentController {
   - AppointmentService appointmentService
   --
-  + ResponseEntity<AppointmentResponse> getAppointmentById(UUID)
   + ResponseEntity<AppointmentResponse>> getAllAppointments()
+  + ResponseEntity<AppointmentResponse> getAppointmentById(UUID)
   + ResponseEntity<AppointmentResponse>> getAppointmentsByPatient(String)
   + ResponseEntity<AppointmentResponse>> getAppointmentsByDoctor(String)
-  + ResponseEntity<AppointmentResponse>> getAppointmentsByClinic(String)
-}
-
-class AsyncConfig {
+  + ResponseEntity<AppointmentResponse>> getUpcomingAppointments(String)
 }
 
 class Patient <<Entity>> {
@@ -524,9 +489,9 @@ class Patient <<Entity>> {
   --
   + setDateOfBirth(String)
   + String getDateOfBirth()
-  + setGender(String)
   + String getPhone()
   + setPhone(String)
+  + String getGender()
 }
 
 class SystemAdministrator <<Entity>> {
@@ -546,9 +511,6 @@ class NotificationEvent {
   + int hashCode()
 }
 
-class BackendApplication {
-}
-
 class Doctor <<Entity>> {
   - {id} Long id
   - String doctorId
@@ -558,11 +520,11 @@ class Doctor <<Entity>> {
   - String clinicAddress
   - String speciality
   --
-  + setClinicName(String)
-  + setClinicId(String)
-  + String getClinicId()
-  + String getClinicName()
+  + String getDoctorName()
   + String getDoctorId()
+  + setDoctorId(String)
+  + setClinicId(String)
+  + String getClinicName()
 }
 
 class AuthController {
@@ -583,16 +545,11 @@ class AppointmentService {
   - DoctorRepository doctorRepository
   - PatientRepository patientRepository
   --
-  + AppointmentResponse getAppointmentById(UUID)
   + List<AppointmentResponse> getAllAppointments()
+  + AppointmentResponse getAppointmentById(UUID)
   + List<AppointmentResponse> getAppointmentsByPatient(String)
   + List<AppointmentResponse> getAppointmentsByDoctor(String)
-  + List<AppointmentResponse> getAppointmentsByClinic(String)
-}
-
-class SupabaseConfig {
-  - String supabaseUrl
-  - String supabaseKey
+  + List<AppointmentResponse> getUpcomingAppointments()
 }
 
 class UserResponse {
@@ -604,10 +561,10 @@ class UserResponse {
   - String status
   --
   + setRole(String)
-  + setLastName(String)
-  + setFirstName(String)
-  + String getLastName()
+  + String getFirstName()
   + UUID getSupabaseUserId()
+  + setSupabaseUserId(UUID)
+  + setFirstName(String)
 }
 
 class Clinic <<abstract>> {
@@ -616,10 +573,10 @@ class Clinic <<abstract>> {
   # String telephoneNum
   --
   + String getAddress()
-  + setClinicName(String)
   + String getClinicName()
+  + setClinicName(String)
+  + String getTelephoneNum()
   + setAddress(String)
-  + setTelephoneNum(String)
 }
 
 class AppointmentRequest {
@@ -632,10 +589,10 @@ class AppointmentRequest {
   - String type
   --
   + setType(String)
-  + String getType()
   + setStartTime(LocalTime)
   + LocalTime getStartTime()
-  + setClinicId(String)
+  + String getType()
+  + String getDoctorId()
 }
 
 class GpClinic <<Entity>> {
@@ -647,9 +604,9 @@ class GpClinic <<Entity>> {
   --
   + setClinicId(String)
   + String getClinicId()
-  + Integer getSn()
-  + String getPcn()
-  + setPcn(String)
+  + setOpeningHours(String)
+  + setClosingHours(String)
+  + String getClosingHours()
 }
 
 class NotificationEventProducer {
@@ -664,9 +621,9 @@ class PatientResponse {
   --
   + setDateOfBirth(String)
   + String getDateOfBirth()
-  + setGender(String)
   + String getPhone()
   + setPhone(String)
+  + String getGender()
 }
 
 class TreatmentNote <<Entity>> {
@@ -678,11 +635,11 @@ class TreatmentNote <<Entity>> {
   - OffsetDateTime createdAt
   - OffsetDateTime updatedAt
   --
-  + Long getId()
   + setId(Long)
-  + String getNotes()
-  + setNotes(String)
-  + String getCreatedBy()
+  + Long getId()
+  + OffsetDateTime getCreatedAt()
+  + UUID getAppointmentId()
+  + OffsetDateTime getUpdatedAt()
 }
 
 class ClinicStaff <<Entity>> {
@@ -691,10 +648,10 @@ class ClinicStaff <<Entity>> {
   - String position
   --
   + String getPosition()
-  + setClinicName(String)
   + setClinicId(String)
-  + String getClinicId()
   + String getClinicName()
+  + setPosition(String)
+  + setClinicName(String)
 }
 
 class SlotUpdateDto {
@@ -707,9 +664,9 @@ class SlotUpdateDto {
   --
   + setStartTime(String)
   + String getStartTime()
-  + setClinicId(String)
-  + String getClinicId()
   + String getDoctorId()
+  + setDoctorId(String)
+  + setBookingDate(String)
 }
 
 class TreatmentNoteService {
@@ -741,9 +698,9 @@ class RescheduleRequest {
   --
   + setStartTime(LocalTime)
   + LocalTime getStartTime()
-  + setClinicId(String)
-  + String getClinicId()
   + String getDoctorId()
+  + setDoctorId(String)
+  + setBookingDate(LocalDate)
 }
 
 class MethodInfo {
@@ -772,9 +729,6 @@ class FieldInfo {
   ~ boolean isId
 }
 
-class KafkaConfig {
-}
-
 class TreatmentNoteResponse {
   - Long id
   - UUID appointmentId
@@ -790,11 +744,11 @@ class TreatmentNoteResponse {
   - OffsetDateTime createdAt
   - OffsetDateTime updatedAt
   --
+  + setId(Long)
   + Long getId()
-  + setClinicName(String)
-  + setClinicId(String)
-  + String getClinicId()
-  + String getClinicName()
+  + String getDoctorName()
+  + String getDoctorId()
+  + UUID getPatientId()
 }
 
 class ClassInfo {
@@ -809,7 +763,6 @@ class ClassInfo {
   ~ List<MethodInfo> methods
 }
 
-ParameterizedTypeReference <|--  : extends
 DoctorController --> DoctorService : doctorService
 RedisQueueService --> UserService : userService
 RedisQueueService --> AppointmentService : appointmentService

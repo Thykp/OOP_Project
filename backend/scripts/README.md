@@ -20,8 +20,10 @@ This tool automatically generates UML class diagrams for the OOP project backend
 
 ### Scripts (`backend/scripts/`)
 
-1. **generate-diagram.ps1** - PowerShell script to run the generator (Windows)
-2. **generate-diagram.bat** - Batch script to run the generator (Windows)
+1. **generate-diagram.ps1** - PowerShell script to generate and convert the diagram (Windows)
+2. **generate-diagram.bat** - Batch script to generate and convert the diagram (Windows)
+
+Both scripts automatically generate the PlantUML diagram and convert it to XML and PNG formats in one step.
 
 ## Usage
 
@@ -43,7 +45,13 @@ The scripts will:
 
 1. Compile the project automatically
 2. Scan all backend classes
-3. Generate the diagram in `scripts/out/class-diagram.puml`
+3. Generate the PlantUML diagram in `scripts/out/class-diagram.puml`
+4. Validate and fix any syntax issues
+5. Convert the diagram to XML format (`class-diagram.xml`)
+6. Convert the diagram to UML format (`class-diagram.uml`)
+7. Convert the diagram to PNG format (`class-diagram.png`)
+
+All output files will be saved in `scripts/out/` directory.
 
 ### Manual Execution
 
@@ -75,35 +83,87 @@ The generator creates a **PlantUML** file in `scripts/out/class-diagram.puml` th
 -   Association relationships
 -   Entity annotations and stereotypes
 
-## Converting to XML/Images
+## Output Formats
 
-### Option 1: PlantUML Online
+The scripts automatically generate the following files:
 
-1. Visit http://www.plantuml.com/plantuml
-2. Paste the contents of `class-diagram.puml`
-3. Export as XML or image format
+-   `class-diagram.puml` - PlantUML source file
+-   `class-diagram.xml` - XML format (UML XMI standard, renamed from .xmi)
+-   `class-diagram.uml` - UML format (UML XMI standard, renamed from .xmi)
+-   `class-diagram.png` - PNG raster image
 
-### Option 2: PlantUML Command Line
+All files are saved in `scripts/out/` directory.
 
-1. Install PlantUML: https://plantuml.com/starting
-2. Navigate to the output directory:
+## Converting to Other Formats (Manual)
+
+If you need additional formats beyond XML and PNG, you can use Maven directly:
+
+### Option 1: Maven Plugin (Manual)
+
+1. **Navigate to backend directory:**
+
+    ```bash
+    cd backend
+    ```
+
+2. **Convert to various formats using Maven:**
+
+    ```bash
+    # XML (already done automatically by the script)
+    mvn plantuml:generate@generate-xml
+
+    # UML (already done automatically by the script)
+    mvn plantuml:generate@generate-uml
+
+    # PNG (already done automatically by the script)
+    mvn plantuml:generate@generate-png
+    ```
+
+    **Note:** The generate scripts already convert to XML, UML, and PNG automatically. Use these commands only if you need to regenerate specific formats.
+
+    All output files will be saved in `scripts/out/` directory.
+
+### Option 2: PlantUML Command Line (Alternative)
+
+If you have PlantUML installed separately, you can also use the command line:
+
+1. **Install PlantUML:** https://plantuml.com/starting
+2. **Navigate to output directory:**
     ```bash
     cd backend/scripts/out
     ```
-3. Convert to XML:
+3. **Convert to various formats:**
+
     ```bash
-    plantuml -txmi class-diagram.puml
-    ```
-4. Convert to image:
-    ```bash
+    # PNG (default, raster image)
     plantuml class-diagram.puml
+
+    # SVG (vector, scalable)
+    plantuml -tsvg class-diagram.puml
+
+    # PDF (document)
+    plantuml -tpdf class-diagram.puml
+
+    # XMI (UML XML format)
+    plantuml -txmi class-diagram.puml
+
+    # EPS (Encapsulated PostScript)
+    plantuml -teps class-diagram.puml
     ```
 
-### Option 3: VS Code Extension
+### Option 3: PlantUML Online
+
+1. Visit http://www.plantuml.com/plantuml
+2. Open `backend/scripts/out/class-diagram.puml` and copy its contents
+3. Paste into the online editor
+4. Right-click the rendered diagram → "Save image as..." or use export options
+
+### Option 4: VS Code Extension
 
 1. Install "PlantUML" extension in VS Code
 2. Open `backend/scripts/out/class-diagram.puml`
-3. Right-click and select "Export Current Diagram" → Choose format (XML, PNG, SVG, etc.)
+3. Right-click in the editor → "Export Current Diagram"
+4. Choose format: PNG, SVG, PDF, XMI, etc.
 
 ## Generated Diagram Includes
 
@@ -136,6 +196,32 @@ The diagram automatically includes **all classes** in the `com.is442.backend` pa
     -   Associations (field references)
     -   Dependencies
 
+## Complete Workflow
+
+Simply run one script to generate and convert the diagram:
+
+```powershell
+# PowerShell
+cd backend/scripts
+.\generate-diagram.ps1
+
+# Or Batch
+cd backend/scripts
+generate-diagram.bat
+```
+
+That's it! You'll have the diagram in all formats (PUML, XML, UML, PNG) in `scripts/out/` directory.
+
+## Maven Plugin Configuration
+
+The project uses the **PlantUML Maven Plugin** (`com.github.jeluard:plantuml-maven-plugin`) configured in `pom.xml`. This plugin:
+
+-   Automatically downloads the required PlantUML library (no manual installation needed)
+-   Converts diagrams directly from the Maven build process
+-   Outputs all converted files to `scripts/out/` directory
+
+The plugin is configured with execution profiles for XML, UML, and PNG formats, which are automatically run by the generate scripts.
+
 ## Notes
 
 -   The generator uses `BackendClassScanner` to automatically discover all classes in the backend package
@@ -144,3 +230,5 @@ The diagram automatically includes **all classes** in the `com.is442.backend` pa
 -   Methods are limited to key ones (getters, setters, constructors) to keep diagram readable
 -   Output is automatically saved to `scripts/out/class-diagram.puml`
 -   The output directory is created automatically if it doesn't exist
+-   Format conversion uses the Maven plugin (no external PlantUML installation required)
+-   The generate scripts automatically convert to XML, UML, and PNG formats
