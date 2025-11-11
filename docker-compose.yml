@@ -54,6 +54,9 @@ services:
       - "8080:8080"
     env_file:
       - ./backend/.env
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
     tty: true
     stdin_open: true
 
