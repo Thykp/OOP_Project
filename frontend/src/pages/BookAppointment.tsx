@@ -122,12 +122,49 @@ export default function AppointmentBooking() {
   // Pre-fill form when in reschedule mode
   useEffect(() => {
     if (rescheduleMode && appointmentToReschedule) {
-      setSelectedClinicType(appointmentToReschedule.clinic_type || "");
-      setSelectedDate(new Date(appointmentToReschedule.booking_date));
-      setSelectedDoctorId(appointmentToReschedule.doctor_id);
-      setSelectedClinicId(appointmentToReschedule.clinic_id);
-      setSelectedTimeRange(`${appointmentToReschedule.start_time}-${appointmentToReschedule.end_time}`);
+      try {
+        if (appointmentToReschedule.clinic_type) {
+          setSelectedClinicType(appointmentToReschedule.clinic_type);
+        }
+        
+        // Safely parse date
+        if (appointmentToReschedule.booking_date) {
+          try {
+            const date = new Date(appointmentToReschedule.booking_date);
+            if (!isNaN(date.getTime())) {
+              setSelectedDate(date);
+            } else {
+              console.warn("Invalid date format:", appointmentToReschedule.booking_date);
+            }
+          } catch (dateError) {
+            console.error("Error parsing date:", dateError);
+          }
+        }
+        
+        if (appointmentToReschedule.doctor_id) {
+          setSelectedDoctorId(appointmentToReschedule.doctor_id);
+        }
+        
+        if (appointmentToReschedule.clinic_id) {
+          setSelectedClinicId(appointmentToReschedule.clinic_id);
+        }
+        
+        // Safely construct time range
+        if (appointmentToReschedule.start_time && appointmentToReschedule.end_time) {
+          const startTime = appointmentToReschedule.start_time.length >= 5 
+            ? appointmentToReschedule.start_time.substring(0, 5) 
+            : appointmentToReschedule.start_time;
+          const endTime = appointmentToReschedule.end_time.length >= 5 
+            ? appointmentToReschedule.end_time.substring(0, 5) 
+            : appointmentToReschedule.end_time;
+          setSelectedTimeRange(`${startTime}-${endTime}`);
+        }
+      } catch (error) {
+        console.error("Error pre-filling reschedule form:", error);
+        // Don't show toast here as it might cause infinite loops - just log the error
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rescheduleMode, appointmentToReschedule]);
 
   // subscribe to server-side slot updates so UI can remove booked slots in real-time
@@ -561,7 +598,25 @@ export default function AppointmentBooking() {
           </p>
           {rescheduleMode && appointmentToReschedule && (
             <p className="mt-2 text-xs font-medium text-gray-600">
-              Current: {appointmentToReschedule.doctor_name} • {new Date(appointmentToReschedule.booking_date).toLocaleDateString()} • {appointmentToReschedule.start_time.substring(0,5)}
+              Current: {appointmentToReschedule.doctor_name || "Unknown Doctor"} • {
+                (() => {
+                  if (!appointmentToReschedule.booking_date) return "N/A";
+                  try {
+                    const date = new Date(appointmentToReschedule.booking_date);
+                    return isNaN(date.getTime()) 
+                      ? appointmentToReschedule.booking_date 
+                      : date.toLocaleDateString();
+                  } catch {
+                    return appointmentToReschedule.booking_date || "N/A";
+                  }
+                })()
+              } • {
+                appointmentToReschedule.start_time 
+                  ? (appointmentToReschedule.start_time.length >= 5 
+                      ? appointmentToReschedule.start_time.substring(0, 5) 
+                      : appointmentToReschedule.start_time)
+                  : "N/A"
+              }
             </p>
           )}
         </div>

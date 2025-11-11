@@ -36,6 +36,7 @@ interface Appointment {
   booking_date: string
   clinic_id: string
   clinic_name: string
+  clinic_type?: string
   created_at: string
   doctor_id: string
   doctor_name: string
@@ -45,7 +46,13 @@ interface Appointment {
   start_time: string
   status: string
   updated_at: string
-  notes?: string
+  treatmentNote?: {
+    id: number
+    notes: string
+    noteType: string
+    createdAt: string
+    createdByName?: string
+  } | null
 }
 
 interface QueueItem extends Appointment {
@@ -73,6 +80,7 @@ export default function StaffDashboard() {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
   const [notes, setNotes] = useState("")
   const [isSavingNotes, setIsSavingNotes] = useState(false)
+  const [existingNoteId, setExistingNoteId] = useState<number | null>(null) // Track existing note ID for updates
   
   // Walk-in form data
   const [walkInEmail, setWalkInEmail] = useState("")
@@ -137,55 +145,137 @@ export default function StaffDashboard() {
       .finally(() => setLoading(false));
   };
 
-  // Fetch completed appointments
-  const fetchCompletedAppointments = () => {
-    const endpoint = `${baseURL}/api/appointments`;
-    fetch(endpoint)
-      .then(response => response.json())
-      .then(data => {
-        const filtered = data.filter((appt: Appointment) => 
-          (appt.status === 'COMPLETED' || appt.status === 'NO_SHOW') && 
-          appt.clinic_name === staffClinicName
-        );
-        setCompletedAppointments(filtered);
-      })
-      .catch(err => console.error("Error fetching completed appointments:", err));
+  // Fetch completed appointments with treatment notes
+  const fetchCompletedAppointments = async () => {
+    try {
+      const endpoint = `${baseURL}/api/appointments`;
+      const response = await fetch(endpoint);
+      const data = await response.json();
+      
+      // Filter by status and clinic (use clinicId if available, otherwise clinicName)
+      const filtered = data.filter((appt: Appointment) => {
+        const statusMatch = appt.status === 'COMPLETED' || appt.status === 'NO_SHOW';
+        
+        // If staffClinicId is available, use it for filtering (more reliable)
+        if (staffClinicId) {
+          return statusMatch && appt.clinic_id === staffClinicId;
+        }
+        
+        // Otherwise, use clinicName (case-insensitive comparison)
+        if (staffClinicName) {
+          return statusMatch && 
+            appt.clinic_name && 
+            appt.clinic_name.toLowerCase().trim() === staffClinicName.toLowerCase().trim();
+        }
+        
+        // If no clinic filter, show all completed appointments
+        return statusMatch;
+      });
+      
+      console.log('Completed appointments filtered:', filtered.length, 'out of', data.length);
+      console.log('Staff clinic ID:', staffClinicId, 'Staff clinic Name:', staffClinicName);
+      
+      // Fetch treatment notes for each completed appointment
+      const appointmentsWithNotes = await Promise.all(
+        filtered.map(async (appt: Appointment) => {
+          try {
+            const notesResponse = await fetch(`${baseURL}/api/treatment-notes/appointment/${appt.appointment_id}/latest`);
+            if (notesResponse.ok) {
+              const latestNote = await notesResponse.json();
+              return { ...appt, treatmentNote: latestNote };
+            }
+          } catch (error) {
+            // If fetching notes fails, just continue without notes
+          }
+          return { ...appt, treatmentNote: null };
+        })
+      );
+      
+      setCompletedAppointments(appointmentsWithNotes);
+    } catch (err) {
+      console.error("Error fetching completed appointments:", err);
+    }
   };
 
-  // Open notes dialog
-  const handleAddNotes = (appointment: Appointment) => {
+  // Open treatment notes dialog
+  const handleAddNotes = async (appointment: Appointment) => {
     setSelectedAppointment(appointment);
-    setNotes(appointment.notes || "");
+    
+    // Try to fetch existing treatment notes for this appointment
+    try {
+      const response = await fetch(`${baseURL}/api/treatment-notes/appointment/${appointment.appointment_id}/latest`);
+      if (response.ok) {
+        const latestNote = await response.json();
+        setNotes(latestNote.notes || "");
+        setExistingNoteId(latestNote.id); // Store the note ID for updates
+      } else {
+        setNotes("");
+        setExistingNoteId(null); // No existing note
+      }
+    } catch (error) {
+      setNotes("");
+      setExistingNoteId(null);
+    }
+    
     setShowNotesDialog(true);
   };
 
-  // Save notes
+  // Save treatment notes (create new or update existing)
   const handleSaveNotes = async () => {
     if (!selectedAppointment) return;
     
+    if (!notes || notes.trim() === "") {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Please enter treatment notes",
+      });
+      return;
+    }
+    
     setIsSavingNotes(true);
     try {
-      const response = await fetch(`${baseURL}/api/appointments/${selectedAppointment.appointment_id}/notes`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes })
+      // If existing note exists, update it; otherwise create new one
+      const url = existingNoteId 
+        ? `${baseURL}/api/treatment-notes/${existingNoteId}`
+        : `${baseURL}/api/treatment-notes`;
+      
+      const method = existingNoteId ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method: method,
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(method === 'POST' && { 'X-User-Id': user?.id || '' }) // Only needed for POST
+        },
+        body: JSON.stringify({
+          ...(method === 'POST' && { appointmentId: selectedAppointment.appointment_id }),
+          noteType: "TREATMENT_SUMMARY",
+          notes: notes.trim()
+        })
       });
 
-      if (!response.ok) throw new Error('Failed to save notes');
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || `Failed to ${existingNoteId ? 'update' : 'save'} treatment notes`);
+      }
 
       toast({
         title: "Success",
-        description: "Notes saved successfully",
+        description: `Treatment notes ${existingNoteId ? 'updated' : 'saved'} successfully`,
       });
  
       fetchAppointments();
       fetchCompletedAppointments();
       setShowNotesDialog(false);
-    } catch (error) {
+      setNotes("");
+      setExistingNoteId(null);
+      setSelectedAppointment(null);
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to save notes",
+        description: error.message || "Failed to save treatment notes",
       });
     } finally {
       setIsSavingNotes(false);
@@ -896,7 +986,7 @@ export default function StaffDashboard() {
                               </div>
                               <div className="space-y-1 min-w-0 flex-1">
                                 <h4 className="font-semibold text-gray-900">{appt.patient_name}</h4>
-                                <p className="text-sm text-gray-600">Dr. {appt.doctor_name}</p>
+                                <p className="text-sm text-gray-600"> {appt.doctor_name}</p>
                                 <p className="text-xs text-gray-500">{appt.clinic_name}</p>
                                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                                   <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded">
@@ -963,7 +1053,7 @@ export default function StaffDashboard() {
                               </div>
                               <div className="space-y-1 flex-1">
                                 <h4 className="font-semibold text-gray-900">{appt.patient_name}</h4>
-                                <p className="text-sm text-gray-600">Dr. {appt.doctor_name}</p>
+                                <p className="text-sm text-gray-600"> {appt.doctor_name}</p>
                                 <p className="text-xs text-gray-500">{appt.clinic_name}</p>
                                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                                   <span className="inline-flex items-center gap-1 bg-gray-50 text-gray-700 text-xs px-2 py-0.5 rounded">
@@ -982,18 +1072,28 @@ export default function StaffDashboard() {
                                     {appt.status.replace('_', ' ')}
                                   </span>
                                 </div>
-                                {appt.notes && (
-                                  <div className="mt-2 p-2 bg-blue-50 rounded text-xs">
-                                    <p className="font-medium text-blue-900 mb-0.5">Notes:</p>
-                                    <p className="text-gray-700">{appt.notes}</p>
+                                {appt.treatmentNote && (
+                                  <div className="mt-2 p-2 bg-blue-50 rounded text-xs border border-blue-200">
+                                    <p className="font-medium text-blue-900 mb-1">Treatment Summary:</p>
+                                    <p className="text-gray-700 whitespace-pre-wrap">{appt.treatmentNote.notes}</p>
+                                    {appt.treatmentNote.createdByName && (
+                                      <p className="text-gray-500 mt-1 text-xs">
+                                        Added by {appt.treatmentNote.createdByName} on {new Date(appt.treatmentNote.createdAt).toLocaleDateString()}
+                                      </p>
+                                    )}
                                   </div>
                                 )}
                               </div>
                             </div>
 
-                            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => handleAddNotes(appt)}>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="gap-1.5" 
+                              onClick={() => handleAddNotes(appt)}
+                            >
                               <FileText className="w-4 h-4" />
-                              {appt.notes ? "Edit Notes" : "Add Notes"}
+                              {appt.treatmentNote ? "Edit Treatment Notes" : "Add Treatment Notes"}
                             </Button>
                           </div>
                         </CardContent>
@@ -1007,33 +1107,38 @@ export default function StaffDashboard() {
         </section>
       </div>
 
-      {/* Notes Dialog */}
+      {/* Treatment Notes Dialog */}
       <Dialog open={showNotesDialog} onOpenChange={setShowNotesDialog}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Appointment Notes</DialogTitle>
+            <DialogTitle>Treatment Summary / Doctor Notes</DialogTitle>
             <DialogDescription>
-              Add summary for {selectedAppointment?.patient_name}'s appointment
+              Add treatment summary and notes for {selectedAppointment?.patient_name}'s completed appointment with {selectedAppointment?.doctor_name}
             </DialogDescription>
           </DialogHeader>
           
           <div className="py-4">
-            <Label htmlFor="notes">Notes</Label>
+            <Label htmlFor="notes">Treatment Notes *</Label>
             <Textarea
               id="notes"
               value={notes}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
-              placeholder="Enter appointment summary, diagnosis, or notes..."
-              className="mt-2 min-h-[120px]"
+              placeholder="Enter treatment summary, diagnosis, prescribed medications, follow-up instructions, or other relevant notes..."
+              className="mt-2 min-h-[200px]"
             />
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNotesDialog(false)} disabled={isSavingNotes}>
+            <Button variant="outline" onClick={() => {
+              setShowNotesDialog(false);
+              setNotes("");
+              setExistingNoteId(null);
+              setSelectedAppointment(null);
+            }} disabled={isSavingNotes}>
               Cancel
             </Button>
-            <Button onClick={handleSaveNotes} disabled={isSavingNotes}>
-              {isSavingNotes ? "Saving..." : "Save"}
+            <Button onClick={handleSaveNotes} disabled={isSavingNotes || !notes.trim()}>
+              {isSavingNotes ? "Saving..." : "Save Treatment Notes"}
             </Button>
           </DialogFooter>
         </DialogContent>
