@@ -390,6 +390,72 @@ public class RedisQueueService {
     }
 
     /**
+     * Moves an appointment to the top of the queue by updating its ZSET score.
+     * 
+     * @param appointmentId the appointment identifier to fast-track
+     * @return the new position (should be 1 if successful)
+     * @throws IllegalArgumentException if appointmentId is invalid
+     * @throws RuntimeException         if appointment is not found in queue
+     */
+    public int fastTrack(String appointmentId) {
+        validateNonEmpty(appointmentId, "appointmentId");
+
+        // Validate UUID format
+        try {
+            UUID.fromString(appointmentId);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "Invalid appointmentId format: " + appointmentId + ". Must be a valid UUID.");
+        }
+
+        // Get appointment metadata to find clinicId
+        Map<Object, Object> meta = strTpl.opsForHash().entries(kAppointment(appointmentId));
+        if (meta == null || meta.isEmpty()) {
+            throw new RuntimeException("Appointment not found: " + appointmentId);
+        }
+
+        String clinicId = (String) meta.get("clinicId");
+        if (clinicId == null || clinicId.trim().isEmpty()) {
+            throw new RuntimeException("Appointment does not have a clinicId: " + appointmentId);
+        }
+
+        // Check if appointment exists in queue
+        Double currentScore = strTpl.opsForZSet().score(kQueue(clinicId), appointmentId);
+        if (currentScore == null) {
+            throw new RuntimeException("Appointment not found in queue: " + appointmentId);
+        }
+
+        // Get the minimum score in the queue (the first element)
+        Set<String> firstElement = strTpl.opsForZSet().range(kQueue(clinicId), 0, 0);
+        if (firstElement == null || firstElement.isEmpty()) {
+            throw new RuntimeException("Queue is empty for clinic: " + clinicId);
+        }
+
+        // Get minimum score from the queue
+        Set<org.springframework.data.redis.core.ZSetOperations.TypedTuple<String>> rangeWithScores = 
+            strTpl.opsForZSet().rangeWithScores(kQueue(clinicId), 0, 0);
+        
+        double minScore = 1.0; // Default if queue is somehow empty
+        if (rangeWithScores != null && !rangeWithScores.isEmpty()) {
+            org.springframework.data.redis.core.ZSetOperations.TypedTuple<String> first = 
+                rangeWithScores.iterator().next();
+            Double score = first.getScore();
+            minScore = (score != null) ? score.doubleValue() : 1.0;
+        }
+
+        // Set the appointment's score to be lower than the minimum
+        // Use minScore - 1, or 0.5 if minScore is 1 or less
+        double newScore = (minScore <= 1.0) ? 0.5 : (minScore - 1.0);
+        strTpl.opsForZSet().add(kQueue(clinicId), appointmentId, newScore);
+
+        // Get the new position (should be 1)
+        Long rank = strTpl.opsForZSet().rank(kQueue(clinicId), appointmentId);
+        int position = (rank == null ? 0 : (int) (rank + 1));
+
+        return position;
+    }
+
+    /**
      * Update doctor assignment for an appointment. Fetches doctor info and updates
      * appointment hash. Validates that doctor exists in database.
      * Only updates doctor fields - does not create a new appointment hash.
