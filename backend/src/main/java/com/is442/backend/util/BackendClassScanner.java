@@ -299,8 +299,8 @@ public class BackendClassScanner {
             return false;
         }
 
-        // Exclude all classes in the config package
-        if (clazz.getPackageName().equals(BASE_PACKAGE + ".config")) {
+        // Exclude all classes in the config package and its subpackages
+        if (clazz.getPackageName().startsWith(BASE_PACKAGE + ".config")) {
             return false;
         }
 
