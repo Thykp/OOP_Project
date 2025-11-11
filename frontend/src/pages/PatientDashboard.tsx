@@ -43,27 +43,15 @@ interface Appointment {
   updated_at: string
 }
 
-// --- mock past history for the "Medical History" tab ---
-const mockPastAppointments = [
-  {
-    id: 1,
-    doctor: "Dr. Jennifer Wong",
-    clinic: "SingHealth Specialist Centre",
-    date: "2023-12-10",
-    time: "11:00 AM",
-    type: "Dermatology Consultation",
-    summary: "Routine skin check. No issues found. Follow-up in 6 months.",
-  },
-  {
-    id: 2,
-    doctor: "Dr. Sarah Lim",
-    clinic: "SingHealth Polyclinic - Bedok",
-    date: "2023-11-28",
-    time: "09:30 AM",
-    type: "Annual Health Screening",
-    summary: "Complete health screening. All results within normal range.",
-  },
-]
+interface PastAppointment extends Appointment {
+  treatmentNote?: {
+    id: number
+    notes: string
+    noteType: string
+    createdAt: string
+    createdByName?: string
+  } | null
+}
 
 export default function PatientDashboard() {
   // check-in / queue
@@ -73,7 +61,9 @@ export default function PatientDashboard() {
 
   // data
   const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [pastAppointments, setPastAppointments] = useState<PastAppointment[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingHistory, setLoadingHistory] = useState(false)
 
   // cancel dialog state
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
@@ -153,8 +143,62 @@ export default function PatientDashboard() {
       .finally(() => setLoading(false))
   }
 
+  const fetchPastAppointments = async () => {
+    if (!user?.id) {
+      setLoadingHistory(false)
+      return
+    }
+    setLoadingHistory(true)
+    try {
+      // Fetch all appointments for the patient
+      const response = await fetch(`${API_BASE}/api/appointments/patient/${user.id}`)
+      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`)
+      const allAppointments = await response.json()
+      
+      // Filter for completed appointments (past appointments)
+      const completed = allAppointments.filter((apt: Appointment) => 
+        apt.status === 'COMPLETED' || apt.status === 'NO_SHOW'
+      )
+      
+      // Sort by date (most recent first)
+      completed.sort((a: Appointment, b: Appointment) => {
+        const dateA = new Date(`${a.booking_date}T${a.start_time}`).getTime()
+        const dateB = new Date(`${b.booking_date}T${b.start_time}`).getTime()
+        return dateB - dateA
+      })
+      
+      // Fetch treatment notes for each completed appointment
+      const appointmentsWithNotes = await Promise.all(
+        completed.map(async (appt: Appointment) => {
+          try {
+            const notesResponse = await fetch(`${API_BASE}/api/treatment-notes/appointment/${appt.appointment_id}/latest`)
+            if (notesResponse.ok) {
+              const latestNote = await notesResponse.json()
+              return { ...appt, treatmentNote: latestNote }
+            }
+          } catch (error) {
+            // If fetching notes fails, just continue without notes
+          }
+          return { ...appt, treatmentNote: null }
+        })
+      )
+      
+      setPastAppointments(appointmentsWithNotes)
+    } catch (err) {
+      console.error("Error fetching past appointments:", err)
+      toast({
+        variant: "destructive",
+        title: "Unable to load medical history",
+        description: "Please try again shortly.",
+      })
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
+
   useEffect(() => {
     fetchAppointments()
+    fetchPastAppointments()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id])
 
@@ -257,7 +301,7 @@ export default function PatientDashboard() {
           </div>
 
           {/* Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <Card className="border-blue-200 hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-blue-700">
@@ -284,21 +328,6 @@ export default function PatientDashboard() {
                 <p className="text-sm text-gray-600 mb-3">Join the queue for your appointment</p>
                 <Button className="w-full bg-green-600 hover:bg-green-700" onClick={handleCheckIn} disabled={isCheckedIn}>
                   {isCheckedIn ? "Checked In" : "Check In Now"}
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="border-purple-200 hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-purple-700">
-                  <History className="h-5 w-5" />
-                  Medical History
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-600 mb-3">View past appointments</p>
-                <Button variant="outline" className="w-full border-purple-200 text-purple-700 hover:bg-purple-50 bg-transparent">
-                  View History
                 </Button>
               </CardContent>
             </Card>
@@ -488,30 +517,73 @@ export default function PatientDashboard() {
                   <CardDescription>Your past appointments and treatment summaries</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {mockPastAppointments.map((appointment) => (
-                      <div key={appointment.id} className="border rounded-lg p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <h3 className="font-semibold">{appointment.doctor}</h3>
-                            <p className="text-sm text-gray-600">{appointment.clinic}</p>
-                            <Badge variant="secondary" className="mt-1">
-                              {appointment.type}
-                            </Badge>
+                  {loadingHistory ? (
+                    <div className="text-center py-8 text-gray-500">Loading medical history...</div>
+                  ) : pastAppointments.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <History className="h-16 w-16 mx-auto mb-4 text-gray-400" />
+                      <p className="text-lg font-medium mb-2">No Past Appointments</p>
+                      <p>Your completed appointments and treatment notes will appear here.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {pastAppointments.map((appointment) => (
+                        <div key={appointment.appointment_id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-lg">{appointment.doctor_name || "Unknown Doctor"}</h3>
+                              <p className="text-sm text-gray-600">{appointment.clinic_name || "Unknown Clinic"}</p>
+                              <div className="flex items-center gap-2 mt-2">
+                                <Badge 
+                                  variant="secondary"
+                                  className={
+                                    appointment.clinic_type === "General Practice"
+                                      ? "bg-green-100 text-green-800 hover:bg-green-100"
+                                      : "bg-purple-100 text-purple-800 hover:bg-purple-100"
+                                  }
+                                >
+                                  {appointment.clinic_type || "N/A"}
+                                </Badge>
+                                <Badge variant="outline" className={
+                                  appointment.status === "COMPLETED" 
+                                    ? "bg-green-50 text-green-700 border-green-200" 
+                                    : "bg-red-50 text-red-700 border-red-200"
+                                }>
+                                  {appointment.status === "COMPLETED" ? "Completed" : "No Show"}
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="text-right text-sm text-gray-500 ml-4">
+                              <p className="font-medium">{formatDate(appointment.booking_date)}</p>
+                              <p>{formatTime(appointment.start_time)}</p>
+                            </div>
                           </div>
-                          <div className="text-right text-sm text-gray-500">
-                            <p>{appointment.date}</p>
-                            <p>{appointment.time}</p>
-                          </div>
+                          
+                          {appointment.treatmentNote ? (
+                            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200 mt-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-sm font-semibold text-blue-900">Treatment Summary</p>
+                                {appointment.treatmentNote.createdByName && (
+                                  <p className="text-xs text-gray-500">
+                                    {new Date(appointment.treatmentNote.createdAt).toLocaleDateString()}
+                                  </p>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                                {appointment.treatmentNote.notes}
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="bg-gray-50 rounded-lg p-3 mt-3">
+                              <p className="text-sm text-gray-500 italic">
+                                No treatment notes available for this appointment.
+                              </p>
+                            </div>
+                          )}
                         </div>
-                        <div className="bg-gray-50 rounded p-3">
-                          <p className="text-sm">
-                            <strong>Summary:</strong> {appointment.summary}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

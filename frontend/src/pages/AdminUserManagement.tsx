@@ -298,20 +298,28 @@ export default function AdminUserManagement() {
   }
 
   const filteredPatients = patients.filter(
-    p =>
-      p.first_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.last_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.phone.includes(searchQuery)
+    p => {
+      const query = searchQuery.toLowerCase()
+      return (
+        (p.first_name?.toLowerCase().includes(query) ?? false) ||
+        (p.last_name?.toLowerCase().includes(query) ?? false) ||
+        (p.email?.toLowerCase().includes(query) ?? false) ||
+        (p.phone?.includes(searchQuery) ?? false)
+      )
+    }
   )
 
   const filteredStaff = staff.filter(
-    s =>
-      s.first_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.last_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.clinic_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.position.toLowerCase().includes(searchQuery.toLowerCase())
+    s => {
+      const query = searchQuery.toLowerCase()
+      return (
+        (s.first_name?.toLowerCase().includes(query) ?? false) ||
+        (s.last_name?.toLowerCase().includes(query) ?? false) ||
+        (s.email?.toLowerCase().includes(query) ?? false) ||
+        (s.clinic_name?.toLowerCase().includes(query) ?? false) ||
+        (s.position?.toLowerCase().includes(query) ?? false)
+      )
+    }
   )
 
   return (
@@ -341,7 +349,7 @@ export default function AdminUserManagement() {
 
         {/* Search */}
         <Card className="mb-6">
-          <CardContent className="pt-6">
+          <CardContent>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <Input
@@ -385,20 +393,20 @@ export default function AdminUserManagement() {
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <h3 className="font-semibold text-lg text-gray-900">
-                            {patient.first_name} {patient.last_name}
+                            {patient.first_name || ""} {patient.last_name || ""}
                           </h3>
                           <div className="mt-2 grid grid-cols-2 gap-4 text-sm text-gray-600">
                             <div>
-                              <span className="font-medium">Email:</span> {patient.email}
+                              <span className="font-medium">Email:</span> {patient.email || "N/A"}
                             </div>
                             <div>
-                              <span className="font-medium">Phone:</span> {patient.phone}
+                              <span className="font-medium">Phone:</span> {patient.phone || "N/A"}
                             </div>
                             <div>
-                              <span className="font-medium">Date of Birth:</span> {patient.date_of_birth}
+                              <span className="font-medium">Date of Birth:</span> {patient.date_of_birth || "N/A"}
                             </div>
                             <div>
-                              <span className="font-medium">Gender:</span> {patient.gender}
+                              <span className="font-medium">Gender:</span> {patient.gender || "N/A"}
                             </div>
                           </div>
                         </div>
@@ -417,7 +425,7 @@ export default function AdminUserManagement() {
                             onClick={() => {
                               setUserToDelete({
                                 id: patient.supabase_user_id,
-                                name: `${patient.first_name} ${patient.last_name}`,
+                                name: `${patient.first_name || ""} ${patient.last_name || ""}`.trim() || patient.email || "Unknown",
                                 type: "patient"
                               })
                               setDeleteDialogOpen(true)
@@ -452,20 +460,20 @@ export default function AdminUserManagement() {
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <h3 className="font-semibold text-lg text-gray-900">
-                            {staffMember.first_name} {staffMember.last_name}
+                            {staffMember.first_name || ""} {staffMember.last_name || ""}
                           </h3>
                           <div className="mt-2 grid grid-cols-2 gap-4 text-sm text-gray-600">
                             <div>
-                              <span className="font-medium">Email:</span> {staffMember.email}
+                              <span className="font-medium">Email:</span> {staffMember.email || "N/A"}
                             </div>
                             <div>
-                              <span className="font-medium">Clinic:</span> {staffMember.clinic_name}
+                              <span className="font-medium">Clinic:</span> {staffMember.clinic_name || "N/A"}
                             </div>
                             <div>
-                              <span className="font-medium">Position:</span> {staffMember.position}
+                              <span className="font-medium">Position:</span> {staffMember.position || "N/A"}
                             </div>
                             <div>
-                              <span className="font-medium">Role:</span> {staffMember.role}
+                              <span className="font-medium">Role:</span> {staffMember.role || "N/A"}
                             </div>
                           </div>
                         </div>
@@ -484,7 +492,7 @@ export default function AdminUserManagement() {
                             onClick={() => {
                               setUserToDelete({
                                 id: staffMember.supabase_user_id,
-                                name: `${staffMember.first_name} ${staffMember.last_name}`,
+                                name: `${staffMember.first_name || ""} ${staffMember.last_name || ""}`.trim() || staffMember.email || "Unknown",
                                 type: "staff"
                               })
                               setDeleteDialogOpen(true)
