@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type JSXElementConstructor, type Key, type ReactElement, type ReactNode, type ReactPortal } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -12,11 +12,86 @@ import { Clock } from "lucide-react"
 interface Clinic {
     sn: number;
     clinicName: string;
-    openingHours: string;
-    closingHours: string;
+    openingHours?: string;
+    closingHours?: string;
+    monToFriAm?: string,
+    monToFriPm?: string,
+    monToFriNight?: string,
+    satAm?: string,
+    satPm?: string,
+    satNight?: string,
+    sunAm?: string,
+    sunPm?: string,
+    sunNight?: string,
+    publicHolidayAm?: string,
+    publicHolidayPm?: string,
+    publicHolidayNight?: string,
 }
 
-const DAYS_OF_WEEK = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
+const groupedFieldDefs = [
+    {
+        groupLabel: "Mon–Fri",
+        keys: [
+            { key: "monToFriAm", label: "AM" },
+            { key: "monToFriPm", label: "PM" },
+            { key: "monToFriNight", label: "Night" }
+        ]
+    },
+    {
+        groupLabel: "Saturday",
+        keys: [
+            { key: "satAm", label: "AM" },
+            { key: "satPm", label: "PM" },
+            { key: "satNight", label: "Night" }
+        ]
+    },
+    {
+        groupLabel: "Sunday",
+        keys: [
+            { key: "sunAm", label: "AM" },
+            { key: "sunPm", label: "PM" },
+            { key: "sunNight", label: "Night" }
+        ]
+    },
+    {
+        groupLabel: "Public Holiday",
+        keys: [
+            { key: "publicHolidayAm", label: "AM" },
+            { key: "publicHolidayPm", label: "PM" },
+            { key: "publicHolidayNight", label: "Night" }
+        ]
+    }
+];
+
+function parseSlotTime(dbValue: string): { start: string, end: string, open: boolean } {
+    if (!dbValue || dbValue === "CLOSED") {
+        return { start: "", end: "", open: false };
+    }
+    const [startRaw, endRaw] = dbValue.split(" - ");
+    return {
+        start: toTimeValue(startRaw?.trim() || ""),
+        end: toTimeValue(endRaw?.trim() || ""),
+        open: true
+    };
+}
+function toTimeValue(str: any) {
+    // Handles "0900", "800", "11:00", etc
+    str = str.trim();
+
+    // Already in correct format
+    if (/^\d{2}:\d{2}$/.test(str)) return str;
+
+    // Convert "0900" → "09:00"
+    if (/^\d{4}$/.test(str)) return str.slice(0, 2) + ':' + str.slice(2, 4);
+
+    // Convert "800" → "08:00"
+    if (/^\d{3}$/.test(str)) return '0' + str[0] + ':' + str.slice(1, 3);
+
+    return str; // fallback
+}
+
+
+
 
 export default function ClinicOperatingHours() {
     const { toast } = useToast();
@@ -25,8 +100,39 @@ export default function ClinicOperatingHours() {
     const [selectedClinic, setSelectedClinic] = useState<string>(""); // store sn as string!
     const [error, setError] = useState<string | null>(null);
 
-    const [clinicHours, setClinicHours] = useState<{ [day: string]: { open: string, close: string } }>({});
-    const [editingHours, setEditingHours] = useState<{ [day: string]: { open: string, close: string } }>({});
+    const [editingHours, setEditingHours] = useState<{ [key: string]: string }>({
+        monToFriAm: "",
+        monToFriPm: "",
+        monToFriNight: "",
+        satAm: "",
+        satPm: "",
+        satNight: "",
+        sunAm: "",
+        sunPm: "",
+        sunNight: "",
+        publicHolidayAm: "",
+        publicHolidayPm: "",
+        publicHolidayNight: ""
+    });
+
+    type SlotTime = { start: string, end: string, open: boolean };
+
+    const [slotTimes, setSlotTimes] = useState<{ [key: string]: SlotTime }>({
+        monToFriAm: { start: "", end: "", open: false },
+        monToFriPm: { start: "", end: "", open: false },
+        monToFriNight: { start: "", end: "", open: false },
+        satAm: { start: "", end: "", open: false },
+        satPm: { start: "", end: "", open: false },
+        satNight: { start: "", end: "", open: false },
+        sunAm: { start: "", end: "", open: false },
+        sunPm: { start: "", end: "", open: false },
+        sunNight: { start: "", end: "", open: false },
+        publicHolidayAm: { start: "", end: "", open: false },
+        publicHolidayPm: { start: "", end: "", open: false },
+        publicHolidayNight: { start: "", end: "", open: false }
+    });
+
+
     const [clinicType, setClinicType] = useState<string>("GP");
     const [fixedOpen, setFixedOpen] = useState("");
     const [fixedClose, setFixedClose] = useState("");
@@ -54,30 +160,45 @@ export default function ClinicOperatingHours() {
             if (!response.ok) throw new Error("Failed to fetch Clinics");
             const data = await response.json() as Clinic[];
             const sorted = data.sort((a, b) => a.clinicName.localeCompare(b.clinicName));
+
             setClinics(sorted);
+
         } catch {
             setError("Failed to load clinics. Please try again later.");
             toast({ title: "Error", description: "Failed to load clinics", variant: "destructive" });
         }
     };
 
-
-
     const handleClinicSelect = async (snString: string) => {
         setSelectedClinic(snString);
 
         // Get the full clinic object by sn:
         const clinic = clinics.find(c => c.sn.toString() === snString);
+        console.log(clinic);
 
         if (clinicType === "GP" && clinic) {
             // Set from DB values; default to "" if not present
             setFixedOpen(clinic.openingHours ?? "");
             setFixedClose(clinic.closingHours ?? "");
+        } else if (clinicType === "Specialist" && clinic) {
+            console.log(clinic.satPm)
+            setSlotTimes({
+                monToFriAm: parseSlotTime(clinic.monToFriAm ?? ""),
+                monToFriPm: parseSlotTime(clinic.monToFriPm ?? ""),
+                monToFriNight: parseSlotTime(clinic.monToFriNight ?? ""),
+                satAm: parseSlotTime(clinic.satAm ?? ""),
+                satPm: parseSlotTime(clinic.satPm ?? ""),
+                satNight: parseSlotTime(clinic.satNight ?? ""),
+                sunAm: parseSlotTime(clinic.sunAm ?? ""),
+                sunPm: parseSlotTime(clinic.sunPm ?? ""),
+                sunNight: parseSlotTime(clinic.sunNight ?? ""),
+                publicHolidayAm: parseSlotTime(clinic.publicHolidayAm ?? ""),
+                publicHolidayPm: parseSlotTime(clinic.publicHolidayPm ?? ""),
+                publicHolidayNight: parseSlotTime(clinic.publicHolidayNight ?? ""),
+            });
         }
 
-        // ...for Specialist, you would fetch/set per-day editingHours as needed
     };
-
 
     const handleSaveClinicHours = async (id: number) => {
         try {
@@ -95,9 +216,15 @@ export default function ClinicOperatingHours() {
                     closingHours: fixedClose
                 });
             } else {
-                body = JSON.stringify({
-                    openingHours: editingHours // usually { MONDAY: {open,close}, ... }
+                const output: { [key: string]: string } = {};
+                Object.keys(slotTimes).forEach(key => {
+                    output[key] = slotTimes[key].open && slotTimes[key].start && slotTimes[key].end
+                        ? `${slotTimes[key].start} - ${slotTimes[key].end}`
+                        : "CLOSED";
                 });
+                console.log("Submitting", output);
+
+                body = JSON.stringify(output);
             }
 
             const response = await fetch(url, {
@@ -107,9 +234,9 @@ export default function ClinicOperatingHours() {
             });
 
             if (!response.ok) throw new Error();
+            await fetchClinics();
+
             toast({ title: "Saved", description: "Clinic hours updated!" });
-            // Optionally update UI state:
-            // setClinicHours( ... );
         } catch {
             toast({ title: "Error", description: "Could not save clinic hours", variant: "destructive" });
         }
@@ -209,29 +336,95 @@ export default function ClinicOperatingHours() {
                                         />
                                     </div>
                                 ) : (
-                                    DAYS_OF_WEEK.map(day => (
-                                        <div key={day} className="flex items-center gap-4 my-1">
-                                            <Label className="w-32">{day.charAt(0) + day.slice(1).toLowerCase()}</Label>
-                                            <Input
-                                                type="time"
-                                                value={editingHours[day]?.open || ""}
-                                                onChange={e => setEditingHours(h => ({
-                                                    ...h,
-                                                    [day]: { ...h[day], open: e.target.value }
-                                                }))}
-                                            />
-                                            <span>to</span>
-                                            <Input
-                                                type="time"
-                                                value={editingHours[day]?.close || ""}
-                                                onChange={e => setEditingHours(h => ({
-                                                    ...h,
-                                                    [day]: { ...h[day], close: e.target.value }
-                                                }))}
-                                            />
+                                    groupedFieldDefs.map(group => (
+                                        <div key={group.groupLabel} className="mb-4">
+                                            <div className="font-semibold mb-2">{group.groupLabel}</div>
+                                            <div className="flex gap-6">
+                                                {group.keys.map(fld => (
+                                                    <div key={fld.key} className="flex flex-col items-start mr-4 mb-4" style={{ width: "265px" }}>
+                                                        <div className="flex items-center mb-1">
+                                                            <Label className="w-20 mr-1">{fld.label}</Label>
+                                                            <label className="flex items-center">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={slotTimes[fld.key].open}
+                                                                    onChange={e => setSlotTimes(h => ({
+                                                                        ...h,
+                                                                        [fld.key]: { ...h[fld.key], open: e.target.checked }
+                                                                    }))}
+                                                                />
+                                                                <span className="ml-1 text-sm">Open</span>
+                                                            </label>
+                                                        </div>
+                                                        <div className="relative flex items-center" style={{ minHeight: "42px", width: "100%" }}>
+                                                            {/* Always render both time inputs and placeholder */}
+                                                            <Input
+                                                                type="time"
+                                                                className="w-28"
+                                                                value={slotTimes[fld.key].start}
+                                                                disabled={!slotTimes[fld.key].open}
+                                                                style={{
+                                                                    opacity: slotTimes[fld.key].open ? 1 : 0,
+                                                                    pointerEvents: slotTimes[fld.key].open ? "auto" : "none",
+                                                                    transition: "opacity 0.2s"
+                                                                }}
+                                                                onChange={e => setSlotTimes(h => ({
+                                                                    ...h,
+                                                                    [fld.key]: { ...h[fld.key], start: e.target.value }
+                                                                }))}
+                                                            />
+                                                            <span
+                                                                style={{
+                                                                    opacity: slotTimes[fld.key].open ? 1 : 0,
+                                                                    width: "30px",
+                                                                    textAlign: "center",
+                                                                    transition: "opacity 0.2s"
+                                                                }}
+                                                            >
+                                                                to
+                                                            </span>
+                                                            <Input
+                                                                type="time"
+                                                                className="w-28"
+                                                                value={slotTimes[fld.key].end}
+                                                                disabled={!slotTimes[fld.key].open}
+                                                                style={{
+                                                                    opacity: slotTimes[fld.key].open ? 1 : 0,
+                                                                    pointerEvents: slotTimes[fld.key].open ? "auto" : "none",
+                                                                    transition: "opacity 0.2s"
+                                                                }}
+                                                                onChange={e => setSlotTimes(h => ({
+                                                                    ...h,
+                                                                    [fld.key]: { ...h[fld.key], end: e.target.value }
+                                                                }))}
+                                                            />
+                                                            {/* Absolutely positioned Closed label: visible only if closed */}
+                                                            {!slotTimes[fld.key].open && (
+                                                                <span
+                                                                    className="absolute text-gray-400"
+                                                                    style={{
+                                                                        left: 0,
+                                                                        right: 0,
+                                                                        textAlign: "center",
+                                                                        pointerEvents: "none", // can't interact!
+                                                                        width: "100%"
+                                                                    }}
+                                                                >
+                                                                    Closed
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+
+                                                ))}
+                                            </div>
                                         </div>
                                     ))
+
+
                                 )}
+
                                 <Button type="submit" className="mt-3">Save Hours</Button>
                             </form>
                         </CardContent>

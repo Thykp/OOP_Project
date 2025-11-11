@@ -44,10 +44,25 @@ public class ClinicController {
     public ResponseEntity<GpClinicDto> updateGPOperatingHours(@PathVariable int id,
             @RequestBody GpClinicDto req) {
         try {
-            clinicService.updateGPClinicOperatingHours( id, req);
+            clinicService.updateGPClinicOperatingHours(id, req);
             return ResponseEntity.ok().build();
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    // Update Specialist operating hours
+    @PatchMapping("/specialist/{id}/operatingHour")
+    public ResponseEntity<SpecialistClinicDto> updateSpecialistOperatingHours(
+            @PathVariable int id,
+            @RequestBody SpecialistClinicDto req) {
+        try {
+            clinicService.updateSpecialistClinicOperatingHours(id, req);
+            return ResponseEntity.ok().build();
+        } catch (RuntimeException e) {
+            e.printStackTrace(); // Prints full trace to the app log
+            throw e; // or return ResponseEntity with error
+            // return ResponseEntity.notFound().build();
         }
     }
 
