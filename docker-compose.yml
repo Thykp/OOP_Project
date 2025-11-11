@@ -68,6 +68,13 @@ services:
       KAFKA_CLUSTERS_0_NAME: oop-cluster
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
 
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: mailhog
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+
 volumes:
 #   redis_data: {}
   redisinsight-data: {}
