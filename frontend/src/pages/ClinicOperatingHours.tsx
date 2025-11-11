@@ -76,10 +76,8 @@ function parseSlotTime(dbValue: string): { start: string, end: string, open: boo
     };
 }
 function toTimeValue(str: any) {
-    // Handles "0900", "800", "11:00", etc
     str = str.trim();
 
-    // Already in correct format
     if (/^\d{2}:\d{2}$/.test(str)) return str;
 
     // Convert "0900" → "09:00"
@@ -405,22 +403,16 @@ export default function ClinicOperatingHours() {
                                                             )}
                                                         </div>
                                                     </div>
-
-
                                                 ))}
                                             </div>
                                         </div>
                                     ))
-
-
                                 )}
-
                                 <Button type="submit" className="mt-3">Save Hours</Button>
                             </form>
                         </CardContent>
                     </Card>
                 )}
-
             </div>
         </PageLayout>
     );

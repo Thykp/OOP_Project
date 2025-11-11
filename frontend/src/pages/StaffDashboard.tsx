@@ -74,14 +74,14 @@ export default function StaffDashboard() {
   const [showWalkInDialog, setShowWalkInDialog] = useState(false)
   const [isSubmittingWalkIn, setIsSubmittingWalkIn] = useState(false)
   const [showWalkInConfirmDialog, setShowWalkInConfirmDialog] = useState(false)
-  
+
   // Notes dialog state
   const [showNotesDialog, setShowNotesDialog] = useState(false)
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
   const [notes, setNotes] = useState("")
   const [isSavingNotes, setIsSavingNotes] = useState(false)
   const [existingNoteId, setExistingNoteId] = useState<number | null>(null) // Track existing note ID for updates
-  
+
   // Walk-in form data
   const [walkInEmail, setWalkInEmail] = useState("")
   const [emailSuggestions, setEmailSuggestions] = useState<any[]>([])
@@ -103,6 +103,7 @@ export default function StaffDashboard() {
   const [staffClinicId, setStaffClinicId] = useState<string | undefined>(user?.user_metadata?.clinicId)
   console.log(staffClinicId)
   const [staffClinicName, setStaffClinicName] = useState<string | undefined>(user?.user_metadata?.clinicName)
+  const staffPosition = user?.user_metadata.position
 
   useEffect(() => {
     const supabaseId = user?.id
@@ -115,17 +116,16 @@ export default function StaffDashboard() {
         if (data.clinic_id) setStaffClinicId(data.clinic_id)
         if (data.clinic_name) setStaffClinicName(data.clinic_name)
       })
-      .catch(() => {})
+      .catch(() => { })
     return () => controller.abort()
   }, [user?.id, baseURL])
-
   // Fetch appointments for staff's clinic only
   const fetchAppointments = () => {
     setLoading(true);
-    const endpoint = staffClinicId 
+    const endpoint = staffClinicId
       ? `${baseURL}/api/appointments/upcoming?clinicId=${staffClinicId}`
       : `${baseURL}/api/appointments/upcoming`;
-      
+
     fetch(endpoint)
       .then(response => {
         if (!response.ok) {
@@ -134,10 +134,11 @@ export default function StaffDashboard() {
         return response.json();
       })
       .then(data => {
-        const filteredData = staffClinicName 
+        const filteredData = staffClinicName
           ? data.filter((appt: Appointment) => appt.clinic_name === staffClinicName)
           : data;
         setAppointments(filteredData);
+        console.log(data)
       })
       .catch(err => {
         console.error("Error fetching appointments:", err);
@@ -151,30 +152,30 @@ export default function StaffDashboard() {
       const endpoint = `${baseURL}/api/appointments`;
       const response = await fetch(endpoint);
       const data = await response.json();
-      
+
       // Filter by status and clinic (use clinicId if available, otherwise clinicName)
       const filtered = data.filter((appt: Appointment) => {
         const statusMatch = appt.status === 'COMPLETED' || appt.status === 'NO_SHOW';
-        
+
         // If staffClinicId is available, use it for filtering (more reliable)
         if (staffClinicId) {
           return statusMatch && appt.clinic_id === staffClinicId;
         }
-        
+
         // Otherwise, use clinicName (case-insensitive comparison)
         if (staffClinicName) {
-          return statusMatch && 
-            appt.clinic_name && 
+          return statusMatch &&
+            appt.clinic_name &&
             appt.clinic_name.toLowerCase().trim() === staffClinicName.toLowerCase().trim();
         }
-        
+
         // If no clinic filter, show all completed appointments
         return statusMatch;
       });
-      
+
       console.log('Completed appointments filtered:', filtered.length, 'out of', data.length);
       console.log('Staff clinic ID:', staffClinicId, 'Staff clinic Name:', staffClinicName);
-      
+
       // Fetch treatment notes for each completed appointment
       const appointmentsWithNotes = await Promise.all(
         filtered.map(async (appt: Appointment) => {
@@ -190,7 +191,7 @@ export default function StaffDashboard() {
           return { ...appt, treatmentNote: null };
         })
       );
-      
+
       setCompletedAppointments(appointmentsWithNotes);
     } catch (err) {
       console.error("Error fetching completed appointments:", err);
@@ -200,7 +201,7 @@ export default function StaffDashboard() {
   // Open treatment notes dialog
   const handleAddNotes = async (appointment: Appointment) => {
     setSelectedAppointment(appointment);
-    
+
     // Try to fetch existing treatment notes for this appointment
     try {
       const response = await fetch(`${baseURL}/api/treatment-notes/appointment/${appointment.appointment_id}/latest`);
@@ -216,14 +217,14 @@ export default function StaffDashboard() {
       setNotes("");
       setExistingNoteId(null);
     }
-    
+
     setShowNotesDialog(true);
   };
 
   // Save treatment notes (create new or update existing)
   const handleSaveNotes = async () => {
     if (!selectedAppointment) return;
-    
+
     if (!notes || notes.trim() === "") {
       toast({
         variant: "destructive",
@@ -232,19 +233,19 @@ export default function StaffDashboard() {
       });
       return;
     }
-    
+
     setIsSavingNotes(true);
     try {
       // If existing note exists, update it; otherwise create new one
-      const url = existingNoteId 
+      const url = existingNoteId
         ? `${baseURL}/api/treatment-notes/${existingNoteId}`
         : `${baseURL}/api/treatment-notes`;
-      
+
       const method = existingNoteId ? 'PUT' : 'POST';
-      
+
       const response = await fetch(url, {
         method: method,
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           ...(method === 'POST' && { 'X-User-Id': user?.id || '' }) // Only needed for POST
         },
@@ -264,7 +265,7 @@ export default function StaffDashboard() {
         title: "Success",
         description: `Treatment notes ${existingNoteId ? 'updated' : 'saved'} successfully`,
       });
- 
+
       fetchAppointments();
       fetchCompletedAppointments();
       setShowNotesDialog(false);
@@ -299,12 +300,12 @@ export default function StaffDashboard() {
         return response.json();
       })
       .then(data => {
-        const clinicDoctors = staffClinicId 
+        const clinicDoctors = staffClinicId
           ? data.filter((doc: any) => doc.clinicId === staffClinicId)
           : staffClinicName
-          ? data.filter((doc: any) => doc.clinicName === staffClinicName)
-          : data;
-          
+            ? data.filter((doc: any) => doc.clinicName === staffClinicName)
+            : data;
+
         const doctorOptions = clinicDoctors.map((doc: { doctorId: string; doctorName: string }) => ({
           value: doc.doctorId,
           label: doc.doctorName,
@@ -380,7 +381,7 @@ export default function StaffDashboard() {
           let timeSlots = entry.timeSlots || [];
           if (dateObj.toDateString() === now.toDateString()) {
             timeSlots = timeSlots.filter((slot: any) => {
-              const start = (slot.startTime || slot.start_time || '').substring(0,5);
+              const start = (slot.startTime || slot.start_time || '').substring(0, 5);
               return parseTimeToMinutes(start) > currentMinutes;
             });
           }
@@ -392,7 +393,7 @@ export default function StaffDashboard() {
 
         // Build unavailable list for styling only (not disabling)
         const today = new Date();
-        today.setHours(0,0,0,0);
+        today.setHours(0, 0, 0, 0);
         const maxDate = new Date();
         maxDate.setDate(today.getDate() + 7 * 8);
         const allDates: Date[] = [];
@@ -421,32 +422,32 @@ export default function StaffDashboard() {
     if (!showWalkInDialog) return;
 
     connectSocket();
-    
+
     const { unsubscribe } = subscribeToSlots((update: any) => {
       if (!update) return;
-      
+
       console.log('[StaffDashboard] 🔔 WebSocket update received:', update);
-      
+
       const dateStr = update.date || update.booking_date;
       const startStr = update.start_time || update.timeSlot?.split?.("-")?.[0];
       const action = update.action || 'REMOVE';
-      
+
       console.log('[StaffDashboard] 📋 Parsed update:', {
         dateStr,
         startStr,
         action
       });
-      
+
       if (!dateStr || !startStr || action !== 'REMOVE') {
         console.log('[StaffDashboard] ⏭️ Ignoring update (missing data or non-REMOVE action)');
         return;
       }
 
-      const normalizedStart = (startStr as string).substring(0,5);
+      const normalizedStart = (startStr as string).substring(0, 5);
 
       setWalkInAvailableDates((prev) => {
         console.log('[StaffDashboard] 📊 Current walkInAvailableDates:', prev);
-        
+
         if (!prev || prev.length === 0) {
           console.log('[StaffDashboard] ⚠️ No available dates to filter');
           return prev;
@@ -481,19 +482,19 @@ export default function StaffDashboard() {
             console.log('[StaffDashboard] ✅ Entry matches date, filtering slots...');
 
             const newSlots = (entry.timeSlots || []).filter((slot: any) => {
-              const s = (slot.startTime || slot.start_time || '').substring(0,5);
+              const s = (slot.startTime || slot.start_time || '').substring(0, 5);
               const keep = s !== normalizedStart;
-              
+
               if (!keep) {
                 removedCount++;
                 console.log(`[StaffDashboard] 🗑️ REMOVING slot: ${s} (matches ${normalizedStart})`);
               } else {
                 console.log(`[StaffDashboard] ✓ Keeping slot: ${s}`);
               }
-              
+
               return keep;
             });
-            
+
             return { ...entry, timeSlots: newSlots };
           })
           .filter((e: any) => e.timeSlots && e.timeSlots.length > 0);
@@ -545,12 +546,12 @@ export default function StaffDashboard() {
     setIsSubmittingWalkIn(true);
 
     try {
-  const [start_time, end_time] = walkInSelectedSlot.time.split("-").map((t) => t.trim());
+      const [start_time, end_time] = walkInSelectedSlot.time.split("-").map((t) => t.trim());
       const formattedStart = start_time.length > 5 ? start_time.substring(0, 5) : start_time;
       const formattedEnd = end_time.length > 5 ? end_time.substring(0, 5) : end_time;
 
-  const walkInPatientId = selectedPatient?.supabase_user_id;
-  if (!walkInPatientId) throw new Error('Missing patient ID');
+      const walkInPatientId = selectedPatient?.supabase_user_id;
+      if (!walkInPatientId) throw new Error('Missing patient ID');
 
       const appointmentRequest = {
         patient_id: walkInPatientId,
@@ -573,7 +574,7 @@ export default function StaffDashboard() {
         try {
           const errJson = await res.json();
           if (errJson?.message) message = errJson.message;
-        } catch {}
+        } catch { }
         toast({
           variant: "destructive",
           title: "Booking failed",
@@ -584,7 +585,7 @@ export default function StaffDashboard() {
 
       toast({
         title: "Walk-in Appointment Created",
-  description: `Appointment for ${selectedPatient.first_name} ${selectedPatient.last_name} has been scheduled.`,
+        description: `Appointment for ${selectedPatient.first_name} ${selectedPatient.last_name} has been scheduled.`,
       });
 
       // Reset form
@@ -651,7 +652,7 @@ export default function StaffDashboard() {
       });
       if (!res.ok) {
         let msg = `Check-in failed (${res.status})`;
-        try { const j = await res.json(); if (j?.message) msg = j.message; } catch {}
+        try { const j = await res.json(); if (j?.message) msg = j.message; } catch { }
         throw new Error(msg);
       }
       const data = await res.json();
@@ -694,7 +695,7 @@ export default function StaffDashboard() {
       fetchAppointments();
       fetchCompletedAppointments();
     });
-    
+
     return () => {
       unsubscribe();
       // We intentionally do NOT disconnect socket here to allow other pages to reuse it; disconnect when leaving app entirely.
@@ -710,11 +711,11 @@ export default function StaffDashboard() {
     const year = date.getFullYear();
     return `${day}/${month}/${year}`;
   };
-  
+
   // Helper function to format time as hh:mm AM/PM
   const formatTime = (timeString: any) => {
     if (!timeString) return 'N/A';
-    
+
     // Handle array format [hour, minute, second] from LocalTime
     if (Array.isArray(timeString)) {
       const [hours24, minutes] = timeString;
@@ -724,7 +725,7 @@ export default function StaffDashboard() {
       hours = hours ? hours : 12;
       return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${ampm}`;
     }
-    
+
     // Handle string format "HH:MM" or "HH:MM:SS"
     if (typeof timeString === 'string') {
       const parts = timeString.split(':');
@@ -736,7 +737,7 @@ export default function StaffDashboard() {
       hours = hours ? hours : 12;
       return `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
     }
-    
+
     return 'N/A';
   };
 
@@ -777,7 +778,7 @@ export default function StaffDashboard() {
                       </div>
                       <div className="text-sm text-gray-600">Current Number</div>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Button
                         className="w-full bg-blue-600 hover:bg-blue-700"
@@ -796,7 +797,7 @@ export default function StaffDashboard() {
                       >
                         Call Next
                       </Button>
-                      
+
                       <Button
                         variant="outline"
                         className="w-full"
@@ -864,7 +865,7 @@ export default function StaffDashboard() {
                               variant="outline"
                               className="text-red-600 border-red-200 hover:bg-red-50"
                               onClick={() => {
-                                setQueueAppointments(prev => 
+                                setQueueAppointments(prev =>
                                   prev.filter(q => q.appointment_id !== appt.appointment_id)
                                 );
                                 updateApptStatus(appt.appointment_id, "NO_SHOW");
@@ -891,60 +892,63 @@ export default function StaffDashboard() {
               <Card className="mb-4">
                 <CardHeader className="pb-3 flex flex-row items-center justify-between">
                   <CardTitle className="text-lg"></CardTitle>
-                  <Button 
-                    onClick={() => setShowWalkInDialog(true)}
-                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-md"
-                  >
-                    <UserPlus className="h-4 w-4" />
-                    Add Walk-in
-                  </Button>
-                </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <div>
-                        <Label className="text-sm">Patient Name</Label>
-                        <Input
-                          type="text"
-                          placeholder="Search by name..."
-                          value={filterPatientName}
-                          onChange={e => setFilterPatientName(e.target.value)}
-                          className="mt-1"
-                        />
-                      </div>
+                  { staffPosition === "receptionist" && (
+                    <Button
+                      onClick={() => setShowWalkInDialog(true)}
+                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-md"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                      Add Walk-in
+                    </Button>
+                  )}
 
-                      <div>
-                        <Label className="text-sm">Doctor</Label>
-                        <Select value={filterDoctor} onValueChange={setFilterDoctor}>
-                          <SelectTrigger className="mt-1">
-                            <SelectValue placeholder="All Doctors" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="All">All Doctors</SelectItem>
-                            {doctorOptions.map(opt => (
-                              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div>
-                        <Label className="text-sm">Date</Label>
-                        <Input
-                          type="date"
-                          value={filterDate}
-                          onChange={e => setFilterDate(e.target.value)}
-                          className="mt-1"
-                        />
-                      </div>
-                      
-                      <div className="flex items-end">
-                        <Button variant="outline" className="w-full" onClick={clearFilters}>
-                          Clear Filters
-                        </Button>
-                      </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                      <Label className="text-sm">Patient Name</Label>
+                      <Input
+                        type="text"
+                        placeholder="Search by name..."
+                        value={filterPatientName}
+                        onChange={e => setFilterPatientName(e.target.value)}
+                        className="mt-1"
+                      />
                     </div>
-                  </CardContent>
-                </Card>
+
+                    <div>
+                      <Label className="text-sm">Doctor</Label>
+                      <Select value={filterDoctor} onValueChange={setFilterDoctor}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="All Doctors" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="All">All Doctors</SelectItem>
+                          {doctorOptions.map(opt => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label className="text-sm">Date</Label>
+                      <Input
+                        type="date"
+                        value={filterDate}
+                        onChange={e => setFilterDate(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+
+                    <div className="flex items-end">
+                      <Button variant="outline" className="w-full" onClick={clearFilters}>
+                        Clear Filters
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* Tabs Switch Panel - After Filter */}
               <TabsList className="grid w-full grid-cols-2 mb-4">
@@ -992,11 +996,10 @@ export default function StaffDashboard() {
                                     <Clock className="w-3 h-3" />
                                     {formatTime(appt.start_time)} - {formatTime(appt.end_time)}
                                   </span>
-                                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-                                    appt.status === "SCHEDULED" ? "bg-yellow-100 text-yellow-700" : 
-                                    appt.status === "CHECKED_IN" || appt.status === "CHECKED IN" ? "bg-blue-100 text-blue-700" : 
-                                    "bg-gray-100 text-gray-700"
-                                  }`}>
+                                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${appt.status === "SCHEDULED" ? "bg-yellow-100 text-yellow-700" :
+                                    appt.status === "CHECKED_IN" || appt.status === "CHECKED-IN" || appt.status === "CHECKED IN" ? "bg-blue-100 text-blue-700" :
+                                      "bg-gray-100 text-gray-700"
+                                    }`}>
                                     {appt.status.replace('_', ' ')}
                                   </span>
                                 </div>
@@ -1004,7 +1007,7 @@ export default function StaffDashboard() {
                             </div>
 
                             <div className="flex flex-wrap gap-2 md:flex-col md:items-end">
-                              {appt.status === "SCHEDULED" && (
+                              {appt.status === "SCHEDULED" && staffPosition === "receptionist" && (
                                 <>
                                   <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleCheckIn(appt)}>
                                     Check In
@@ -1014,7 +1017,7 @@ export default function StaffDashboard() {
                                   </Button>
                                 </>
                               )}
-                              {(appt.status === "CHECKED_IN" || appt.status === "CHECKED IN") && (
+                              {(appt.status === "CHECKED_IN" || appt.status === "CHECKED IN" || appt.status === "CHECKED-IN")&& staffPosition === "nurse" && (
                                 <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => updateApptStatus(appt.appointment_id, "COMPLETED")}>
                                   Complete
                                 </Button>
@@ -1059,11 +1062,10 @@ export default function StaffDashboard() {
                                     <Clock className="w-3 h-3" />
                                     {formatTime(appt.start_time)} - {formatTime(appt.end_time)}
                                   </span>
-                                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-                                    appt.status === "COMPLETED" ? "bg-green-100 text-green-700" : 
-                                    appt.status === "NO_SHOW" ? "bg-red-100 text-red-700" : 
-                                    "bg-gray-100 text-gray-700"
-                                  }`}>
+                                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${appt.status === "COMPLETED" ? "bg-green-100 text-green-700" :
+                                    appt.status === "NO_SHOW" ? "bg-red-100 text-red-700" :
+                                      "bg-gray-100 text-gray-700"
+                                    }`}>
                                     {appt.status.replace('_', ' ')}
                                   </span>
                                 </div>
@@ -1080,16 +1082,18 @@ export default function StaffDashboard() {
                                 )}
                               </div>
                             </div>
+                            {staffPosition === "nurse" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1.5"
+                                onClick={() => handleAddNotes(appt)}
+                              >
+                                <FileText className="w-4 h-4" />
+                                {appt.treatmentNote ? "Edit Treatment Notes" : "Add Treatment Notes"}
+                              </Button>
+                            )}
 
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              className="gap-1.5" 
-                              onClick={() => handleAddNotes(appt)}
-                            >
-                              <FileText className="w-4 h-4" />
-                              {appt.treatmentNote ? "Edit Treatment Notes" : "Add Treatment Notes"}
-                            </Button>
                           </div>
                         </CardContent>
                       </Card>
@@ -1111,7 +1115,7 @@ export default function StaffDashboard() {
               Add treatment summary and notes for {selectedAppointment?.patient_name}'s completed appointment with {selectedAppointment?.doctor_name}
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="py-4">
             <Label htmlFor="notes">Treatment Notes *</Label>
             <Textarea
@@ -1122,7 +1126,7 @@ export default function StaffDashboard() {
               className="mt-2 min-h-[200px]"
             />
           </div>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => {
               setShowNotesDialog(false);
@@ -1138,7 +1142,7 @@ export default function StaffDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       {/* Walk-in Appointment Sheet */}
       <Sheet open={showWalkInDialog} onOpenChange={(open) => {
         setShowWalkInDialog(open);
@@ -1295,8 +1299,8 @@ export default function StaffDashboard() {
                       const docName = entry.doctorName || "Doctor";
                       const clinicId = entry.clinicId;
                       return (entry.timeSlots || []).map((slot: any) => {
-                        const start = (slot.startTime || slot.start_time || "").substring(0,5);
-                        const end = (slot.endTime || slot.end_time || "").substring(0,5);
+                        const start = (slot.startTime || slot.start_time || "").substring(0, 5);
+                        const end = (slot.endTime || slot.end_time || "").substring(0, 5);
                         return { time: `${start}-${end}`, doctorId: docId, doctorName: docName, clinicId } as WalkInSlot;
                       });
                     });
@@ -1305,7 +1309,7 @@ export default function StaffDashboard() {
                       <div className="grid grid-cols-3 gap-3 max-h-60 overflow-y-auto p-1">
                         {slots.map((slot, idx: number) => {
                           const isSelected = walkInSelectedSlot?.time === slot.time && walkInSelectedSlot?.doctorId === slot.doctorId;
-                          
+
                           return (
                             <Button
                               key={idx}
@@ -1335,8 +1339,8 @@ export default function StaffDashboard() {
           </div>
 
           <SheetFooter className="pt-6 gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setShowWalkInDialog(false);
                 setWalkInEmail("")
@@ -1344,13 +1348,13 @@ export default function StaffDashboard() {
                 setSelectedPatient(null)
                 setWalkInSelectedDate(undefined);
                 setWalkInSelectedSlot(null);
-              }} 
+              }}
               disabled={isSubmittingWalkIn}
               className="flex-1"
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleWalkInConfirmClick}
               disabled={isSubmittingWalkIn || !selectedPatient}
               className="flex-1 bg-green-600 hover:bg-green-700"
