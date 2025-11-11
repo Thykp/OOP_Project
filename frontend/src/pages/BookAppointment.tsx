@@ -48,6 +48,7 @@ export default function AppointmentBooking() {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingDetails, setBookingDetails] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -79,6 +80,7 @@ export default function AppointmentBooking() {
   useEffect(() => {
     // fetch clinics and doctors on mount
     const fetchClinics = async () => {
+      setLoading(true);
       try {
         const gpRes = await fetch(`${API_BASE}/api/clinics/gp?limit=100`);
         const gpData = await gpRes.json();
