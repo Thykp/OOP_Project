@@ -1,14 +1,24 @@
 "use client"
 
 import { Bell, Calendar as CalendarIcon, CheckCircle, Clock, History, User } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 
 import { PageLayout } from "@/components/page-layout"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
@@ -66,6 +76,12 @@ export default function PatientDashboard() {
   const [loading, setLoading] = useState(true)
   const [loadingHistory, setLoadingHistory] = useState(false)
 
+  // filters (shadcn calendar + dropdown)
+  const [upcomingClinic, setUpcomingClinic] = useState<string>("all")
+  const [upcomingDate, setUpcomingDate] = useState<Date | undefined>(undefined)
+  const [completedClinic, setCompletedClinic] = useState<string>("all")
+  const [completedDate, setCompletedDate] = useState<Date | undefined>(undefined)
+
   // cancel dialog state
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
   const [appointmentToCancel, setAppointmentToCancel] = useState<Appointment | null>(null)
@@ -74,13 +90,125 @@ export default function PatientDashboard() {
   const navigate = useNavigate()
   const { toast } = useToast()
 
+  //this is a fake test date to test my function
+  const currentNow = () => new Date(2025, 11, 11, 8, 0, 0)
+  // const currentNow = () => new Date()
+
+  // --- normalization helpers ---
+  const toDateString = (booking_date: any): string => {
+    if (Array.isArray(booking_date)) {
+      const [y, m, d] = booking_date
+      return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`
+    }
+    return booking_date
+  }
+
+  const toTimeString = (time: any): string => {
+    if (Array.isArray(time)) {
+      const [h, mi, s = 0] = time
+      return `${String(h).padStart(2, "0")}:${String(mi).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+    }
+    if (typeof time === "string") {
+      const parts = time.split(":")
+      if (parts.length === 2) return `${parts[0]}:${parts[1]}:00`
+      return time
+    }
+    return "00:00:00"
+  }
+
+  const toDateTime = (booking_date: any, start_time: any): Date => {
+    return new Date(`${toDateString(booking_date)}T${toTimeString(start_time)}`)
+  }
+
   // --- helpers ---
   const isWithin24Hours = (appointment: Appointment): boolean => {
-    const appointmentDateTime = new Date(`${appointment.booking_date}T${appointment.start_time}`)
-    const now = new Date()
+    const appointmentDateTime = toDateTime(appointment.booking_date as any, appointment.start_time as any)
+    const now = currentNow()
     const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
     return appointmentDateTime < twentyFourHoursFromNow
   }
+
+  const isEligibleForCheckIn = (appointment: Appointment): boolean => {
+    const now = currentNow()
+    const appointmentDateTime = toDateTime(appointment.booking_date as any, appointment.start_time as any)
+    // Use LOCAL date for "today" comparison to avoid UTC shift
+    const todayDateLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+    const appointmentDate = toDateString(appointment.booking_date as any)
+    if (todayDateLocal !== appointmentDate) return false
+    const twoHoursBeforeAppointment = new Date(appointmentDateTime.getTime() - 2 * 60 * 60 * 1000)
+    return now >= twoHoursBeforeAppointment && now <= appointmentDateTime
+  }
+
+  // Find the most upcoming appointment that is eligible for check-in
+  const getEligibleAppointmentForCheckIn = (): Appointment | null => {
+    if (appointments.length === 0) return null
+    
+    // Filter for eligible appointments
+    const eligibleAppointments = appointments.filter(isEligibleForCheckIn)
+    
+    if (eligibleAppointments.length === 0) return null
+    
+    // Sort by date and time (earliest first)
+    const sorted = eligibleAppointments.sort((a, b) => {
+      const dateTimeA = toDateTime(a.booking_date as any, a.start_time as any)
+      const dateTimeB = toDateTime(b.booking_date as any, b.start_time as any)
+      return dateTimeA.getTime() - dateTimeB.getTime()
+    })
+    
+    // Return the earliest eligible appointment
+    return sorted[0]
+  }
+
+  // Memoize eligible appointment so UI stays consistent across renders
+  const eligibleAppointmentForCheckIn = useMemo(() => getEligibleAppointmentForCheckIn(), [appointments])
+
+  // Unique clinic lists for dropdowns
+  const upcomingClinics = useMemo(() => {
+    return Array.from(new Set(appointments.map(a => a.clinic_name).filter(Boolean))) as string[]
+  }, [appointments])
+
+  const completedClinics = useMemo(() => {
+    return Array.from(new Set(pastAppointments.map(a => a.clinic_name).filter(Boolean))) as string[]
+  }, [pastAppointments])
+
+  
+  const dateToYMD = (d?: Date) => {
+    if (!d) return undefined
+    const yr = d.getFullYear()
+    const mo = String(d.getMonth() + 1).padStart(2, "0")
+    const da = String(d.getDate()).padStart(2, "0")
+    return `${yr}-${mo}-${da}`
+  }
+  const formatSelectedDate = (d?: Date) => (d ? new Date(d).toLocaleDateString() : "Pick a date")
+
+  // Derived filtered lists
+  const filteredUpcoming = useMemo(() => {
+    const targetDate = dateToYMD(upcomingDate)
+    const result = appointments.filter((apt) => {
+      const byClinic = upcomingClinic === "all" || (apt.clinic_name || "") === upcomingClinic
+      const byDate = !targetDate || toDateString(apt.booking_date as any) === targetDate
+      return byClinic && byDate
+    })
+    if (targetDate) {
+      console.debug("[Upcoming Filter] targetDate=", targetDate, "matchedCount=", result.length,
+        "appointmentsDates=", appointments.map(a => toDateString(a.booking_date as any)))
+    }
+    return result
+  }, [appointments, upcomingClinic, upcomingDate])
+
+  const filteredCompleted = useMemo(() => {
+    const targetDate = dateToYMD(completedDate)
+    const result = pastAppointments.filter((apt) => {
+      const byClinic = completedClinic === "all" || (apt.clinic_name || "") === completedClinic
+      const byDate = !targetDate || toDateString(apt.booking_date as any) === targetDate
+      return byClinic && byDate
+    })
+    if (targetDate) {
+      console.debug("[Completed Filter] targetDate=", targetDate, "matchedCount=", result.length,
+        "appointmentsDates=", pastAppointments.map(a => toDateString(a.booking_date as any)))
+    }
+    return result
+  }, [pastAppointments, completedClinic, completedDate])
 
   const formatDate = (dateString: string | number | Date) => {
     const date = new Date(dateString)
@@ -344,20 +472,36 @@ export default function PatientDashboard() {
               </CardContent>
             </Card>
 
-            <Card className="border-green-200 hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-green-700">
-                  <CheckCircle className="h-5 w-5" />
-                  Check In
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-600 mb-3">Join the queue for your appointment</p>
-                <Button className="w-full bg-green-600 hover:bg-green-700" onClick={handleCheckIn} disabled={isCheckedIn}>
-                  {isCheckedIn ? "Checked In" : "Check In Now"}
-                </Button>
-              </CardContent>
-            </Card>
+            {(() => {
+              const eligibleAppointment = eligibleAppointmentForCheckIn
+              if (!eligibleAppointment) return null
+              
+              return (
+                <Card className="border-green-200 hover:shadow-lg transition-shadow">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-green-700">
+                      <CheckCircle className="h-5 w-5" />
+                      Check In
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-gray-600 mb-1">
+                      <strong>{eligibleAppointment.doctor_name}</strong>
+                    </p>
+                    <p className="text-sm text-gray-600 mb-3">
+                      {formatTime(eligibleAppointment.start_time)} • {eligibleAppointment.clinic_name}
+                    </p>
+                    <Button 
+                      className="w-full bg-green-600 hover:bg-green-700" 
+                      onClick={handleCheckIn} 
+                      disabled={isCheckedIn}
+                    >
+                      {isCheckedIn ? "Checked In" : "Check In Now"}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )
+            })()}
           </div>
 
           {/* Queue Status Alert */}
@@ -374,15 +518,15 @@ export default function PatientDashboard() {
           )}
 
           {/* Main Content Tabs */}
-          <Tabs defaultValue="appointments" className="space-y-6">
+          <Tabs defaultValue="upcoming" className="space-y-6">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="appointments">Appointments</TabsTrigger>
+              <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
               <TabsTrigger value="queue">Queue Status</TabsTrigger>
-              <TabsTrigger value="history">Medical History</TabsTrigger>
+              <TabsTrigger value="completed">Completed</TabsTrigger>
             </TabsList>
 
             {/* Upcoming Appointments */}
-            <TabsContent value="appointments">
+            <TabsContent value="upcoming">
               <Card>
                 <CardHeader>
                   <CardTitle>Upcoming Appointments</CardTitle>
@@ -390,11 +534,45 @@ export default function PatientDashboard() {
                 </CardHeader>
 
                 <CardContent>
-                  {appointments.length === 0 ? (
+                  {/* Filters */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 items-end">
+                    <div className="flex flex-col gap-2">
+                      <Label>Filter by clinic</Label>
+                      <Select value={upcomingClinic} onValueChange={setUpcomingClinic}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="All clinics" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All clinics</SelectItem>
+                          {upcomingClinics.map((name) => (
+                            <SelectItem key={name} value={name}>{name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label>Filter by date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="justify-start">
+                            {formatSelectedDate(upcomingDate)}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={upcomingDate} onSelect={setUpcomingDate} initialFocus />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="secondary" onClick={() => { setUpcomingClinic("all"); setUpcomingDate(undefined); }}>Clear filters</Button>
+                    </div>
+                  </div>
+
+                  {filteredUpcoming.length === 0 ? (
                     <div className="text-sm text-gray-600">No upcoming appointments.</div>
                   ) : (
                     <div className="space-y-4">
-                      {appointments.map((appointment) => (
+                      {filteredUpcoming.map((appointment) => (
                         <div key={appointment.appointment_id} className="flex items-center justify-between p-4 border rounded-lg">
                           <div className="flex items-center gap-4">
                             <div className="bg-blue-100 p-2 rounded-full">
@@ -490,17 +668,40 @@ export default function PatientDashboard() {
               <Card>
                 <CardHeader>
                   <CardTitle>Queue Management</CardTitle>
-                  <CardDescription>Track your position and get real-time updates</CardDescription>
+                  <CardDescription>Check in now to track queue and get real-time updates</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {!isCheckedIn ? (
                     <div className="text-center py-8">
-                      <Clock className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold mb-2">Not Checked In</h3>
-                      <p className="text-gray-600 mb-4">Check in when you arrive at the clinic to join the queue</p>
-                      <Button onClick={handleCheckIn} className="bg-green-600 hover:bg-green-700">
-                        Check In Now
-                      </Button>
+                      {eligibleAppointmentForCheckIn ? (
+                        <>
+                          <Clock className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                          <h3 className="text-lg font-semibold mb-2">Ready to Check In</h3>
+                          <div className="bg-blue-50 rounded-lg p-4 mb-4 max-w-md mx-auto">
+                            <p className="text-sm font-semibold text-blue-900 mb-1">
+                              {eligibleAppointmentForCheckIn.doctor_name}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              {eligibleAppointmentForCheckIn.clinic_name}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              {formatDate(eligibleAppointmentForCheckIn.booking_date)} • {formatTime(eligibleAppointmentForCheckIn.start_time)}
+                            </p>
+                          </div>
+                          <p className="text-gray-600 mb-4">Check in when you arrive at the clinic to join the queue</p>
+                          <Button onClick={handleCheckIn} className="bg-green-600 hover:bg-green-700">
+                            Check In Now
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                          <h3 className="text-lg font-semibold mb-2">No Appointment Available for Check-In</h3>
+                          <p className="text-gray-600 mb-4">
+                            Check-in is only available for appointments today, within 2 hours before the start time
+                          </p>
+                        </>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-6">
@@ -542,16 +743,50 @@ export default function PatientDashboard() {
             </TabsContent>
 
             {/* Medical History */}
-            <TabsContent value="history">
+            <TabsContent value="completed">
               <Card>
                 <CardHeader>
-                  <CardTitle>Medical History</CardTitle>
+                  <CardTitle>Completed Appointments</CardTitle>
                   <CardDescription>Your past appointments and treatment summaries</CardDescription>
                 </CardHeader>
                 <CardContent>
+                  {/* Filters */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 items-end">
+                    <div className="flex flex-col gap-2">
+                      <Label>Filter by clinic</Label>
+                      <Select value={completedClinic} onValueChange={setCompletedClinic}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="All clinics" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All clinics</SelectItem>
+                          {completedClinics.map((name) => (
+                            <SelectItem key={name} value={name}>{name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label>Filter by date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="justify-start">
+                            {formatSelectedDate(completedDate)}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={completedDate} onSelect={setCompletedDate} initialFocus />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="secondary" onClick={() => { setCompletedClinic("all"); setCompletedDate(undefined); }}>Clear filters</Button>
+                    </div>
+                  </div>
+
                   {loadingHistory ? (
                     <div className="text-center py-8 text-gray-500">Loading medical history...</div>
-                  ) : pastAppointments.length === 0 ? (
+                  ) : filteredCompleted.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                       <History className="h-16 w-16 mx-auto mb-4 text-gray-400" />
                       <p className="text-lg font-medium mb-2">No Past Appointments</p>
@@ -559,7 +794,7 @@ export default function PatientDashboard() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {pastAppointments.map((appointment) => (
+                      {filteredCompleted.map((appointment) => (
                         <div key={appointment.appointment_id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex-1">

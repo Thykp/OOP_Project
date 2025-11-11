@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Sheet,
@@ -305,7 +306,7 @@ export default function StaffDashboard() {
 
   const [doctorOptions, setDoctorOptions] = useState<DoctorOption[]>([])
   const [filterDoctor, setFilterDoctor] = useState("All")
-  const [filterDate, setFilterDate] = useState("")
+  const [filterDate, setFilterDate] = useState<Date | undefined>(undefined)
   const [filterPatientName, setFilterPatientName] = useState("")
 
   // Fetch doctors from staff's clinic only
@@ -348,16 +349,92 @@ export default function StaffDashboard() {
     return `${y}-${m}-${day}`
   }
 
+  const dateToYMD = (d?: Date) => {
+    if (!d) return undefined
+    const yr = d.getFullYear()
+    const mo = String(d.getMonth() + 1).padStart(2, "0")
+    const da = String(d.getDate()).padStart(2, "0")
+    return `${yr}-${mo}-${da}`
+  }
+  const formatSelectedDate = (d?: Date) => (d ? new Date(d).toLocaleDateString() : "Pick a date")
+
+  // Using real current time for check-in eligibility
+
+  // Show Check In only if appointment is today and within 2 hours before start time
+  const isEligibleForCheckIn = (appt: Appointment): boolean => {
+    if (!appt || !appt.booking_date || !appt.start_time) return false
+
+    // derive date parts (year, month, day)
+    let y: number, m: number, d: number
+    if (Array.isArray(appt.booking_date)) {
+      ;[y, m, d] = appt.booking_date as number[]
+    } else if (typeof appt.booking_date === "string") {
+      const match = appt.booking_date.match(/^(\d{4})-(\d{2})-(\d{2})/)
+      if (match) {
+        y = parseInt(match[1], 10)
+        m = parseInt(match[2], 10)
+        d = parseInt(match[3], 10)
+      } else {
+        const dt = new Date(appt.booking_date)
+        if (isNaN(dt.getTime())) return false
+        y = dt.getFullYear(); m = dt.getMonth() + 1; d = dt.getDate()
+      }
+    } else {
+      const dt = new Date(appt.booking_date as any)
+      if (isNaN(dt.getTime())) return false
+      y = dt.getFullYear(); m = dt.getMonth() + 1; d = dt.getDate()
+    }
+
+    // derive time parts (hours, minutes)
+    let hh = 0, mm = 0
+    if (Array.isArray(appt.start_time)) {
+      const arr = appt.start_time as number[]
+      hh = Number(arr[0]) || 0
+      mm = Number(arr[1]) || 0
+    } else if (typeof appt.start_time === "string") {
+      const t = appt.start_time.substring(0, 5)
+      const [hStr, mStr] = t.split(":" )
+      hh = parseInt(hStr || "0", 10)
+      mm = parseInt(mStr || "0", 10)
+    } else {
+      return false
+    }
+
+  const start = new Date(y, (m as number) - 1, d as number, hh, mm, 0, 0)
+  const now = new Date()
+
+    const sameDay =
+      now.getFullYear() === start.getFullYear() &&
+      now.getMonth() === start.getMonth() &&
+      now.getDate() === start.getDate()
+    if (!sameDay) return false
+
+    const windowStart = new Date(start.getTime() - 2 * 60 * 60 * 1000)
+    return now >= windowStart && now <= start
+  }
+
   // Filter Function
   const filteredAppointments = appointments.filter(appt => {
     const doctorMatch = filterDoctor === "All" || appt.doctor_id === filterDoctor
-    const dateMatch = !filterDate || toIsoDate(appt.booking_date) === filterDate
+    const targetDate = dateToYMD(filterDate)
+    const dateMatch = !targetDate || toIsoDate(appt.booking_date) === targetDate
     const nameMatch =
       !filterPatientName ||
       (appt.patient_name || "")
         .toLowerCase()
         .includes(filterPatientName.toLowerCase())
 
+    return doctorMatch && dateMatch && nameMatch
+  })
+
+  // Apply the same filters to completed appointments
+  const filteredCompletedAppointments = completedAppointments.filter(appt => {
+    const doctorMatch = filterDoctor === "All" || appt.doctor_id === filterDoctor
+    const targetDate = dateToYMD(filterDate)
+    const dateMatch = !targetDate || toIsoDate(appt.booking_date) === targetDate
+    const nameMatch =
+      !filterPatientName ||
+      (appt.patient_name || "").toLowerCase().includes(filterPatientName.toLowerCase())
     return doctorMatch && dateMatch && nameMatch
   })
 
@@ -377,7 +454,7 @@ export default function StaffDashboard() {
   // Clear Filter
   const clearFilters = () => {
     setFilterDoctor("All")
-    setFilterDate("")
+    setFilterDate(undefined)
     setFilterPatientName("")
   }
 
@@ -469,7 +546,6 @@ export default function StaffDashboard() {
     const { unsubscribe } = subscribeToSlots((update: any) => {
       if (!update) return
 
-      console.log("[StaffDashboard] 🔔 WebSocket update received:", update)
 
       const dateStr = update.date || update.booking_date
       const startStr = update.start_time || update.timeSlot?.split?.("-")?.[0]
@@ -742,6 +818,16 @@ export default function StaffDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Refetch when clinic context resolves/changes to avoid stale initial data
+  useEffect(() => {
+    if (staffClinicId || staffClinicName) {
+      fetchAppointments()
+      fetchCompletedAppointments()
+      fetchDoctors()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [staffClinicId, staffClinicName])
+
   // Global WebSocket subscription for slot/appointment changes
   useEffect(() => {
     connectSocket()
@@ -1001,12 +1087,16 @@ export default function StaffDashboard() {
 
                     <div>
                       <Label className="text-sm">Date</Label>
-                      <Input
-                        type="date"
-                        value={filterDate}
-                        onChange={e => setFilterDate(e.target.value)}
-                        className="mt-1"
-                      />
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full justify-start mt-1">
+                            {formatSelectedDate(filterDate)}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={filterDate} onSelect={setFilterDate} initialFocus />
+                        </PopoverContent>
+                      </Popover>
                     </div>
 
                     <div className="flex items-end">
@@ -1101,9 +1191,9 @@ export default function StaffDashboard() {
                             </div>
 
                             <div className="flex flex-wrap gap-2 md:flex-col md:items-end">
-                              {appt.status === "SCHEDULED" &&
-                                staffPosition === "receptionist" && (
-                                  <>
+                              {appt.status === "SCHEDULED" && staffPosition === "receptionist" && (
+                                <>
+                                  {isEligibleForCheckIn(appt) && (
                                     <Button
                                       size="sm"
                                       className="bg-blue-600 hover:bg-blue-700"
@@ -1111,18 +1201,19 @@ export default function StaffDashboard() {
                                     >
                                       Check In
                                     </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="text-red-600 hover:bg-red-50"
-                                      onClick={() =>
-                                        updateApptStatus(appt.appointment_id, "NO_SHOW")
-                                      }
-                                    >
-                                      No Show
-                                    </Button>
-                                  </>
-                                )}
+                                  )}
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-red-600 hover:bg-red-50"
+                                    onClick={() =>
+                                      updateApptStatus(appt.appointment_id, "NO_SHOW")
+                                    }
+                                  >
+                                    No Show
+                                  </Button>
+                                </>
+                              )}
                               {(appt.status === "CHECKED_IN" ||
                                 appt.status === "CHECKED IN" ||
                                 appt.status === "CHECKED-IN") &&
@@ -1150,11 +1241,11 @@ export default function StaffDashboard() {
               <TabsContent value="completed" className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-semibold">
-                    Completed & Closed ({completedAppointments.length})
+                    Completed & Closed ({filteredCompletedAppointments.length})
                   </h3>
                 </div>
 
-                {completedAppointments.length === 0 ? (
+                {filteredCompletedAppointments.length === 0 ? (
                   <Card>
                     <CardContent className="py-8 text-center text-gray-500">
                       No completed appointments
@@ -1162,7 +1253,7 @@ export default function StaffDashboard() {
                   </Card>
                 ) : (
                   <div className="space-y-3">
-                    {completedAppointments.map(appt => (
+                    {filteredCompletedAppointments.map(appt => (
                       <Card
                         key={appt.appointment_id}
                         className="hover:shadow-md transition-shadow"
