@@ -683,10 +683,10 @@ export default function StaffDashboard() {
     fetchDoctors();
   }, [])
 
-  // Global WebSocket subscription for slot/appointment changes (so no manual refresh needed)
+  // Global WebSocket subscription for slot/appointment changes (real-time updates, no polling needed)
   useEffect(() => {
     // Connect once on dashboard mount
-  connectSocket();
+    connectSocket();
     const { unsubscribe } = subscribeToSlots((update: any) => {
       if (!update) return;
       // Any slot removal or change can imply a new appointment booked or rescheduled
@@ -694,13 +694,8 @@ export default function StaffDashboard() {
       fetchAppointments();
       fetchCompletedAppointments();
     });
-    // Fallback: periodic refresh (covers status changes made by other staff users that don't emit websocket events)
-    const interval = setInterval(() => {
-      fetchAppointments();
-      fetchCompletedAppointments();
-    }, 15000); // 15s gentle poll
+    
     return () => {
-      clearInterval(interval);
       unsubscribe();
       // We intentionally do NOT disconnect socket here to allow other pages to reuse it; disconnect when leaving app entirely.
     };
