@@ -30,22 +30,21 @@ import { cn } from "@/lib/utils"
 import { AlertTriangle, Calendar as CalendarIcon, CheckCircle, CheckCircle2, Clock, FileText, User, UserPlus } from "lucide-react"
 import { useEffect, useState } from "react"
 
-
 interface Appointment {
   appointment_id: string
-  booking_date: string
+  booking_date: string | number[]
   clinic_id: string
-  clinic_name: string
-  clinic_type?: string
-  created_at: string
+  clinic_name: string | null
+  clinic_type?: string | null
+  created_at: string | number[]
   doctor_id: string
-  doctor_name: string
-  end_time: string
+  doctor_name: string | null
+  end_time: string | number[] | null
   patient_id: string
-  patient_name: string
-  start_time: string
+  patient_name: string | null
+  start_time: string | number[] | null
   status: string
-  updated_at: string
+  updated_at: string | number[]
   treatmentNote?: {
     id: number
     notes: string
@@ -56,9 +55,9 @@ interface Appointment {
 }
 
 interface QueueItem extends Appointment {
-  queueNumber: number;      // stable ticket from backend
-  isFastTrack: boolean;     // local flag for prioritisation
-  position?: number;        // live position when first checked in
+  queueNumber: number
+  isFastTrack: boolean
+  position?: number
 }
 
 export default function StaffDashboard() {
@@ -80,7 +79,7 @@ export default function StaffDashboard() {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
   const [notes, setNotes] = useState("")
   const [isSavingNotes, setIsSavingNotes] = useState(false)
-  const [existingNoteId, setExistingNoteId] = useState<number | null>(null) // Track existing note ID for updates
+  const [existingNoteId, setExistingNoteId] = useState<number | null>(null)
 
   // Walk-in form data
   const [walkInEmail, setWalkInEmail] = useState("")
@@ -96,12 +95,10 @@ export default function StaffDashboard() {
   type WalkInSlot = { time: string; doctorId: string; doctorName: string; clinicId?: string }
   const [walkInSelectedSlot, setWalkInSelectedSlot] = useState<WalkInSlot | null>(null)
 
-  const baseURL = import.meta.env.VITE_API_BASE_URL;
-
+  const baseURL = import.meta.env.VITE_API_BASE_URL
 
   // Resolve staff clinic info: prefer backend value over metadata
   const [staffClinicId, setStaffClinicId] = useState<string | undefined>(user?.user_metadata?.clinicId)
-  console.log(staffClinicId)
   const [staffClinicName, setStaffClinicName] = useState<string | undefined>(user?.user_metadata?.clinicName)
   const staffPosition = user?.user_metadata.position
 
@@ -110,227 +107,269 @@ export default function StaffDashboard() {
     if (!supabaseId) return
     const controller = new AbortController()
     fetch(`${baseURL}/api/users/staff/${supabaseId}`, { signal: controller.signal })
-      .then(r => r.ok ? r.json() : null)
-      .then((data) => {
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
         if (!data) return
         if (data.clinic_id) setStaffClinicId(data.clinic_id)
         if (data.clinic_name) setStaffClinicName(data.clinic_name)
       })
-      .catch(() => { })
+      .catch(() => {})
     return () => controller.abort()
   }, [user?.id, baseURL])
+
   // Fetch appointments for staff's clinic only
   const fetchAppointments = () => {
-    setLoading(true);
+    setLoading(true)
     const endpoint = staffClinicId
-      ? `${baseURL}/api/appointments/upcoming?clinicId=${staffClinicId}`
-      : `${baseURL}/api/appointments/upcoming`;
-
+      ? `${baseURL}/api/appointments/clinic/${staffClinicId}`
+      : `${baseURL}/api/appointments/upcoming`
+    console.log(endpoint)
     fetch(endpoint)
       .then(response => {
         if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
+          throw new Error(`HTTP error! Status: ${response.status}`)
         }
-        return response.json();
+        return response.json()
       })
-      .then(data => {
-        const filteredData = staffClinicName
-          ? data.filter((appt: Appointment) => appt.clinic_name === staffClinicName)
-          : data;
-        setAppointments(filteredData);
-        console.log(data)
+      .then((data: Appointment[]) => {
+        const normalized = data.map(appt => ({
+          ...appt,
+          clinic_id: typeof appt.clinic_id === "string" ? appt.clinic_id.trim() : appt.clinic_id,
+          clinic_name:
+            typeof appt.clinic_name === "string" ? appt.clinic_name.trim() : appt.clinic_name,
+        }))
+
+        const filteredData = normalized.filter(appt => {
+          if (staffClinicId) {
+            return appt.clinic_id === staffClinicId
+          }
+          if (staffClinicName) {
+            return (
+              appt.clinic_name &&
+              appt.clinic_name.toLowerCase() === staffClinicName.toLowerCase()
+            )
+          }
+          return true
+        })
+
+        console.log("appointments raw:", normalized.length, "filtered:", filteredData.length, {
+          staffClinicId,
+          staffClinicName,
+        })
+
+        setAppointments(filteredData)
       })
       .catch(err => {
-        console.error("Error fetching appointments:", err);
+        console.error("Error fetching appointments:", err)
       })
-      .finally(() => setLoading(false));
-  };
+      .finally(() => setLoading(false))
+  }
 
   // Fetch completed appointments with treatment notes
   const fetchCompletedAppointments = async () => {
     try {
-      const endpoint = `${baseURL}/api/appointments`;
-      const response = await fetch(endpoint);
-      const data = await response.json();
+      const endpoint = `${baseURL}/api/appointments`
+      const response = await fetch(endpoint)
+      const data: Appointment[] = await response.json()
 
-      // Filter by status and clinic (use clinicId if available, otherwise clinicName)
-      const filtered = data.filter((appt: Appointment) => {
-        const statusMatch = appt.status === 'COMPLETED' || appt.status === 'NO_SHOW';
+      const filtered = data.filter(appt => {
+        const statusMatch = appt.status === "COMPLETED" || appt.status === "NO_SHOW"
 
-        // If staffClinicId is available, use it for filtering (more reliable)
         if (staffClinicId) {
-          return statusMatch && appt.clinic_id === staffClinicId;
+          return statusMatch && appt.clinic_id === staffClinicId
         }
 
-        // Otherwise, use clinicName (case-insensitive comparison)
         if (staffClinicName) {
-          return statusMatch &&
+          return (
+            statusMatch &&
             appt.clinic_name &&
-            appt.clinic_name.toLowerCase().trim() === staffClinicName.toLowerCase().trim();
+            appt.clinic_name.toLowerCase().trim() === staffClinicName.toLowerCase().trim()
+          )
         }
 
-        // If no clinic filter, show all completed appointments
-        return statusMatch;
-      });
+        return statusMatch
+      })
 
-      console.log('Completed appointments filtered:', filtered.length, 'out of', data.length);
-      console.log('Staff clinic ID:', staffClinicId, 'Staff clinic Name:', staffClinicName);
+      console.log("Completed appointments filtered:", filtered.length, "out of", data.length)
+      console.log("Staff clinic ID:", staffClinicId, "Staff clinic Name:", staffClinicName)
 
-      // Fetch treatment notes for each completed appointment
       const appointmentsWithNotes = await Promise.all(
         filtered.map(async (appt: Appointment) => {
           try {
-            const notesResponse = await fetch(`${baseURL}/api/treatment-notes/appointment/${appt.appointment_id}/latest`);
+            const notesResponse = await fetch(
+              `${baseURL}/api/treatment-notes/appointment/${appt.appointment_id}/latest`
+            )
             if (notesResponse.ok) {
-              const latestNote = await notesResponse.json();
-              return { ...appt, treatmentNote: latestNote };
+              const latestNote = await notesResponse.json()
+              return { ...appt, treatmentNote: latestNote }
             }
           } catch (error) {
-            // If fetching notes fails, just continue without notes
+            // ignore
           }
-          return { ...appt, treatmentNote: null };
+          return { ...appt, treatmentNote: null }
         })
-      );
+      )
 
-      setCompletedAppointments(appointmentsWithNotes);
+      setCompletedAppointments(appointmentsWithNotes)
     } catch (err) {
-      console.error("Error fetching completed appointments:", err);
+      console.error("Error fetching completed appointments:", err)
     }
-  };
+  }
 
   // Open treatment notes dialog
   const handleAddNotes = async (appointment: Appointment) => {
-    setSelectedAppointment(appointment);
+    setSelectedAppointment(appointment)
 
-    // Try to fetch existing treatment notes for this appointment
     try {
-      const response = await fetch(`${baseURL}/api/treatment-notes/appointment/${appointment.appointment_id}/latest`);
+      const response = await fetch(
+        `${baseURL}/api/treatment-notes/appointment/${appointment.appointment_id}/latest`
+      )
       if (response.ok) {
-        const latestNote = await response.json();
-        setNotes(latestNote.notes || "");
-        setExistingNoteId(latestNote.id); // Store the note ID for updates
+        const latestNote = await response.json()
+        setNotes(latestNote.notes || "")
+        setExistingNoteId(latestNote.id)
       } else {
-        setNotes("");
-        setExistingNoteId(null); // No existing note
+        setNotes("")
+        setExistingNoteId(null)
       }
     } catch (error) {
-      setNotes("");
-      setExistingNoteId(null);
+      setNotes("")
+      setExistingNoteId(null)
     }
 
-    setShowNotesDialog(true);
-  };
+    setShowNotesDialog(true)
+  }
 
   // Save treatment notes (create new or update existing)
   const handleSaveNotes = async () => {
-    if (!selectedAppointment) return;
+    if (!selectedAppointment) return
 
     if (!notes || notes.trim() === "") {
       toast({
         variant: "destructive",
         title: "Validation Error",
         description: "Please enter treatment notes",
-      });
-      return;
+      })
+      return
     }
 
-    setIsSavingNotes(true);
+    setIsSavingNotes(true)
     try {
-      // If existing note exists, update it; otherwise create new one
       const url = existingNoteId
         ? `${baseURL}/api/treatment-notes/${existingNoteId}`
-        : `${baseURL}/api/treatment-notes`;
+        : `${baseURL}/api/treatment-notes`
 
-      const method = existingNoteId ? 'PUT' : 'POST';
+      const method = existingNoteId ? "PUT" : "POST"
 
       const response = await fetch(url, {
         method: method,
         headers: {
-          'Content-Type': 'application/json',
-          ...(method === 'POST' && { 'X-User-Id': user?.id || '' }) // Only needed for POST
+          "Content-Type": "application/json",
+          ...(method === "POST" && { "X-User-Id": user?.id || "" }),
         },
         body: JSON.stringify({
-          ...(method === 'POST' && { appointmentId: selectedAppointment.appointment_id }),
+          ...(method === "POST" && { appointmentId: selectedAppointment.appointment_id }),
           noteType: "TREATMENT_SUMMARY",
-          notes: notes.trim()
-        })
-      });
+          notes: notes.trim(),
+        }),
+      })
 
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || `Failed to ${existingNoteId ? 'update' : 'save'} treatment notes`);
+        const error = await response.text()
+        throw new Error(error || `Failed to ${existingNoteId ? "update" : "save"} treatment notes`)
       }
 
       toast({
         title: "Success",
-        description: `Treatment notes ${existingNoteId ? 'updated' : 'saved'} successfully`,
-      });
+        description: `Treatment notes ${existingNoteId ? "updated" : "saved"} successfully`,
+      })
 
-      fetchAppointments();
-      fetchCompletedAppointments();
-      setShowNotesDialog(false);
-      setNotes("");
-      setExistingNoteId(null);
-      setSelectedAppointment(null);
+      fetchAppointments()
+      fetchCompletedAppointments()
+      setShowNotesDialog(false)
+      setNotes("")
+      setExistingNoteId(null)
+      setSelectedAppointment(null)
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
         description: error.message || "Failed to save treatment notes",
-      });
+      })
     } finally {
-      setIsSavingNotes(false);
+      setIsSavingNotes(false)
     }
-  };
+  }
 
-  type DoctorOption = { value: string; label: string; };
+  type DoctorOption = { value: string; label: string }
 
-  const [doctorOptions, setDoctorOptions] = useState<DoctorOption[]>([]);
-  const [filterDoctor, setFilterDoctor] = useState("All");
-  const [filterDate, setFilterDate] = useState("");
-  const [filterPatientName, setFilterPatientName] = useState("");
+  const [doctorOptions, setDoctorOptions] = useState<DoctorOption[]>([])
+  const [filterDoctor, setFilterDoctor] = useState("All")
+  const [filterDate, setFilterDate] = useState("")
+  const [filterPatientName, setFilterPatientName] = useState("")
 
   // Fetch doctors from staff's clinic only
   const fetchDoctors = () => {
     fetch(`${baseURL}/api/doctors`)
       .then(response => {
         if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
+          throw new Error(`HTTP error! Status: ${response.status}`)
         }
-        return response.json();
+        return response.json()
       })
       .then(data => {
         const clinicDoctors = staffClinicId
           ? data.filter((doc: any) => doc.clinicId === staffClinicId)
           : staffClinicName
-            ? data.filter((doc: any) => doc.clinicName === staffClinicName)
-            : data;
+          ? data.filter((doc: any) => doc.clinicName === staffClinicName)
+          : data
 
         const doctorOptions = clinicDoctors.map((doc: { doctorId: string; doctorName: string }) => ({
           value: doc.doctorId,
           label: doc.doctorName,
-        }));
-        setDoctorOptions(doctorOptions);
+        }))
+        setDoctorOptions(doctorOptions)
       })
       .catch(err => {
-        console.error("Error fetching doctors:", err);
-      });
+        console.error("Error fetching doctors:", err)
+      })
+  }
+
+  // Helper: normalize date to "YYYY-MM-DD" for filtering
+  const toIsoDate = (value: string | number[] | Date) => {
+    if (Array.isArray(value)) {
+      const [year, month, day] = value
+      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+    }
+    const d = new Date(value)
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, "0")
+    const day = String(d.getDate()).padStart(2, "0")
+    return `${y}-${m}-${day}`
   }
 
   // Filter Function
-  const filteredAppointments = appointments.filter(
-    (appt) =>
-      (filterDoctor === "All" || appt.doctor_id === filterDoctor) &&
-      (!filterDate || appt.booking_date === filterDate) &&
-      (!filterPatientName || appt.patient_name.toLowerCase().includes(filterPatientName.toLowerCase()))
-  );
+  const filteredAppointments = appointments.filter(appt => {
+    const doctorMatch = filterDoctor === "All" || appt.doctor_id === filterDoctor
+    const dateMatch = !filterDate || toIsoDate(appt.booking_date) === filterDate
+    const nameMatch =
+      !filterPatientName ||
+      (appt.patient_name || "")
+        .toLowerCase()
+        .includes(filterPatientName.toLowerCase())
+
+    return doctorMatch && dateMatch && nameMatch
+  })
 
   // Update Status
   const updateApptStatus = async (apptId: String, status: String) => {
-    const response = await fetch(`${baseURL}/api/appointments/${apptId}/updateStatus/${status}`, {
-      method: "PATCH"
-    })
-    if (!response.ok) throw new Error("Failed to update status");
+    const response = await fetch(
+      `${baseURL}/api/appointments/${apptId}/updateStatus/${status}`,
+      {
+        method: "PATCH",
+      }
+    )
+    if (!response.ok) throw new Error("Failed to update status")
     fetchAppointments()
     fetchCompletedAppointments()
   }
@@ -338,190 +377,202 @@ export default function StaffDashboard() {
   // Clear Filter
   const clearFilters = () => {
     setFilterDoctor("All")
-    setFilterDate("");
-    setFilterPatientName("");
+    setFilterDate("")
+    setFilterPatientName("")
   }
 
   // Fetch available dates and slots for walk-in (aggregate across all doctors at this clinic)
   useEffect(() => {
-    if (!showWalkInDialog) return;
+    if (!showWalkInDialog) return
 
     const ensureDoctorsAndFetch = async () => {
       try {
-        // Load doctors if not present
         if (doctorOptions.length === 0) {
-          await fetchDoctors();
+          await fetchDoctors()
         }
 
-        const params = new URLSearchParams({});
-        if (staffClinicId) params.set("clinicId", staffClinicId);
-        // Append all doctorIds so backend returns per-doctor date slots
-        (doctorOptions.length ? doctorOptions : []).forEach((opt) => params.append("doctorId", opt.value));
+        const params = new URLSearchParams({})
+        if (staffClinicId) params.set("clinicId", staffClinicId)
+        ;(doctorOptions.length ? doctorOptions : []).forEach(opt =>
+          params.append("doctorId", opt.value)
+        )
 
-        const res = await fetch(`${baseURL}/api/timeslots/available/dateslots?${params.toString()}`);
-        if (!res.ok) throw new Error("Failed to fetch available slots");
-        const data = await res.json();
+        const res = await fetch(
+          `${baseURL}/api/timeslots/available/dateslots?${params.toString()}`
+        )
+        if (!res.ok) throw new Error("Failed to fetch available slots")
+        const data = await res.json()
 
-        const now = new Date();
-        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+        const now = new Date()
+        const currentMinutes = now.getHours() * 60 + now.getMinutes()
         function parseTimeToMinutes(timeStr: string): number {
-          const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
-          if (!match) return 0;
-          let [_, h, m, period] = match;
-          let hours = parseInt(h);
-          const minutes = parseInt(m);
-          if (period?.toUpperCase() === "PM" && hours < 12) hours += 12;
-          if (period?.toUpperCase() === "AM" && hours === 12) hours = 0;
-          return hours * 60 + minutes;
+          const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i)
+          if (!match) return 0
+          let [, h, m, period] = match
+          let hours = parseInt(h)
+          const minutes = parseInt(m)
+          if (period?.toUpperCase() === "PM" && hours < 12) hours += 12
+          if (period?.toUpperCase() === "AM" && hours === 12) hours = 0
+          return hours * 60 + minutes
         }
 
-        // Keep dates; for today, keep only future slots
-        const filtered = (data || []).map((entry: any) => {
-          const dateObj = new Date(entry.date);
-          let timeSlots = entry.timeSlots || [];
-          if (dateObj.toDateString() === now.toDateString()) {
-            timeSlots = timeSlots.filter((slot: any) => {
-              const start = (slot.startTime || slot.start_time || '').substring(0, 5);
-              return parseTimeToMinutes(start) > currentMinutes;
-            });
-          }
-          return { ...entry, timeSlots };
-        }).filter((e: any) => e.timeSlots && e.timeSlots.length > 0);
+        const filtered = (data || [])
+          .map((entry: any) => {
+            const dateObj = new Date(entry.date)
+            let timeSlots = entry.timeSlots || []
+            if (dateObj.toDateString() === now.toDateString()) {
+              timeSlots = timeSlots.filter((slot: any) => {
+                const start = (slot.startTime || slot.start_time || "").substring(0, 5)
+                return parseTimeToMinutes(start) > currentMinutes
+              })
+            }
+            return { ...entry, timeSlots }
+          })
+          .filter((e: any) => e.timeSlots && e.timeSlots.length > 0)
 
-        setWalkInAvailableDates(filtered);
-        setWalkInHighlightedDates(filtered.map((d: any) => new Date(d.date)));
+        setWalkInAvailableDates(filtered)
+        setWalkInHighlightedDates(filtered.map((d: any) => new Date(d.date)))
 
-        // Build unavailable list for styling only (not disabling)
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const maxDate = new Date();
-        maxDate.setDate(today.getDate() + 7 * 8);
-        const allDates: Date[] = [];
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const maxDate = new Date()
+        maxDate.setDate(today.getDate() + 7 * 8)
+        const allDates: Date[] = []
         for (let d = new Date(today); d <= maxDate; d.setDate(d.getDate() + 1)) {
-          allDates.push(new Date(d));
+          allDates.push(new Date(d))
         }
-        const highlightedStrings = new Set(filtered.map((d: any) => new Date(d.date).toDateString()));
-        const unavailable = allDates.filter((d) => !highlightedStrings.has(d.toDateString()));
-        setWalkInUnavailableDates(unavailable);
+        const highlightedStrings = new Set(
+          filtered.map((d: any) => new Date(d.date).toDateString())
+        )
+        const unavailable = allDates.filter(d => !highlightedStrings.has(d.toDateString()))
+        setWalkInUnavailableDates(unavailable)
       } catch (err) {
-        console.error("Error fetching walk-in slots:", err);
+        console.error("Error fetching walk-in slots:", err)
         toast({
           variant: "destructive",
           title: "Error",
           description: "Failed to fetch available slots. Please try again.",
-        });
+        })
       }
-    };
+    }
 
-    ensureDoctorsAndFetch();
+    ensureDoctorsAndFetch()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showWalkInDialog, staffClinicId, doctorOptions.length]);
+  }, [showWalkInDialog, staffClinicId, doctorOptions.length])
 
   // WebSocket for real-time slot updates
   useEffect(() => {
-    if (!showWalkInDialog) return;
+    if (!showWalkInDialog) return
 
-    connectSocket();
+    connectSocket()
 
     const { unsubscribe } = subscribeToSlots((update: any) => {
-      if (!update) return;
+      if (!update) return
 
-      console.log('[StaffDashboard] 🔔 WebSocket update received:', update);
+      console.log("[StaffDashboard] 🔔 WebSocket update received:", update)
 
-      const dateStr = update.date || update.booking_date;
-      const startStr = update.start_time || update.timeSlot?.split?.("-")?.[0];
-      const action = update.action || 'REMOVE';
+      const dateStr = update.date || update.booking_date
+      const startStr = update.start_time || update.timeSlot?.split?.("-")?.[0]
+      const action = update.action || "REMOVE"
 
-      console.log('[StaffDashboard] 📋 Parsed update:', {
+      console.log("[StaffDashboard] 📋 Parsed update:", {
         dateStr,
         startStr,
-        action
-      });
+        action,
+      })
 
-      if (!dateStr || !startStr || action !== 'REMOVE') {
-        console.log('[StaffDashboard] ⏭️ Ignoring update (missing data or non-REMOVE action)');
-        return;
+      if (!dateStr || !startStr || action !== "REMOVE") {
+        console.log(
+          "[StaffDashboard] ⏭️ Ignoring update (missing data or non-REMOVE action)"
+        )
+        return
       }
 
-      const normalizedStart = (startStr as string).substring(0, 5);
+      const normalizedStart = (startStr as string).substring(0, 5)
 
-      setWalkInAvailableDates((prev) => {
-        console.log('[StaffDashboard] 📊 Current walkInAvailableDates:', prev);
+      setWalkInAvailableDates(prev => {
+        console.log("[StaffDashboard] 📊 Current walkInAvailableDates:", prev)
 
         if (!prev || prev.length === 0) {
-          console.log('[StaffDashboard] ⚠️ No available dates to filter');
-          return prev;
+          console.log("[StaffDashboard] ⚠️ No available dates to filter")
+          return prev
         }
 
-        let removedCount = 0;
+        let removedCount = 0
         const next = prev
           .map((entry: any) => {
-            // Normalize entry.date to string format (yyyy-MM-dd)
-            let entryDateStr = '';
+            let entryDateStr = ""
             if (Array.isArray(entry.date)) {
-              // Handle array format [2025, 11, 12]
-              const [year, month, day] = entry.date;
-              entryDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            } else if (typeof entry.date === 'string') {
-              entryDateStr = entry.date;
+              const [year, month, day] = entry.date
+              entryDateStr = `${year}-${String(month).padStart(2, "0")}-${String(
+                day
+              ).padStart(2, "0")}`
+            } else if (typeof entry.date === "string") {
+              entryDateStr = entry.date
             } else {
-              entryDateStr = String(entry.date);
+              entryDateStr = String(entry.date)
             }
 
-            console.log('[StaffDashboard] 🔍 Checking entry:', {
+            console.log("[StaffDashboard] 🔍 Checking entry:", {
               entryDate: entry.date,
               entryDateNormalized: entryDateStr,
-              slotCount: entry.timeSlots?.length
-            });
+              slotCount: entry.timeSlots?.length,
+            })
 
             if (entryDateStr !== dateStr) {
-              console.log(`[StaffDashboard] ❌ Date mismatch: ${entryDateStr} !== ${dateStr}`);
-              return entry;
+              console.log(
+                `[StaffDashboard] ❌ Date mismatch: ${entryDateStr} !== ${dateStr}`
+              )
+              return entry
             }
 
-            console.log('[StaffDashboard] ✅ Entry matches date, filtering slots...');
+            console.log("[StaffDashboard] ✅ Entry matches date, filtering slots...")
 
             const newSlots = (entry.timeSlots || []).filter((slot: any) => {
-              const s = (slot.startTime || slot.start_time || '').substring(0, 5);
-              const keep = s !== normalizedStart;
+              const s = (slot.startTime || slot.start_time || "").substring(0, 5)
+              const keep = s !== normalizedStart
 
               if (!keep) {
-                removedCount++;
-                console.log(`[StaffDashboard] 🗑️ REMOVING slot: ${s} (matches ${normalizedStart})`);
+                removedCount++
+                console.log(
+                  `[StaffDashboard] 🗑️ REMOVING slot: ${s} (matches ${normalizedStart})`
+                )
               } else {
-                console.log(`[StaffDashboard] ✓ Keeping slot: ${s}`);
+                console.log(`[StaffDashboard] ✓ Keeping slot: ${s}`)
               }
 
-              return keep;
-            });
+              return keep
+            })
 
-            return { ...entry, timeSlots: newSlots };
+            return { ...entry, timeSlots: newSlots }
           })
-          .filter((e: any) => e.timeSlots && e.timeSlots.length > 0);
+          .filter((e: any) => e.timeSlots && e.timeSlots.length > 0)
 
         if (removedCount > 0) {
-          console.log(`[StaffDashboard] ✅ Successfully removed ${removedCount} slot(s)`);
+          console.log(
+            `[StaffDashboard] ✅ Successfully removed ${removedCount} slot(s)`
+          )
         } else {
-          console.warn('[StaffDashboard] ⚠️ No matching slot found to remove for', {
-            dateStr,
-            normalizedStart,
-            availableEntriesCount: prev.length
-          });
+          console.warn(
+            "[StaffDashboard] ⚠️ No matching slot found to remove for",
+            {
+              dateStr,
+              normalizedStart,
+              availableEntriesCount: prev.length,
+            }
+          )
         }
 
-        console.log('[StaffDashboard] 📊 Updated walkInAvailableDates:', next);
-        return next;
-      });
-    });
+        console.log("[StaffDashboard] 📊 Updated walkInAvailableDates:", next)
+        return next
+      })
+    })
 
     return () => {
-      unsubscribe();
-      disconnectSocket();
-    };
-  }, [showWalkInDialog]);
-
-  // Generate unique walk-in patient ID
-  // Removed guest ID generation: enforce registered patient email only for walk-in creation
+      unsubscribe()
+      disconnectSocket()
+    }
+  }, [showWalkInDialog])
 
   // Handle Walk-in Appointment
   const handleWalkInSubmit = async () => {
@@ -530,28 +581,30 @@ export default function StaffDashboard() {
         variant: "destructive",
         title: "Missing Information",
         description: "Please fill in email, date and time slot.",
-      });
-      return;
+      })
+      return
     }
 
     if (!selectedPatient) {
       toast({
-        variant: 'destructive',
-        title: 'Unregistered Email',
-        description: 'Patient is not registered. Create account before booking.'
-      });
-      return;
+        variant: "destructive",
+        title: "Unregistered Email",
+        description: "Patient is not registered. Create account before booking.",
+      })
+      return
     }
 
-    setIsSubmittingWalkIn(true);
+    setIsSubmittingWalkIn(true)
 
     try {
-      const [start_time, end_time] = walkInSelectedSlot.time.split("-").map((t) => t.trim());
-      const formattedStart = start_time.length > 5 ? start_time.substring(0, 5) : start_time;
-      const formattedEnd = end_time.length > 5 ? end_time.substring(0, 5) : end_time;
+      const [start_time, end_time] = walkInSelectedSlot.time
+        .split("-")
+        .map(t => t.trim())
+      const formattedStart = start_time.length > 5 ? start_time.substring(0, 5) : start_time
+      const formattedEnd = end_time.length > 5 ? end_time.substring(0, 5) : end_time
 
-      const walkInPatientId = selectedPatient?.supabase_user_id;
-      if (!walkInPatientId) throw new Error('Missing patient ID');
+      const walkInPatientId = selectedPatient?.supabase_user_id
+      if (!walkInPatientId) throw new Error("Missing patient ID")
 
       const appointmentRequest = {
         patient_id: walkInPatientId,
@@ -561,185 +614,189 @@ export default function StaffDashboard() {
         start_time: formattedStart,
         end_time: formattedEnd,
         type: "WALK_IN",
-      };
+      }
 
       const res = await fetch(`${baseURL}/api/appointments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(appointmentRequest),
-      });
+      })
 
       if (!res.ok) {
-        let message = "Failed to create walk-in appointment";
+        let message = "Failed to create walk-in appointment"
         try {
-          const errJson = await res.json();
-          if (errJson?.message) message = errJson.message;
-        } catch { }
+          const errJson = await res.json()
+          if (errJson?.message) message = errJson.message
+        } catch {}
         toast({
           variant: "destructive",
           title: "Booking failed",
           description: message,
-        });
-        return;
+        })
+        return
       }
 
       toast({
         title: "Walk-in Appointment Created",
         description: `Appointment for ${selectedPatient.first_name} ${selectedPatient.last_name} has been scheduled.`,
-      });
+      })
 
-      // Reset form
       setWalkInEmail("")
       setEmailSuggestions([])
       setSelectedPatient(null)
-      setWalkInSelectedDate(undefined);
-      setWalkInSelectedSlot(null);
-      setWalkInAvailableDates([]);
-      setShowWalkInDialog(false);
-      fetchAppointments();
+      setWalkInSelectedDate(undefined)
+      setWalkInSelectedSlot(null)
+      setWalkInAvailableDates([])
+      setShowWalkInDialog(false)
+      fetchAppointments()
     } catch (err) {
-      console.error(err);
+      console.error(err)
       toast({
         variant: "destructive",
         title: "Error",
         description: "Something went wrong. Please try again.",
-      });
+      })
     } finally {
-      setIsSubmittingWalkIn(false);
+      setIsSubmittingWalkIn(false)
     }
-  };
+  }
 
   // Validate walk-in form before confirmation
   const validateWalkIn = (): string | null => {
-    if (!walkInEmail) return "Please enter patient email.";
-    if (!selectedPatient) return "Patient is not registered. Create account before booking.";
-    if (!walkInSelectedDate) return "Please select a date.";
-    if (!walkInSelectedSlot) return "Please select a time slot.";
-    if (!staffClinicId) return "Missing clinic context for staff user.";
-    return null;
-  };
+    if (!walkInEmail) return "Please enter patient email."
+    if (!selectedPatient) return "Patient is not registered. Create account before booking."
+    if (!walkInSelectedDate) return "Please select a date."
+    if (!walkInSelectedSlot) return "Please select a time slot."
+    if (!staffClinicId) return "Missing clinic context for staff user."
+    return null
+  }
 
   const handleWalkInConfirmClick = () => {
-    const err = validateWalkIn();
+    const err = validateWalkIn()
     if (err) {
-      toast({ variant: "destructive", title: "Missing Information", description: err });
-      return;
+      toast({ variant: "destructive", title: "Missing Information", description: err })
+      return
     }
-    setShowWalkInConfirmDialog(true);
-  };
+    setShowWalkInConfirmDialog(true)
+  }
 
-
-  // Backend-driven check-in (preferred over local queueNumber generation)
+  // Backend-driven check-in
   const handleCheckIn = async (appointment: Appointment) => {
     if (!staffClinicId) {
       toast({
         variant: "destructive",
         title: "Missing clinic",
         description: "Cannot check in without clinic context",
-      });
-      return;
+      })
+      return
     }
     try {
       const res = await fetch(`${baseURL}/api/queue/checkin`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clinicId: staffClinicId,
           appointmentId: appointment.appointment_id,
           patientId: appointment.patient_id,
           doctorId: appointment.doctor_id || null,
-        })
-      });
+        }),
+      })
       if (!res.ok) {
-        let msg = `Check-in failed (${res.status})`;
-        try { const j = await res.json(); if (j?.message) msg = j.message; } catch { }
-        throw new Error(msg);
+        let msg = `Check-in failed (${res.status})`
+        try {
+          const j = await res.json()
+          if (j?.message) msg = j.message
+        } catch {}
+        throw new Error(msg)
       }
-      const data = await res.json();
-      const queueNumber = data.queueNumber;
-      const position = data.position;
-      // Add to local display queue
-      const queueItem: QueueItem = { ...appointment, queueNumber, position, isFastTrack: false };
-      setQueueAppointments(prev => [...prev, queueItem]);
+      const data = await res.json()
+      const queueNumber = data.queueNumber
+      const position = data.position
+      const queueItem: QueueItem = {
+        ...appointment,
+        queueNumber,
+        position,
+        isFastTrack: false,
+      }
+      setQueueAppointments(prev => [...prev, queueItem])
       toast({
-        title: 'Checked In',
-        description: `${appointment.patient_name} queued (ticket ${queueNumber}, position ${position})`,
-      });
-      // Refresh appointments to reflect updated status
-      fetchAppointments();
-      fetchCompletedAppointments();
+        title: "Checked In",
+        description: `${appointment.patient_name || "Patient"} queued (ticket ${queueNumber}, position ${position})`,
+      })
+      fetchAppointments()
+      fetchCompletedAppointments()
     } catch (err: any) {
-      console.error('Check-in error:', err);
+      console.error("Check-in error:", err)
       toast({
-        variant: 'destructive',
-        title: 'Check-in failed',
-        description: err?.message || 'Unable to check in appointment',
-      });
+        variant: "destructive",
+        title: "Check-in failed",
+        description: err?.message || "Unable to check in appointment",
+      })
     }
   }
 
   useEffect(() => {
-    fetchAppointments();
-    fetchCompletedAppointments();
-    fetchDoctors();
+    fetchAppointments()
+    fetchCompletedAppointments()
+    fetchDoctors()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Global WebSocket subscription for slot/appointment changes (real-time updates, no polling needed)
+  // Global WebSocket subscription for slot/appointment changes
   useEffect(() => {
-    // Connect once on dashboard mount
-    connectSocket();
+    connectSocket()
     const { unsubscribe } = subscribeToSlots((update: any) => {
-      if (!update) return;
-      // Any slot removal or change can imply a new appointment booked or rescheduled
-      // We simply refetch to keep lists in sync.
-      fetchAppointments();
-      fetchCompletedAppointments();
-    });
+      if (!update) return
+      fetchAppointments()
+      fetchCompletedAppointments()
+    })
 
     return () => {
-      unsubscribe();
-      // We intentionally do NOT disconnect socket here to allow other pages to reuse it; disconnect when leaving app entirely.
-    };
+      unsubscribe()
+      // keep socket globally if other pages reuse it
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [])
 
   // Helper function to format date as dd/mm/yyyy
-  const formatDate = (dateString: string | number | Date) => {
-    const date = new Date(dateString);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  };
+  const formatDate = (value: string | number[] | Date) => {
+    let date: Date
+
+    if (Array.isArray(value)) {
+      const [year, month, day] = value
+      date = new Date(year, month - 1, day)
+    } else {
+      date = new Date(value)
+    }
+
+    if (isNaN(date.getTime())) return "N/A"
+
+    const day = String(date.getDate()).padStart(2, "0")
+    const month = String(date.getMonth() + 1).padStart(2, "0")
+    const year = date.getFullYear()
+    return `${day}/${month}/${year}`
+  }
 
   // Helper function to format time as hh:mm AM/PM
-  const formatTime = (timeString: any) => {
-    if (!timeString) return 'N/A';
+  const formatTime = (timeString: string | number[] | null | undefined) => {
+    if (!timeString) return "N/A"
 
-    // Handle array format [hour, minute, second] from LocalTime
     if (Array.isArray(timeString)) {
-      const [hours24, minutes] = timeString;
-      let hours = hours24;
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      hours = hours % 12;
-      hours = hours ? hours : 12;
-      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${ampm}`;
+      const [hours24, minutes] = timeString
+      let hours = hours24 as number
+      const ampm = hours >= 12 ? "PM" : "AM"
+      hours = hours % 12 || 12
+      return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${ampm}`
     }
 
-    // Handle string format "HH:MM" or "HH:MM:SS"
-    if (typeof timeString === 'string') {
-      const parts = timeString.split(':');
-      if (parts.length < 2) return timeString;
-      const [hours24, minutes] = parts;
-      let hours = parseInt(hours24);
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      hours = hours % 12;
-      hours = hours ? hours : 12;
-      return `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
-    }
-
-    return 'N/A';
-  };
+    const parts = timeString.split(":")
+    if (parts.length < 2) return timeString
+    const [hours24Str, minutes] = parts
+    let hours = parseInt(hours24Str, 10)
+    const ampm = hours >= 12 ? "PM" : "AM"
+    hours = hours % 12 || 12
+    return `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`
+  }
 
   return (
     <PageLayout>
@@ -763,7 +820,7 @@ export default function StaffDashboard() {
         {/* Main Content with Tabs */}
         <section className="py-6 px-4">
           <div className="container mx-auto max-w-7xl">
-            {/* Queue Management Section - Always visible at top */}
+            {/* Queue Management Section */}
             <div className="mb-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Queue Control Panel */}
@@ -774,7 +831,7 @@ export default function StaffDashboard() {
                   <CardContent className="space-y-4">
                     <div className="text-center p-4 bg-gray-50 rounded-lg">
                       <div className="text-3xl font-bold text-green-600 mb-1">
-                        {currentQueueNumber || '-'}
+                        {currentQueueNumber || "-"}
                       </div>
                       <div className="text-sm text-gray-600">Current Number</div>
                     </div>
@@ -784,13 +841,13 @@ export default function StaffDashboard() {
                         className="w-full bg-blue-600 hover:bg-blue-700"
                         onClick={() => {
                           if (queueAppointments.length > 0) {
-                            const nextQueue = queueAppointments[0];
-                            setCurrentQueueNumber(nextQueue.queueNumber);
-                            setQueueAppointments(prev => prev.slice(1));
+                            const nextQueue = queueAppointments[0]
+                            setCurrentQueueNumber(nextQueue.queueNumber)
+                            setQueueAppointments(prev => prev.slice(1))
                             toast({
                               title: "Next Patient Called",
                               description: `Now serving number ${nextQueue.queueNumber}`,
-                            });
+                            })
                           }
                         }}
                         disabled={queueAppointments.length === 0 || isQueuePaused}
@@ -824,19 +881,29 @@ export default function StaffDashboard() {
                           key={appt.appointment_id}
                           className={cn(
                             "p-3 rounded-lg border flex items-center justify-between",
-                            appt.isFastTrack ? "bg-yellow-50 border-yellow-200" : "bg-white"
+                            appt.isFastTrack
+                              ? "bg-yellow-50 border-yellow-200"
+                              : "bg-white"
                           )}
                         >
                           <div className="flex items-center gap-3">
-                            <div className={cn(
-                              "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium",
-                              appt.isFastTrack ? "bg-yellow-100 text-yellow-700" : "bg-blue-100 text-blue-700"
-                            )}>
+                            <div
+                              className={cn(
+                                "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium",
+                                appt.isFastTrack
+                                  ? "bg-yellow-100 text-yellow-700"
+                                  : "bg-blue-100 text-blue-700"
+                              )}
+                            >
                               {appt.queueNumber}
                             </div>
                             <div>
-                              <h4 className="font-medium">{appt.patient_name}</h4>
-                              <p className="text-sm text-gray-500">{appt.doctor_name}</p>
+                              <h4 className="font-medium">
+                                {appt.patient_name || "Unknown patient"}
+                              </h4>
+                              <p className="text-sm text-gray-500">
+                                {appt.doctor_name || appt.doctor_id || "Unknown doctor"}
+                              </p>
                             </div>
                           </div>
                           <div className="flex gap-2">
@@ -846,15 +913,15 @@ export default function StaffDashboard() {
                                 variant="outline"
                                 className="text-yellow-600 border-yellow-200 hover:bg-yellow-50"
                                 onClick={() => {
-                                  const updatedQueue = [...queueAppointments];
-                                  const item = updatedQueue.splice(index, 1)[0];
-                                  item.isFastTrack = true;
-                                  updatedQueue.unshift(item);
-                                  setQueueAppointments(updatedQueue);
+                                  const updatedQueue = [...queueAppointments]
+                                  const item = updatedQueue.splice(index, 1)[0]
+                                  item.isFastTrack = true
+                                  updatedQueue.unshift(item)
+                                  setQueueAppointments(updatedQueue)
                                   toast({
                                     title: "Fast-tracked",
-                                    description: `${item.patient_name} has been moved to priority queue`,
-                                  });
+                                    description: `${item.patient_name || "Patient"} has been moved to priority queue`,
+                                  })
                                 }}
                               >
                                 Fast-track
@@ -867,8 +934,8 @@ export default function StaffDashboard() {
                               onClick={() => {
                                 setQueueAppointments(prev =>
                                   prev.filter(q => q.appointment_id !== appt.appointment_id)
-                                );
-                                updateApptStatus(appt.appointment_id, "NO_SHOW");
+                                )
+                                updateApptStatus(appt.appointment_id, "NO_SHOW")
                               }}
                             >
                               No-show
@@ -888,11 +955,11 @@ export default function StaffDashboard() {
             </div>
 
             <Tabs defaultValue="upcoming" className="w-full">
-              {/* Common Filter Card - For Upcoming and Completed Tabs */}
+              {/* Filter Card */}
               <Card className="mb-4">
                 <CardHeader className="pb-3 flex flex-row items-center justify-between">
                   <CardTitle className="text-lg"></CardTitle>
-                  { staffPosition === "receptionist" && (
+                  {staffPosition === "receptionist" && (
                     <Button
                       onClick={() => setShowWalkInDialog(true)}
                       className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-md"
@@ -901,7 +968,6 @@ export default function StaffDashboard() {
                       Add Walk-in
                     </Button>
                   )}
-
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -925,7 +991,9 @@ export default function StaffDashboard() {
                         <SelectContent>
                           <SelectItem value="All">All Doctors</SelectItem>
                           {doctorOptions.map(opt => (
-                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -950,7 +1018,7 @@ export default function StaffDashboard() {
                 </CardContent>
               </Card>
 
-              {/* Tabs Switch Panel - After Filter */}
+              {/* Tabs Header */}
               <TabsList className="grid w-full grid-cols-2 mb-4">
                 <TabsTrigger value="upcoming">
                   <Clock className="w-4 h-4 mr-2" />
@@ -962,21 +1030,33 @@ export default function StaffDashboard() {
                 </TabsTrigger>
               </TabsList>
 
-              {/* Upcoming Tab Content */}
+              {/* Upcoming Tab */}
               <TabsContent value="upcoming" className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold">Scheduled Appointments ({filteredAppointments.length})</h3>
+                  <h3 className="text-lg font-semibold">
+                    Scheduled Appointments ({filteredAppointments.length})
+                  </h3>
                 </div>
 
-                {/* Appointments */}
                 {loading ? (
-                  <Card><CardContent className="py-8 text-center text-gray-500">Loading...</CardContent></Card>
+                  <Card>
+                    <CardContent className="py-8 text-center text-gray-500">
+                      Loading...
+                    </CardContent>
+                  </Card>
                 ) : filteredAppointments.length === 0 ? (
-                  <Card><CardContent className="py-8 text-center text-gray-500">No appointments found</CardContent></Card>
+                  <Card>
+                    <CardContent className="py-8 text-center text-gray-500">
+                      No appointments found
+                    </CardContent>
+                  </Card>
                 ) : (
                   <div className="space-y-3">
                     {filteredAppointments.map(appt => (
-                      <Card key={appt.appointment_id} className="hover:shadow-md transition-shadow">
+                      <Card
+                        key={appt.appointment_id}
+                        className="hover:shadow-md transition-shadow"
+                      >
                         <CardContent className="p-4">
                           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                             <div className="flex items-start gap-3 flex-1">
@@ -984,9 +1064,15 @@ export default function StaffDashboard() {
                                 <User className="h-5 w-5 text-green-600" />
                               </div>
                               <div className="space-y-1 min-w-0 flex-1">
-                                <h4 className="font-semibold text-gray-900">{appt.patient_name}</h4>
-                                <p className="text-sm text-gray-600"> {appt.doctor_name}</p>
-                                <p className="text-xs text-gray-500">{appt.clinic_name}</p>
+                                <h4 className="font-semibold text-gray-900">
+                                  {appt.patient_name || "Unknown patient"}
+                                </h4>
+                                <p className="text-sm text-gray-600">
+                                  {appt.doctor_name || appt.doctor_id || "Unknown doctor"}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {appt.clinic_name || appt.clinic_id || "Unknown clinic"}
+                                </p>
                                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                                   <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded">
                                     <CalendarIcon className="w-3 h-3" />
@@ -994,34 +1080,63 @@ export default function StaffDashboard() {
                                   </span>
                                   <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-700 text-xs px-2 py-0.5 rounded">
                                     <Clock className="w-3 h-3" />
-                                    {formatTime(appt.start_time)} - {formatTime(appt.end_time)}
+                                    {formatTime(appt.start_time)} -{" "}
+                                    {formatTime(appt.end_time)}
                                   </span>
-                                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${appt.status === "SCHEDULED" ? "bg-yellow-100 text-yellow-700" :
-                                    appt.status === "CHECKED_IN" || appt.status === "CHECKED-IN" || appt.status === "CHECKED IN" ? "bg-blue-100 text-blue-700" :
-                                      "bg-gray-100 text-gray-700"
-                                    }`}>
-                                    {appt.status.replace('_', ' ')}
+                                  <span
+                                    className={`text-xs font-medium px-2 py-0.5 rounded ${
+                                      appt.status === "SCHEDULED"
+                                        ? "bg-yellow-100 text-yellow-700"
+                                        : appt.status === "CHECKED_IN" ||
+                                          appt.status === "CHECKED-IN" ||
+                                          appt.status === "CHECKED IN"
+                                        ? "bg-blue-100 text-blue-700"
+                                        : "bg-gray-100 text-gray-700"
+                                    }`}
+                                  >
+                                    {appt.status.replace("_", " ")}
                                   </span>
                                 </div>
                               </div>
                             </div>
 
                             <div className="flex flex-wrap gap-2 md:flex-col md:items-end">
-                              {appt.status === "SCHEDULED" && staffPosition === "receptionist" && (
-                                <>
-                                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleCheckIn(appt)}>
-                                    Check In
+                              {appt.status === "SCHEDULED" &&
+                                staffPosition === "receptionist" && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      className="bg-blue-600 hover:bg-blue-700"
+                                      onClick={() => handleCheckIn(appt)}
+                                    >
+                                      Check In
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-red-600 hover:bg-red-50"
+                                      onClick={() =>
+                                        updateApptStatus(appt.appointment_id, "NO_SHOW")
+                                      }
+                                    >
+                                      No Show
+                                    </Button>
+                                  </>
+                                )}
+                              {(appt.status === "CHECKED_IN" ||
+                                appt.status === "CHECKED IN" ||
+                                appt.status === "CHECKED-IN") &&
+                                staffPosition === "nurse" && (
+                                  <Button
+                                    size="sm"
+                                    className="bg-green-600 hover:bg-green-700"
+                                    onClick={() =>
+                                      updateApptStatus(appt.appointment_id, "COMPLETED")
+                                    }
+                                  >
+                                    Complete
                                   </Button>
-                                  <Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50" onClick={() => updateApptStatus(appt.appointment_id, "NO_SHOW")}>
-                                    No Show
-                                  </Button>
-                                </>
-                              )}
-                              {(appt.status === "CHECKED_IN" || appt.status === "CHECKED IN" || appt.status === "CHECKED-IN")&& staffPosition === "nurse" && (
-                                <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => updateApptStatus(appt.appointment_id, "COMPLETED")}>
-                                  Complete
-                                </Button>
-                              )}
+                                )}
                             </div>
                           </div>
                         </CardContent>
@@ -1031,18 +1146,27 @@ export default function StaffDashboard() {
                 )}
               </TabsContent>
 
-              {/* Completed Appointments Tab */}
+              {/* Completed Tab */}
               <TabsContent value="completed" className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold">Completed & Closed ({completedAppointments.length})</h3>
+                  <h3 className="text-lg font-semibold">
+                    Completed & Closed ({completedAppointments.length})
+                  </h3>
                 </div>
 
                 {completedAppointments.length === 0 ? (
-                  <Card><CardContent className="py-8 text-center text-gray-500">No completed appointments</CardContent></Card>
+                  <Card>
+                    <CardContent className="py-8 text-center text-gray-500">
+                      No completed appointments
+                    </CardContent>
+                  </Card>
                 ) : (
                   <div className="space-y-3">
                     {completedAppointments.map(appt => (
-                      <Card key={appt.appointment_id} className="hover:shadow-md transition-shadow">
+                      <Card
+                        key={appt.appointment_id}
+                        className="hover:shadow-md transition-shadow"
+                      >
                         <CardContent className="p-4">
                           <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
                             <div className="flex items-start gap-3 flex-1">
@@ -1050,9 +1174,15 @@ export default function StaffDashboard() {
                                 <User className="h-5 w-5 text-gray-600" />
                               </div>
                               <div className="space-y-1 flex-1">
-                                <h4 className="font-semibold text-gray-900">{appt.patient_name}</h4>
-                                <p className="text-sm text-gray-600"> {appt.doctor_name}</p>
-                                <p className="text-xs text-gray-500">{appt.clinic_name}</p>
+                                <h4 className="font-semibold text-gray-900">
+                                  {appt.patient_name || "Unknown patient"}
+                                </h4>
+                                <p className="text-sm text-gray-600">
+                                  {appt.doctor_name || appt.doctor_id || "Unknown doctor"}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {appt.clinic_name || appt.clinic_id || "Unknown clinic"}
+                                </p>
                                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                                   <span className="inline-flex items-center gap-1 bg-gray-50 text-gray-700 text-xs px-2 py-0.5 rounded">
                                     <CalendarIcon className="w-3 h-3" />
@@ -1060,22 +1190,35 @@ export default function StaffDashboard() {
                                   </span>
                                   <span className="inline-flex items-center gap-1 bg-gray-50 text-gray-700 text-xs px-2 py-0.5 rounded">
                                     <Clock className="w-3 h-3" />
-                                    {formatTime(appt.start_time)} - {formatTime(appt.end_time)}
+                                    {formatTime(appt.start_time)} -{" "}
+                                    {formatTime(appt.end_time)}
                                   </span>
-                                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${appt.status === "COMPLETED" ? "bg-green-100 text-green-700" :
-                                    appt.status === "NO_SHOW" ? "bg-red-100 text-red-700" :
-                                      "bg-gray-100 text-gray-700"
-                                    }`}>
-                                    {appt.status.replace('_', ' ')}
+                                  <span
+                                    className={`text-xs font-medium px-2 py-0.5 rounded ${
+                                      appt.status === "COMPLETED"
+                                        ? "bg-green-100 text-green-700"
+                                        : appt.status === "NO_SHOW"
+                                        ? "bg-red-100 text-red-700"
+                                        : "bg-gray-100 text-gray-700"
+                                    }`}
+                                  >
+                                    {appt.status.replace("_", " ")}
                                   </span>
                                 </div>
                                 {appt.treatmentNote && (
                                   <div className="mt-2 p-2 bg-blue-50 rounded text-xs border border-blue-200">
-                                    <p className="font-medium text-blue-900 mb-1">Treatment Summary:</p>
-                                    <p className="text-gray-700 whitespace-pre-wrap">{appt.treatmentNote.notes}</p>
+                                    <p className="font-medium text-blue-900 mb-1">
+                                      Treatment Summary:
+                                    </p>
+                                    <p className="text-gray-700 whitespace-pre-wrap">
+                                      {appt.treatmentNote.notes}
+                                    </p>
                                     {appt.treatmentNote.createdByName && (
                                       <p className="text-gray-500 mt-1 text-xs">
-                                        Added by {appt.treatmentNote.createdByName} on {new Date(appt.treatmentNote.createdAt).toLocaleDateString()}
+                                        Added by {appt.treatmentNote.createdByName} on{" "}
+                                        {new Date(
+                                          appt.treatmentNote.createdAt
+                                        ).toLocaleDateString()}
                                       </p>
                                     )}
                                   </div>
@@ -1090,10 +1233,11 @@ export default function StaffDashboard() {
                                 onClick={() => handleAddNotes(appt)}
                               >
                                 <FileText className="w-4 h-4" />
-                                {appt.treatmentNote ? "Edit Treatment Notes" : "Add Treatment Notes"}
+                                {appt.treatmentNote
+                                  ? "Edit Treatment Notes"
+                                  : "Add Treatment Notes"}
                               </Button>
                             )}
-
                           </div>
                         </CardContent>
                       </Card>
@@ -1112,7 +1256,10 @@ export default function StaffDashboard() {
           <DialogHeader>
             <DialogTitle>Treatment Summary / Doctor Notes</DialogTitle>
             <DialogDescription>
-              Add treatment summary and notes for {selectedAppointment?.patient_name}'s completed appointment with {selectedAppointment?.doctor_name}
+              Add treatment summary and notes for{" "}
+              {selectedAppointment?.patient_name || "this patient"}'s completed
+              appointment with{" "}
+              {selectedAppointment?.doctor_name || selectedAppointment?.doctor_id}
             </DialogDescription>
           </DialogHeader>
 
@@ -1121,19 +1268,25 @@ export default function StaffDashboard() {
             <Textarea
               id="notes"
               value={notes}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                setNotes(e.target.value)
+              }
               placeholder="Enter treatment summary, diagnosis, prescribed medications, follow-up instructions, or other relevant notes..."
               className="mt-2 min-h-[200px]"
             />
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setShowNotesDialog(false);
-              setNotes("");
-              setExistingNoteId(null);
-              setSelectedAppointment(null);
-            }} disabled={isSavingNotes}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowNotesDialog(false)
+                setNotes("")
+                setExistingNoteId(null)
+                setSelectedAppointment(null)
+              }}
+              disabled={isSavingNotes}
+            >
               Cancel
             </Button>
             <Button onClick={handleSaveNotes} disabled={isSavingNotes || !notes.trim()}>
@@ -1144,20 +1297,22 @@ export default function StaffDashboard() {
       </Dialog>
 
       {/* Walk-in Appointment Sheet */}
-      <Sheet open={showWalkInDialog} onOpenChange={(open) => {
-        setShowWalkInDialog(open);
-        if (!open) {
-          // Reset all walk-in state when dialog closes
-          setWalkInEmail("")
-          setEmailSuggestions([])
-          setSelectedPatient(null)
-          setWalkInSelectedDate(undefined);
-          setWalkInSelectedSlot(null);
-          setWalkInAvailableDates([]);
-          setWalkInHighlightedDates([]);
-          setWalkInUnavailableDates([]);
-        }
-      }}>
+      <Sheet
+        open={showWalkInDialog}
+        onOpenChange={open => {
+          setShowWalkInDialog(open)
+          if (!open) {
+            setWalkInEmail("")
+            setEmailSuggestions([])
+            setSelectedPatient(null)
+            setWalkInSelectedDate(undefined)
+            setWalkInSelectedSlot(null)
+            setWalkInAvailableDates([])
+            setWalkInHighlightedDates([])
+            setWalkInUnavailableDates([])
+          }
+        }}
+      >
         <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
           <SheetHeader className="pb-6">
             <SheetTitle className="text-2xl">Add Walk-in Appointment</SheetTitle>
@@ -1181,21 +1336,25 @@ export default function StaffDashboard() {
                   id="patientEmail"
                   type="email"
                   value={walkInEmail}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setWalkInEmail(val);
-                    setSelectedPatient(null);
-                    // trigger search
+                  onChange={e => {
+                    const val = e.target.value
+                    setWalkInEmail(val)
+                    setSelectedPatient(null)
                     if (val && val.length >= 2) {
-                      setIsSearchingEmail(true);
-                      const controller = new AbortController();
-                      fetch(`${baseURL}/api/users/patients/search?q=${encodeURIComponent(val)}`, { signal: controller.signal })
-                        .then(r => r.ok ? r.json() : [])
-                        .then((arr) => setEmailSuggestions(Array.isArray(arr) ? arr.slice(0, 8) : []))
+                      setIsSearchingEmail(true)
+                      const controller = new AbortController()
+                      fetch(
+                        `${baseURL}/api/users/patients/search?q=${encodeURIComponent(val)}`,
+                        { signal: controller.signal }
+                      )
+                        .then(r => (r.ok ? r.json() : []))
+                        .then(arr =>
+                          setEmailSuggestions(Array.isArray(arr) ? arr.slice(0, 8) : [])
+                        )
                         .catch(() => setEmailSuggestions([]))
-                        .finally(() => setIsSearchingEmail(false));
+                        .finally(() => setIsSearchingEmail(false))
                     } else {
-                      setEmailSuggestions([]);
+                      setEmailSuggestions([])
                     }
                   }}
                   placeholder="Enter patient email"
@@ -1210,68 +1369,75 @@ export default function StaffDashboard() {
                         type="button"
                         className="w-full text-left px-3 py-2 hover:bg-gray-50"
                         onClick={() => {
-                          setSelectedPatient(sug);
-                          setWalkInEmail(sug.email);
-                          setEmailSuggestions([]);
+                          setSelectedPatient(sug)
+                          setWalkInEmail(sug.email)
+                          setEmailSuggestions([])
                         }}
                       >
-                        <div className="text-sm font-medium">{sug.first_name} {sug.last_name}</div>
+                        <div className="text-sm font-medium">
+                          {sug.first_name} {sug.last_name}
+                        </div>
                         <div className="text-xs text-gray-600">{sug.email}</div>
                       </button>
                     ))}
                   </div>
                 )}
-                {walkInEmail && !selectedPatient && emailSuggestions.length === 0 && !isSearchingEmail && (
-                  <div className="mt-2 p-3 rounded border border-red-300 bg-red-50 text-red-700 text-xs flex items-start gap-2">
-                    <AlertTriangle className="w-4 h-4 mt-0.5" />
-                    <span>Patient is not registered with SingHealth, please create account for patient before creating walk in appointment</span>
-                  </div>
-                )}
-                {selectedPatient && walkInEmail && selectedPatient.email && walkInEmail.toLowerCase() === selectedPatient.email.toLowerCase() && (
-                  <div className="mt-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1">
-                    Existing patient selected: {selectedPatient.first_name} {selectedPatient.last_name} ({selectedPatient.email})
-                  </div>
-                )}
+                {walkInEmail &&
+                  !selectedPatient &&
+                  emailSuggestions.length === 0 &&
+                  !isSearchingEmail && (
+                    <div className="mt-2 p-3 rounded border border-red-300 bg-red-50 text-red-700 text-xs flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 mt-0.5" />
+                      <span>
+                        Patient is not registered with SingHealth, please create account
+                        for patient before creating walk in appointment
+                      </span>
+                    </div>
+                  )}
+                {selectedPatient &&
+                  walkInEmail &&
+                  selectedPatient.email &&
+                  walkInEmail.toLowerCase() === selectedPatient.email.toLowerCase() && (
+                    <div className="mt-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1">
+                      Existing patient selected: {selectedPatient.first_name}{" "}
+                      {selectedPatient.last_name} ({selectedPatient.email})
+                    </div>
+                  )}
               </div>
             </div>
 
-            {/* No doctor selection for walk-in; show all available slots for this clinic */}
-
             {/* Date Selection */}
-            {
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">
-                  Select Date <span className="text-red-500">*</span>
-                </Label>
-                <Card className="p-4">
-                  <Calendar
-                    mode="single"
-                    selected={walkInSelectedDate}
-                    onSelect={(date) => {
-                      setWalkInSelectedDate(date);
-                      setWalkInSelectedSlot(null); // Reset time slot when date changes
-                    }}
-                    disabled={(date) => {
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-                      const maxDate = new Date();
-                      maxDate.setDate(today.getDate() + 7 * 8);
-                      // Do not disable unavailable dates; just style them red so users can still click and see "No slots"
-                      return date < today || date > maxDate;
-                    }}
-                    modifiers={{
-                      available: walkInHighlightedDates,
-                      unavailable: walkInUnavailableDates,
-                    }}
-                    modifiersStyles={{
-                      available: { border: "1px solid green", borderRadius: "20px" },
-                      unavailable: { border: "1px solid red", borderRadius: "20px" },
-                    }}
-                    className="rounded-md"
-                  />
-                </Card>
-              </div>
-            }
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                Select Date <span className="text-red-500">*</span>
+              </Label>
+              <Card className="p-4">
+                <Calendar
+                  mode="single"
+                  selected={walkInSelectedDate}
+                  onSelect={date => {
+                    setWalkInSelectedDate(date)
+                    setWalkInSelectedSlot(null)
+                  }}
+                  disabled={date => {
+                    const today = new Date()
+                    today.setHours(0, 0, 0, 0)
+                    const maxDate = new Date()
+                    maxDate.setDate(today.getDate() + 7 * 8)
+                    return date < today || date > maxDate
+                  }}
+                  modifiers={{
+                    available: walkInHighlightedDates,
+                    unavailable: walkInUnavailableDates,
+                  }}
+                  modifiersStyles={{
+                    available: { border: "1px solid green", borderRadius: "20px" },
+                    unavailable: { border: "1px solid red", borderRadius: "20px" },
+                  }}
+                  className="rounded-md"
+                />
+              </Card>
+            </div>
 
             {/* Time Slot Selection */}
             {walkInSelectedDate && (
@@ -1282,33 +1448,43 @@ export default function StaffDashboard() {
                 <Card className="p-4">
                   {(() => {
                     const dayEntries = walkInAvailableDates.filter((d: any) => {
-                      const dayMatch = new Date(d.date);
-                      return walkInSelectedDate && dayMatch.toDateString() === walkInSelectedDate.toDateString();
-                    });
+                      const dayMatch = new Date(d.date)
+                      return (
+                        walkInSelectedDate &&
+                        dayMatch.toDateString() === walkInSelectedDate.toDateString()
+                      )
+                    })
 
                     if (dayEntries.length === 0) {
                       return (
                         <p className="text-sm text-gray-500 text-center py-4">
                           No available slots for this date
                         </p>
-                      );
+                      )
                     }
 
                     const slots: WalkInSlot[] = dayEntries.flatMap((entry: any) => {
-                      const docId = entry.doctorId;
-                      const docName = entry.doctorName || "Doctor";
-                      const clinicId = entry.clinicId;
+                      const docId = entry.doctorId
+                      const docName = entry.doctorName || "Doctor"
+                      const clinicId = entry.clinicId
                       return (entry.timeSlots || []).map((slot: any) => {
-                        const start = (slot.startTime || slot.start_time || "").substring(0, 5);
-                        const end = (slot.endTime || slot.end_time || "").substring(0, 5);
-                        return { time: `${start}-${end}`, doctorId: docId, doctorName: docName, clinicId } as WalkInSlot;
-                      });
-                    });
+                        const start = (slot.startTime || slot.start_time || "").substring(0, 5)
+                        const end = (slot.endTime || slot.end_time || "").substring(0, 5)
+                        return {
+                          time: `${start}-${end}`,
+                          doctorId: docId,
+                          doctorName: docName,
+                          clinicId,
+                        } as WalkInSlot
+                      })
+                    })
 
                     return (
                       <div className="grid grid-cols-3 gap-3 max-h-60 overflow-y-auto p-1">
                         {slots.map((slot, idx: number) => {
-                          const isSelected = walkInSelectedSlot?.time === slot.time && walkInSelectedSlot?.doctorId === slot.doctorId;
+                          const isSelected =
+                            walkInSelectedSlot?.time === slot.time &&
+                            walkInSelectedSlot?.doctorId === slot.doctorId
 
                           return (
                             <Button
@@ -1316,7 +1492,8 @@ export default function StaffDashboard() {
                               variant={isSelected ? "default" : "outline"}
                               className={cn(
                                 "justify-center h-12 transition-all duration-300 border-green-500 px-3 py-2 text-sm",
-                                isSelected && "bg-green-600 hover:bg-green-700 text-white shadow"
+                                isSelected &&
+                                  "bg-green-600 hover:bg-green-700 text-white shadow"
                               )}
                               onClick={() => setWalkInSelectedSlot(slot)}
                             >
@@ -1325,13 +1502,15 @@ export default function StaffDashboard() {
                                   <Clock className="w-4 h-4" />
                                   <span className="font-semibold">{slot.time}</span>
                                 </div>
-                                <span className="text-[11px] opacity-90">{slot.doctorName}</span>
+                                <span className="text-[11px] opacity-90">
+                                  {slot.doctorName}
+                                </span>
                               </div>
                             </Button>
-                          );
+                          )
                         })}
                       </div>
-                    );
+                    )
                   })()}
                 </Card>
               </div>
@@ -1342,12 +1521,12 @@ export default function StaffDashboard() {
             <Button
               variant="outline"
               onClick={() => {
-                setShowWalkInDialog(false);
+                setShowWalkInDialog(false)
                 setWalkInEmail("")
                 setEmailSuggestions([])
                 setSelectedPatient(null)
-                setWalkInSelectedDate(undefined);
-                setWalkInSelectedSlot(null);
+                setWalkInSelectedDate(undefined)
+                setWalkInSelectedSlot(null)
               }}
               disabled={isSubmittingWalkIn}
               className="flex-1"
@@ -1366,7 +1545,10 @@ export default function StaffDashboard() {
       </Sheet>
 
       {/* Walk-in Confirmation Dialog */}
-      <Dialog open={showWalkInConfirmDialog} onOpenChange={setShowWalkInConfirmDialog}>
+      <Dialog
+        open={showWalkInConfirmDialog}
+        onOpenChange={setShowWalkInConfirmDialog}
+      >
         <DialogContent className="sm:max-w-xl">
           <CheckCircle className="mx-auto h-12 w-12 text-green-600" />
           <DialogHeader>
@@ -1375,25 +1557,55 @@ export default function StaffDashboard() {
           </DialogHeader>
 
           <div className="space-y-3">
-            <p className="text-center font-semibold text-lg">Please confirm the appointment details:</p>
+            <p className="text-center font-semibold text-lg">
+              Please confirm the appointment details:
+            </p>
             <div className="bg-muted p-5 rounded-lg space-y-3">
-              <p className="text-base"><span className="font-semibold">Patient:</span> {selectedPatient ? `${selectedPatient.first_name} ${selectedPatient.last_name}` : "-"}</p>
-              <p className="text-base"><span className="font-semibold">Email:</span> {walkInEmail || "-"}</p>
-              <p className="text-base"><span className="font-semibold">Clinic:</span> {staffClinicName || "-"}</p>
-              <p className="text-base"><span className="font-semibold">Doctor:</span> {walkInSelectedSlot?.doctorName || "-"}</p>
-              <p className="text-base"><span className="font-semibold">Date:</span> {walkInSelectedDate ? walkInSelectedDate.toLocaleDateString("en-SG") : "-"}</p>
-              <p className="text-base"><span className="font-semibold">Time:</span> {walkInSelectedSlot?.time || "-"}</p>
+              <p className="text-base">
+                <span className="font-semibold">Patient:</span>{" "}
+                {selectedPatient
+                  ? `${selectedPatient.first_name} ${selectedPatient.last_name}`
+                  : "-"}
+              </p>
+              <p className="text-base">
+                <span className="font-semibold">Email:</span> {walkInEmail || "-"}
+              </p>
+              <p className="text-base">
+                <span className="font-semibold">Clinic:</span>{" "}
+                {staffClinicName || staffClinicId || "-"}
+              </p>
+              <p className="text-base">
+                <span className="font-semibold">Doctor:</span>{" "}
+                {walkInSelectedSlot?.doctorName || "-"}
+              </p>
+              <p className="text-base">
+                <span className="font-semibold">Date:</span>{" "}
+                {walkInSelectedDate
+                  ? walkInSelectedDate.toLocaleDateString("en-SG")
+                  : "-"}
+              </p>
+              <p className="text-base">
+                <span className="font-semibold">Time:</span>{" "}
+                {walkInSelectedSlot?.time || "-"}
+              </p>
             </div>
           </div>
 
           <DialogFooter className="flex gap-3 sm:justify-center">
-            <Button variant="outline" onClick={() => setShowWalkInConfirmDialog(false)} disabled={isSubmittingWalkIn}>
+            <Button
+              variant="outline"
+              onClick={() => setShowWalkInConfirmDialog(false)}
+              disabled={isSubmittingWalkIn}
+            >
               Cancel
             </Button>
-            <Button onClick={async () => {
-              await handleWalkInSubmit();
-              setShowWalkInConfirmDialog(false);
-            }} disabled={isSubmittingWalkIn}>
+            <Button
+              onClick={async () => {
+                await handleWalkInSubmit()
+                setShowWalkInConfirmDialog(false)
+              }}
+              disabled={isSubmittingWalkIn}
+            >
               {isSubmittingWalkIn ? "Processing..." : "Confirm"}
             </Button>
           </DialogFooter>

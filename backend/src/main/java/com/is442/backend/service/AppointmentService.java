@@ -209,7 +209,51 @@ public class AppointmentService {
     @Transactional(readOnly = true)
     public List<AppointmentResponse> getAppointmentsByClinic(String clinicId) {
         return appointmentRepository.findByClinicId(clinicId).stream()
-                .map(AppointmentResponse::new)
+                .map(appointment -> {
+                    // ---- doctor / clinic info ----
+                    Optional<Doctor> docOpt = doctorRepository.findByDoctorId(appointment.getDoctorId());
+                    String doctorName;
+                    String clinicName;
+                    String clinicType;
+
+                    if (docOpt.isPresent()) {
+                        Doctor doc = docOpt.get();
+                        doctorName = (doc.getDoctorName() != null) ? doc.getDoctorName() : "Unknown";
+                        clinicName = (doc.getClinicName() != null) ? doc.getClinicName() : "Unknown";
+
+                        String speciality = doc.getSpeciality();
+                        if (speciality != null && speciality.toUpperCase().contains("GENERAL PRACTICE")) {
+                            clinicType = "General Practice";
+                        } else {
+                            clinicType = "Specialist Clinic";
+                        }
+                    } else {
+                        doctorName = "Unknown";
+                        clinicName = "Unknown";
+                        clinicType = "Unknown";
+                    }
+
+                    // ---- patient info ----
+                    Optional<Patient> patientOpt =
+                            patientRepository.findBysupabaseUserId(UUID.fromString(appointment.getPatientId()));
+
+                    String patientName;
+                    if (patientOpt.isPresent()) {
+                        Patient patient = patientOpt.get();
+                        patientName = patient.getFirstName() + " " + patient.getLastName();
+                    } else {
+                        patientName = "Unknown";
+                    }
+
+                    // Use the enriched constructor, same as in getAllAppointments()
+                    return new AppointmentResponse(
+                            appointment,
+                            doctorName,
+                            clinicName,
+                            patientName,
+                            clinicType
+                    );
+                })
                 .collect(Collectors.toList());
     }
 
