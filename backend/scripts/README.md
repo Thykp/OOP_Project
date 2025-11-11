@@ -92,7 +92,7 @@ The scripts automatically generate the following files:
 -   `class-diagram.uml` - UML format (UML XMI standard, renamed from .xmi)
 -   `class-diagram.png` - PNG raster image
 
-All files are saved in `scripts/out/` directory.
+All files are saved in the `scripts/out/` directory.
 
 ## Converting to Other Formats (Manual)
 
