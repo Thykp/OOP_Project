@@ -1,15 +1,16 @@
 package com.is442.backend.repository;
 
-import com.is442.backend.model.Appointment;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
+import java.util.UUID;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.List;
-import java.util.UUID;
+import com.is442.backend.model.Appointment;
 
 @Repository
 public interface AppointmentRepository extends JpaRepository<Appointment, UUID> {
@@ -53,7 +54,8 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
         @Param("today") LocalDate today
     );
 
-    @Query("SELECT a FROM Appointment a WHERE (a.status != 'SCHEDULED' OR a.status = 'CHECKED-IN' ) " +
+    // Upcoming should include SCHEDULED and CHECKED-IN (and keep future dates)
+    @Query("SELECT a FROM Appointment a WHERE (a.status = 'SCHEDULED' OR a.status = 'CHECKED-IN') " +
            "AND a.bookingDate >= :today " +
            "ORDER BY a.bookingDate, a.startTime")
     List<Appointment> findUpcomingAppointments(
