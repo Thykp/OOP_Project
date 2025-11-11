@@ -73,6 +73,8 @@ public class SpecialistClinic extends Clinic {
         this.area = area;
         this.speciality = speciality;
     }
+    
+    
 
     public Integer getSn() { return sn; }
     public void setSn(Integer sn) { this.sn = sn; }
