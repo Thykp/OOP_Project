@@ -3,17 +3,18 @@
 import { Link } from "react-router-dom"
 import { PageLayout } from "@/components/page-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, Calendar, Clock } from "lucide-react"
+import { Users, Clock, ArrowLeft } from "lucide-react"
 
 export default function ClinicConfigMenu() {
   return (
     <PageLayout>
       <div className="container mx-auto max-w-7xl px-4 py-8">
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <Calendar className="w-8 h-8 text-green-600" />
-            <h1 className="text-4xl font-bold text-gray-900">Clinic Configuration</h1>
-          </div>
+          <Link to="/admin/dashboard" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">
+            <ArrowLeft className="w-4 h-4" />
+            Back to Dashboard
+          </Link>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Clinic Configuration</h1>
           <p className="text-lg text-gray-600">
             Manage your clinic setup, operating hours, and doctor schedules.
           </p>

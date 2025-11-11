@@ -114,7 +114,38 @@ public class AppointmentService {
     @Transactional(readOnly = true)
     public List<AppointmentResponse> getAllAppointments() {
         return appointmentRepository.findAll().stream()
-                .map(AppointmentResponse::new)
+                .map(appointment -> {
+                    Optional<Doctor> docOpt = doctorRepository.findByDoctorId(appointment.getDoctorId());
+                    String doctorName;
+                    String clinicName;
+                    String clinicType;
+                    if (docOpt.isPresent()) {
+                        Doctor doc = docOpt.get();
+                        doctorName = (doc.getDoctorName() != null) ? doc.getDoctorName() : "Unknown";
+                        clinicName = (doc.getClinicName() != null) ? doc.getClinicName() : "Unknown";
+                        // Determine clinic type based on doctor's speciality
+                        String speciality = doc.getSpeciality();
+                        if (speciality != null && speciality.toUpperCase().contains("GENERAL PRACTICE")) {
+                            clinicType = "General Practice";
+                        } else {
+                            clinicType = "Specialist Clinic";
+                        }
+                    } else {
+                        doctorName = "Unknown";
+                        clinicName = "Unknown";
+                        clinicType = "Unknown";
+                    }
+                    Optional<Patient> patientOpt = patientRepository
+                            .findBysupabaseUserId(UUID.fromString(appointment.getPatientId()));
+                    String patientName;
+                    if (patientOpt.isPresent()) {
+                        Patient patient = patientOpt.get();
+                        patientName = (patient.getFirstName() + " " + patient.getLastName());
+                    } else {
+                        patientName = "Unknown";
+                    }
+                    return new AppointmentResponse(appointment, doctorName, clinicName, patientName, clinicType);
+                })
                 .collect(Collectors.toList());
     }
 
@@ -128,7 +159,38 @@ public class AppointmentService {
     @Transactional(readOnly = true)
     public List<AppointmentResponse> getAppointmentsByPatient(String patientId) {
         return appointmentRepository.findByPatientId(patientId).stream()
-                .map(AppointmentResponse::new)
+                .map(appointment -> {
+                    Optional<Doctor> docOpt = doctorRepository.findByDoctorId(appointment.getDoctorId());
+                    String doctorName;
+                    String clinicName;
+                    String clinicType;
+                    if (docOpt.isPresent()) {
+                        Doctor doc = docOpt.get();
+                        doctorName = (doc.getDoctorName() != null) ? doc.getDoctorName() : "Unknown";
+                        clinicName = (doc.getClinicName() != null) ? doc.getClinicName() : "Unknown";
+                        // Determine clinic type based on doctor's speciality
+                        String speciality = doc.getSpeciality();
+                        if (speciality != null && speciality.toUpperCase().contains("GENERAL PRACTICE")) {
+                            clinicType = "General Practice";
+                        } else {
+                            clinicType = "Specialist Clinic";
+                        }
+                    } else {
+                        doctorName = "Unknown";
+                        clinicName = "Unknown";
+                        clinicType = "Unknown";
+                    }
+                    Optional<Patient> patientOpt = patientRepository
+                            .findBysupabaseUserId(UUID.fromString(appointment.getPatientId()));
+                    String patientName;
+                    if (patientOpt.isPresent()) {
+                        Patient patient = patientOpt.get();
+                        patientName = (patient.getFirstName() + " " + patient.getLastName());
+                    } else {
+                        patientName = "Unknown";
+                    }
+                    return new AppointmentResponse(appointment, doctorName, clinicName, patientName, clinicType);
+                })
                 .collect(Collectors.toList());
     }
 
