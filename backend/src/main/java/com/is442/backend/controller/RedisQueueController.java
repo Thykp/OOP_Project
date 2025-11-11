@@ -294,4 +294,57 @@ public class RedisQueueController {
                     .body(new ErrorResponse("Error resetting queue: " + e.getMessage()));
         }
     }
+
+    // POST /fast-track — moves an appointment to the top of the queue
+    @PostMapping("/fast-forward")
+    public ResponseEntity<?> fastTrack(@RequestBody Map<String, Object> body) {
+        try {
+            // Validate request body
+            if (body == null) {
+                return ResponseEntity.badRequest()
+                        .body(new ErrorResponse("Request body cannot be null"));
+            }
+
+            Object appointmentIdObj = body.get("appointmentId");
+            if (appointmentIdObj == null) {
+                return ResponseEntity.badRequest()
+                        .body(new ErrorResponse("appointmentId is required"));
+            }
+
+            String appointmentId = String.valueOf(appointmentIdObj);
+            if (appointmentId == null || appointmentId.equals("null") || appointmentId.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(new ErrorResponse("appointmentId is required"));
+            }
+
+            // Fast-track the appointment
+            int newPosition = redisQueueService.fastTrack(appointmentId);
+
+            // Get updated position snapshot for response
+            PositionSnapshot snapshot = redisQueueService.getCurrentPosition(appointmentId);
+            long queueNumber = redisQueueService.getQueueNumber(appointmentId);
+
+            return ResponseEntity.ok(Map.of(
+                    "status", "ok",
+                    "appointmentId", appointmentId,
+                    "position", newPosition,
+                    "queueNumber", queueNumber,
+                    "clinicId", snapshot.getClinicId() != null ? snapshot.getClinicId() : "",
+                    "nowServing", snapshot.getNowServing()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (RuntimeException e) {
+            // Handle appointment not found or not in queue
+            if (e.getMessage() != null && e.getMessage().contains("not found")) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ErrorResponse(e.getMessage()));
+            }
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Error fast-tracking appointment: " + e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Unexpected error during fast-track: " + e.getMessage()));
+        }
+    }
 }
