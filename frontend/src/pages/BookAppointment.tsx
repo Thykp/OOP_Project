@@ -56,7 +56,7 @@ export default function AppointmentBooking() {
   const { toast } = useToast();
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL;
-
+  const userRole = user?.user_metadata.role
   // Reschedule mode state
   const rescheduleMode = location.state?.rescheduleMode || false;
   const appointmentToReschedule = location.state?.appointmentToReschedule || null;
@@ -69,7 +69,7 @@ export default function AppointmentBooking() {
 
   const getSelectedClinicDetails = () => {
     if (!selectedClinicId) return null;
-    
+
     if (selectedClinicType === "General Practice") {
       return gpClinics.find(c => c.clinicId === selectedClinicId);
     } else {
@@ -128,7 +128,7 @@ export default function AppointmentBooking() {
         if (appointmentToReschedule.clinic_type) {
           setSelectedClinicType(appointmentToReschedule.clinic_type);
         }
-        
+
         // Safely parse date
         if (appointmentToReschedule.booking_date) {
           try {
@@ -142,22 +142,22 @@ export default function AppointmentBooking() {
             console.error("Error parsing date:", dateError);
           }
         }
-        
+
         if (appointmentToReschedule.doctor_id) {
           setSelectedDoctorId(appointmentToReschedule.doctor_id);
         }
-        
+
         if (appointmentToReschedule.clinic_id) {
           setSelectedClinicId(appointmentToReschedule.clinic_id);
         }
-        
+
         // Safely construct time range
         if (appointmentToReschedule.start_time && appointmentToReschedule.end_time) {
-          const startTime = appointmentToReschedule.start_time.length >= 5 
-            ? appointmentToReschedule.start_time.substring(0, 5) 
+          const startTime = appointmentToReschedule.start_time.length >= 5
+            ? appointmentToReschedule.start_time.substring(0, 5)
             : appointmentToReschedule.start_time;
-          const endTime = appointmentToReschedule.end_time.length >= 5 
-            ? appointmentToReschedule.end_time.substring(0, 5) 
+          const endTime = appointmentToReschedule.end_time.length >= 5
+            ? appointmentToReschedule.end_time.substring(0, 5)
             : appointmentToReschedule.end_time;
           setSelectedTimeRange(`${startTime}-${endTime}`);
         }
@@ -174,22 +174,22 @@ export default function AppointmentBooking() {
     connectSocket();
     const sub = subscribeToSlots((update: any) => {
       if (!update) return;
-      
-      
+
+
       const bookingDate = update.booking_date;
       const doctorId = update.doctor_id;
       const clinicId = update.clinic_id;
       const startTime = (update.start_time || '').substring(0, 5);
       const action = update.action;
 
-   
+
 
       if (action !== 'REMOVE') {
         return;
       }
 
       setAvailableDatesWithSlots((prev: any[]) => {
-        
+
         if (!prev || prev.length === 0) {
           return prev;
         }
@@ -221,12 +221,12 @@ export default function AppointmentBooking() {
             if (entryDateStr !== bookingDate) {
               return entry;
             }
-            
+
             // Clinic comparison
             if (clinicId && entry.clinicId !== clinicId) {
               return entry;
             }
-            
+
             // Doctor comparison
             if (doctorId && entry.doctorId !== doctorId) {
               return entry;
@@ -235,23 +235,23 @@ export default function AppointmentBooking() {
 
             const newSlots = (entry.timeSlots || []).filter((slot: any) => {
               if (!slot) return true;
-              
+
               let slotStart = '';
               if (typeof slot === 'string') {
                 slotStart = slot.split('-')[0].trim().substring(0, 5);
               } else {
                 slotStart = (slot.startTime || slot.start_time || '').substring(0, 5);
               }
-              
+
               const keep = slotStart !== startTime;
-              
+
               if (!keep) {
                 removedCount++;
                 console.log(`[BookAppointment] 🗑️ REMOVING slot: ${slotStart} (matches ${startTime})`);
               } else {
                 console.log(`[BookAppointment] ✓ Keeping slot: ${slotStart} (does not match ${startTime})`);
               }
-              
+
               return keep;
             });
 
@@ -280,7 +280,7 @@ export default function AppointmentBooking() {
     });
 
     return () => {
-      try { sub.unsubscribe(); } catch (e) {}
+      try { sub.unsubscribe(); } catch (e) { }
       disconnectSocket();
     };
     // we intentionally run once on mount
@@ -367,9 +367,9 @@ export default function AppointmentBooking() {
   const filteredSpecialistClinics =
     selectedSpecialty
       ? specialistClinics.filter(
-          (clinic) =>
-            clinic.speciality && clinic.speciality.trim().toUpperCase() === selectedSpecialty.toUpperCase()
-        )
+        (clinic) =>
+          clinic.speciality && clinic.speciality.trim().toUpperCase() === selectedSpecialty.toUpperCase()
+      )
       : specialistClinics;
 
   const filteredDoctors = doctors.filter((doctor) => {
@@ -487,9 +487,13 @@ export default function AppointmentBooking() {
           start_time: formattedStart,
           end_time: formattedEnd,
         };
+        let url = `${API_BASE}/api/appointments/${appointmentToReschedule.appointment_id}/reschedule`
+        if(userRole=="ROLE_STAFF"){
+          url = `${API_BASE}/api/appointments/${appointmentToReschedule.appointment_id}/reschedule/staff`
+        }
 
         const res = await fetch(
-          `${API_BASE}/api/appointments/${appointmentToReschedule.appointment_id}/reschedule`,
+          url,
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -552,7 +556,7 @@ export default function AppointmentBooking() {
           try {
             const errJson = await res.json();
             if (errJson?.message) message = errJson.message;
-          } catch {}
+          } catch { }
           toast({
             variant: "destructive",
             title: "Booking failed",
@@ -605,18 +609,18 @@ export default function AppointmentBooking() {
                   if (!appointmentToReschedule.booking_date) return "N/A";
                   try {
                     const date = new Date(appointmentToReschedule.booking_date);
-                    return isNaN(date.getTime()) 
-                      ? appointmentToReschedule.booking_date 
+                    return isNaN(date.getTime())
+                      ? appointmentToReschedule.booking_date
                       : date.toLocaleDateString();
                   } catch {
                     return appointmentToReschedule.booking_date || "N/A";
                   }
                 })()
               } • {
-                appointmentToReschedule.start_time 
-                  ? (appointmentToReschedule.start_time.length >= 5 
-                      ? appointmentToReschedule.start_time.substring(0, 5) 
-                      : appointmentToReschedule.start_time)
+                appointmentToReschedule.start_time
+                  ? (appointmentToReschedule.start_time.length >= 5
+                    ? appointmentToReschedule.start_time.substring(0, 5)
+                    : appointmentToReschedule.start_time)
                   : "N/A"
               }
             </p>
@@ -759,37 +763,37 @@ export default function AppointmentBooking() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {filteredDoctors.map((doctor) => (
-                <Card
-                  key={doctor.doctorId}
-                  className={cn(
-                    "p-4 cursor-pointer transition-all duration-300 hover:shadow-[var(--shadow-card)] hover:-translate-y-1",
-                    selectedDoctors.includes(doctor.doctorId)
-                      ? "ring-2 ring-primary shadow-[var(--shadow-soft)] bg-gradient-to-br from-card to-secondary/30"
-                      : "hover:border-primary/50"
-                  )}
-                  onClick={() =>
-                    setSelectedDoctors((prev: string[]) =>
-                      prev.includes(doctor.doctorId)
-                        ? prev.filter((id) => id !== doctor.doctorId)
-                        : [...prev, doctor.doctorId]
-                    )
-                  }
-                >
-                  <div className="space-y-3 text-center">
-                    <div>
-                      <h3 className="font-semibold text-foreground">{doctor.doctorName}</h3>
-                      <p className="text-[13px] font-semibold">{doctor.speciality}</p>
-                      <p className="text-[10px] text-muted-foreground">{doctor.clinicName}</p>
-                      <p className="text-[10px] text-muted-foreground">{doctor.clinicAddress}</p>
-                    </div>
-
-                    {selectedDoctors.includes(doctor.doctorId) && (
-                      <CheckCircle2 className="w-5 h-5 text-primary mx-auto" />
+                  <Card
+                    key={doctor.doctorId}
+                    className={cn(
+                      "p-4 cursor-pointer transition-all duration-300 hover:shadow-[var(--shadow-card)] hover:-translate-y-1",
+                      selectedDoctors.includes(doctor.doctorId)
+                        ? "ring-2 ring-primary shadow-[var(--shadow-soft)] bg-gradient-to-br from-card to-secondary/30"
+                        : "hover:border-primary/50"
                     )}
-                  </div>
-                </Card>
-              ))}
-            </div>
+                    onClick={() =>
+                      setSelectedDoctors((prev: string[]) =>
+                        prev.includes(doctor.doctorId)
+                          ? prev.filter((id) => id !== doctor.doctorId)
+                          : [...prev, doctor.doctorId]
+                      )
+                    }
+                  >
+                    <div className="space-y-3 text-center">
+                      <div>
+                        <h3 className="font-semibold text-foreground">{doctor.doctorName}</h3>
+                        <p className="text-[13px] font-semibold">{doctor.speciality}</p>
+                        <p className="text-[10px] text-muted-foreground">{doctor.clinicName}</p>
+                        <p className="text-[10px] text-muted-foreground">{doctor.clinicAddress}</p>
+                      </div>
+
+                      {selectedDoctors.includes(doctor.doctorId) && (
+                        <CheckCircle2 className="w-5 h-5 text-primary mx-auto" />
+                      )}
+                    </div>
+                  </Card>
+                ))}
+              </div>
             )}
           </section>
 
@@ -821,26 +825,26 @@ export default function AppointmentBooking() {
                   </p>
                 </Card>
               ) : (
-              <Card className="p-4 bg-card">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
-                  disabled={(date) =>
-                    date.setHours(0, 0, 0, 0) < today.setHours(0, 0, 0, 0) || date > maxDate
-                  }
-                  modifiers={{
-                    available: highlightedDates,
-                    unavailable: unavailableDates,
-                  }}
-                  modifiersStyles={{
-                    available: { border: "1px solid green", borderRadius: "20px" },
-                    unavailable: { border: "1px solid red", borderRadius: "20px" },
-                  }}
-                  className={cn("pointer-events-auto rounded-md")}
-                  initialFocus
-                />
-              </Card>
+                <Card className="p-4 bg-card">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                    disabled={(date) =>
+                      date.setHours(0, 0, 0, 0) < today.setHours(0, 0, 0, 0) || date > maxDate
+                    }
+                    modifiers={{
+                      available: highlightedDates,
+                      unavailable: unavailableDates,
+                    }}
+                    modifiersStyles={{
+                      available: { border: "1px solid green", borderRadius: "20px" },
+                      unavailable: { border: "1px solid red", borderRadius: "20px" },
+                    }}
+                    className={cn("pointer-events-auto rounded-md")}
+                    initialFocus
+                  />
+                </Card>
               )}
             </section>
 
@@ -876,78 +880,78 @@ export default function AppointmentBooking() {
                   </p>
                 </Card>
               ) : (
-              <Card className="p-4 bg-card">
-                {(() => {
-                  const now = new Date();
-                  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+                <Card className="p-4 bg-card">
+                  {(() => {
+                    const now = new Date();
+                    const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-                  function parseTimeToMinutes(timeStr: string): number {
-                    const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
-                    if (!match) return 0;
-                    let [_, h, m, period] = match;
-                    let hours = parseInt(h);
-                    const minutes = parseInt(m);
-                    if (period?.toUpperCase() === "PM" && hours < 12) hours += 12;
-                    if (period?.toUpperCase() === "AM" && hours === 12) hours = 0;
-                    return hours * 60 + minutes;
-                  }
+                    function parseTimeToMinutes(timeStr: string): number {
+                      const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+                      if (!match) return 0;
+                      let [_, h, m, period] = match;
+                      let hours = parseInt(h);
+                      const minutes = parseInt(m);
+                      if (period?.toUpperCase() === "PM" && hours < 12) hours += 12;
+                      if (period?.toUpperCase() === "AM" && hours === 12) hours = 0;
+                      return hours * 60 + minutes;
+                    }
 
-                  const visibleSlots = selectedDaySlotsDetailed.flatMap((entry: any) =>
-                    entry.timeSlots
-                      .filter((slot: any) => {
-                        if (selectedDate && selectedDate.toDateString() === today.toDateString()) {
-                          const startStr = slot.startTime;
-                          if (!startStr) return false;
-                          return parseTimeToMinutes(startStr) > currentMinutes;
-                        }
-                        return true;
-                      })
-                      .map((slot: any) => ({
-                        doctorId: entry.doctorId,
-                        doctorName: entry.doctorName,
-                        clinicId: entry.clinicId,
-                        time: `${slot.startTime.substring(0, 5)}-${slot.endTime.substring(0, 5)}`,
-                      }))
-                  );
+                    const visibleSlots = selectedDaySlotsDetailed.flatMap((entry: any) =>
+                      entry.timeSlots
+                        .filter((slot: any) => {
+                          if (selectedDate && selectedDate.toDateString() === today.toDateString()) {
+                            const startStr = slot.startTime;
+                            if (!startStr) return false;
+                            return parseTimeToMinutes(startStr) > currentMinutes;
+                          }
+                          return true;
+                        })
+                        .map((slot: any) => ({
+                          doctorId: entry.doctorId,
+                          doctorName: entry.doctorName,
+                          clinicId: entry.clinicId,
+                          time: `${slot.startTime.substring(0, 5)}-${slot.endTime.substring(0, 5)}`,
+                        }))
+                    );
 
-                  return (
-                    <div className="grid grid-cols-3 gap-5 max-h-160 overflow-y-auto">
-                      {visibleSlots.length > 0 ? (
-                        visibleSlots.map((slot) => (
-                          <Button
-                            key={`${slot.doctorId}-${slot.time}`}
-                            variant={
-                              selectedDoctorId === slot.doctorId && selectedTimeRange === slot.time
-                                ? "default"
-                                : "outline"
-                            }
-                            className={cn(
-                              "transition-all duration-300 border-green-500 h-12",
-                              selectedDoctorId === slot.doctorId &&
+                    return (
+                      <div className="grid grid-cols-3 gap-5 max-h-160 overflow-y-auto">
+                        {visibleSlots.length > 0 ? (
+                          visibleSlots.map((slot) => (
+                            <Button
+                              key={`${slot.doctorId}-${slot.time}`}
+                              variant={
+                                selectedDoctorId === slot.doctorId && selectedTimeRange === slot.time
+                                  ? "default"
+                                  : "outline"
+                              }
+                              className={cn(
+                                "transition-all duration-300 border-green-500 h-12",
+                                selectedDoctorId === slot.doctorId &&
                                 selectedTimeRange === slot.time &&
                                 "bg-green-200 text-black shadow-[var(--shadow-soft)]"
-                            )}
-                            onClick={() => {
-                              setSelectedDoctorId(slot.doctorId);
-                              setSelectedTimeRange(slot.time);
-                              setSelectedSlot(slot);
-                            }}
-                          >
-                            <div className="flex flex-col items-center text-center">
-                              <span className="font-semibold">{slot.time}</span>
-                              <span className="text-[11px] text-muted-foreground">{slot.doctorName}</span>
-                            </div>
-                          </Button>
-                        ))
-                      ) : (
-                        <p className="text-sm text-muted-foreground col-span-3 text-center">
-                          No available slots for this day
-                        </p>
-                      )}
-                    </div>
-                  );
-                })()}
-              </Card>
+                              )}
+                              onClick={() => {
+                                setSelectedDoctorId(slot.doctorId);
+                                setSelectedTimeRange(slot.time);
+                                setSelectedSlot(slot);
+                              }}
+                            >
+                              <div className="flex flex-col items-center text-center">
+                                <span className="font-semibold">{slot.time}</span>
+                                <span className="text-[11px] text-muted-foreground">{slot.doctorName}</span>
+                              </div>
+                            </Button>
+                          ))
+                        ) : (
+                          <p className="text-sm text-muted-foreground col-span-3 text-center">
+                            No available slots for this day
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </Card>
               )}
             </section>
           </div>
@@ -974,19 +978,19 @@ export default function AppointmentBooking() {
                 </DialogTitle>
                 <DialogDescription />
               </DialogHeader>
-              
+
               {rescheduleMode ? (
                 <div className="space-y-3">
                   <p className="text-center font-semibold text-lg">Are you sure you want to reschedule?</p>
                   <div className="bg-muted p-5 rounded-lg space-y-3">
                     <p className="text-base"><span className="font-semibold">Doctor:</span> {selectedSlot?.doctorName || doctors.find(d => d.doctorId === selectedDoctorId)?.doctorName}</p>
                     <p className="text-base"><span className="font-semibold">Clinic:</span> {getSelectedClinicDetails()?.clinicName}</p>
-                     <p className="text-base"><span className="font-semibold">Clinic Type:</span> {selectedClinicType}</p>
+                    <p className="text-base"><span className="font-semibold">Clinic Type:</span> {selectedClinicType}</p>
                     {selectedSpecialty && <p className="text-base"><span className="font-semibold">Specialty:</span> {selectedSpecialty}</p>}
                     <p className="text-base"><span className="font-semibold">Address:</span> {getSelectedClinicDetails()?.address}</p>
                     <p className="text-base"><span className="font-semibold">Date:</span> {selectedDate?.toLocaleDateString("en-SG")}</p>
                     <p className="text-base"><span className="font-semibold">Time:</span> {selectedTimeRange}</p>
-                   
+
                   </div>
                 </div>
               ) : (
@@ -995,16 +999,16 @@ export default function AppointmentBooking() {
                   <div className="bg-muted p-5 rounded-lg space-y-3">
                     <p className="text-base"><span className="font-semibold">Doctor:</span> {selectedSlot?.doctorName || doctors.find(d => d.doctorId === selectedDoctorId)?.doctorName}</p>
                     <p className="text-base"><span className="font-semibold">Clinic:</span> {getSelectedClinicDetails()?.clinicName}</p>
-                      <p className="text-base"><span className="font-semibold">Clinic Type:</span> {selectedClinicType}</p>
+                    <p className="text-base"><span className="font-semibold">Clinic Type:</span> {selectedClinicType}</p>
                     {selectedSpecialty && <p className="text-base"><span className="font-semibold">Specialty:</span> {selectedSpecialty}</p>}
                     <p className="text-base"><span className="font-semibold">Address:</span> {getSelectedClinicDetails()?.address}</p>
                     <p className="text-base"><span className="font-semibold">Date:</span> {selectedDate?.toLocaleDateString("en-SG")}</p>
                     <p className="text-base"><span className="font-semibold">Time:</span> {selectedTimeRange}</p>
-                  
+
                   </div>
                 </div>
               )}
-              
+
               <DialogFooter className="flex gap-3 sm:justify-center">
                 <Button variant="outline" onClick={() => setShowConfirmDialog(false)} disabled={isSubmitting}>
                   Cancel
@@ -1026,7 +1030,7 @@ export default function AppointmentBooking() {
                 </DialogTitle>
                 <DialogDescription />
               </DialogHeader>
-              
+
               <div className="space-y-3">
                 <p className="text-center text-lg">Your appointment has been confirmed:</p>
                 <div className="bg-green-50 border border-green-200 p-5 rounded-lg space-y-3">
@@ -1037,7 +1041,7 @@ export default function AppointmentBooking() {
                   {bookingDetails?.specialty && <p className="text-base"><span className="font-semibold">Specialty:</span> {bookingDetails?.specialty}</p>}
                 </div>
               </div>
-              
+
               <DialogFooter className="flex sm:justify-center">
                 <Button onClick={() => {
                   setShowSuccessDialog(false);
