@@ -11,6 +11,7 @@ import { ProtectedRoute, RoleProtectedRoute } from './context/auth-context'
 import BookAppointment from "./pages/BookAppointment";
 import ClinicOperatingHours from './pages/ClinicOperatingHours'
 import DoctorTimeSlotManagement from './pages/DoctorTimeSlotManagement'
+import DoctorManagement from './pages/DoctorManagement'
 
 function App() {
   return (
@@ -81,6 +82,14 @@ function App() {
           element={
             <RoleProtectedRoute role={["ROLE_ADMIN"]}>
               <DoctorTimeSlotManagement />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/doctor-management"
+          element={
+            <RoleProtectedRoute role={["ROLE_ADMIN"]}>
+              <DoctorManagement />
             </RoleProtectedRoute>
           }
         />
