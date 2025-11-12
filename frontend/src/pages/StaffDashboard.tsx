@@ -434,11 +434,9 @@ export default function StaffDashboard() {
 
   // Using real current time for check-in eligibility
 
-  // Show Check In only if appointment is today and within 2 hours before start time
   const isEligibleForCheckIn = (appt: Appointment): boolean => {
-    if (!appt || !appt.booking_date || !appt.start_time) return false
+    if (!appt || !appt.booking_date) return false
 
-    // derive date parts (year, month, day)
     let y: number, m: number, d: number
     if (Array.isArray(appt.booking_date)) {
       ;[y, m, d] = appt.booking_date as number[]
@@ -459,32 +457,12 @@ export default function StaffDashboard() {
       y = dt.getFullYear(); m = dt.getMonth() + 1; d = dt.getDate()
     }
 
-    // derive time parts (hours, minutes)
-    let hh = 0, mm = 0
-    if (Array.isArray(appt.start_time)) {
-      const arr = appt.start_time as number[]
-      hh = Number(arr[0]) || 0
-      mm = Number(arr[1]) || 0
-    } else if (typeof appt.start_time === "string") {
-      const t = appt.start_time.substring(0, 5)
-      const [hStr, mStr] = t.split(":")
-      hh = parseInt(hStr || "0", 10)
-      mm = parseInt(mStr || "0", 10)
-    } else {
-      return false
-    }
-
-    const start = new Date(y, (m as number) - 1, d as number, hh, mm, 0, 0)
     const now = new Date()
-
-    const sameDay =
-      now.getFullYear() === start.getFullYear() &&
-      now.getMonth() === start.getMonth() &&
-      now.getDate() === start.getDate()
-    if (!sameDay) return false
-
-    const windowStart = new Date(start.getTime() - 2 * 60 * 60 * 1000)
-    return now >= windowStart && now <= start
+    return (
+      now.getFullYear() === y &&
+      now.getMonth() + 1 === m &&
+      now.getDate() === d
+    )
   }
 
   const canAccessNoShow = (appt: Appointment): boolean => {
