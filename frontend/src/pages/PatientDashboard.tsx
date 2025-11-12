@@ -1,7 +1,7 @@
 "use client"
 
 import { Bell, Calendar as CalendarIcon, CheckCircle, Clock, History, User } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 
 import { PageLayout } from "@/components/page-layout"
@@ -92,6 +92,12 @@ export default function PatientDashboard() {
     const { user } = useAuth()
     const navigate = useNavigate()
     const { toast } = useToast()
+
+    // Track previous queue state to detect changes for notifications
+    const prevQueueState = useRef<{ queueNumber: number | null; currentNumber: number | null }>({
+        queueNumber: null,
+        currentNumber: null,
+    })
 
     //this is a fake test date to test my function
     // const currentNow = () => new Date(2025, 11, 11, 8, 0, 0)
@@ -368,6 +374,11 @@ export default function PatientDashboard() {
             // Clear queue state when not checked in
             setQueueNumber(null)
             setCurrentNumber(null)
+            // Reset previous state
+            prevQueueState.current = {
+                queueNumber: null,
+                currentNumber: null,
+            }
             return
         }
 
@@ -387,6 +398,11 @@ export default function PatientDashboard() {
                 if (patientItem) {
                     setQueueNumber(patientItem.queueNumber)
                     setCurrentNumber(state.nowServing)
+                    // Set initial previous state to prevent notifications on initial load
+                    prevQueueState.current = {
+                        queueNumber: patientItem.queueNumber,
+                        currentNumber: state.nowServing,
+                    }
                     console.log('[PatientDashboard] Initial queue state loaded:', {
                         clinicId,
                         queueNumber: patientItem.queueNumber,
@@ -398,6 +414,11 @@ export default function PatientDashboard() {
                     console.warn('[PatientDashboard] Patient not found in queue:', checkedInAppointmentId)
                     setQueueNumber(null)
                     setCurrentNumber(state.nowServing)
+                    // Set initial previous state
+                    prevQueueState.current = {
+                        queueNumber: null,
+                        currentNumber: state.nowServing,
+                    }
                 }
             } catch (err) {
                 console.error('[PatientDashboard] Failed to fetch initial queue state:', err)
@@ -416,24 +437,84 @@ export default function PatientDashboard() {
         const { close } = subscribeToQueueState(
             clinicId,
             (update) => {
-                console.log('[PatientDashboard] Queue state update received:', update)
+                console.log('[PatientDashboard] Queue state update received:', {
+                    clinicId: update.clinicId,
+                    nowServing: update.nowServing,
+                    totalWaiting: update.totalWaiting,
+                    queueItemsCount: update.queueItems.length,
+                    appointmentId: checkedInAppointmentId
+                })
+
+                // Only process updates for the checked-in appointment
+                if (update.clinicId !== clinicId) {
+                    console.warn('[PatientDashboard] Received update for different clinic:', update.clinicId, 'expected:', clinicId)
+                    return
+                }
 
                 // Find patient's position in queue
                 const patientItem = update.queueItems.find(
                     (item) => item.appointmentId === checkedInAppointmentId
                 )
 
+                const newQueueNumber = patientItem ? patientItem.queueNumber : prevQueueState.current.queueNumber
+                const newCurrentNumber = update.nowServing
+
+                // Get previous state
+                const prevQueue = prevQueueState.current.queueNumber
+                const prevCurrent = prevQueueState.current.currentNumber
+
+                // Update state - keep queueNumber if patient is being served (even if removed from queue)
                 if (patientItem) {
-                    setQueueNumber(patientItem.queueNumber)
-                    setCurrentNumber(update.nowServing)
+                    // Patient still in queue
+                    setQueueNumber(newQueueNumber)
+                    setCurrentNumber(newCurrentNumber)
+                } else if (prevQueue !== null && prevQueue <= newCurrentNumber) {
+                    // Patient was being served and is now removed from queue (being served)
+                    // Keep their queue number visible
+                    setQueueNumber(prevQueue)
+                    setCurrentNumber(newCurrentNumber)
                 } else {
-                    // Patient no longer in queue (might have been called or removed)
+                    // Patient no longer in queue and wasn't being served (might have been removed)
                     setQueueNumber(null)
-                    setCurrentNumber(update.nowServing)
+                    setCurrentNumber(newCurrentNumber)
+                }
+
+                // Show notifications based on queue state changes
+                if (newQueueNumber !== null && newCurrentNumber !== null) {
+                    const peopleAhead = newQueueNumber - newCurrentNumber
+                    const prevPeopleAhead = prevQueue !== null && prevCurrent !== null ? prevQueue - prevCurrent : null
+
+                    // Check if patient is being served (queueNumber <= currentNumber)
+                    if (newQueueNumber <= newCurrentNumber && (prevQueue === null || prevQueue === undefined || (prevCurrent !== null && prevQueue > prevCurrent))) {
+                        toast({
+                            variant: "default",
+                            title: "It's your turn!",
+                            description: `You are now being served. Please proceed to the consultation room.`,
+                        })
+                    }
+                    // Check if patient is exactly 3 numbers away
+                    else if (peopleAhead === 3 && (prevPeopleAhead === null || prevPeopleAhead > 3)) {
+                        toast({
+                            variant: "default",
+                            title: "Almost your turn!",
+                            description: `You are 3 numbers away. Please be ready.`,
+                        })
+                    }
+                }
+
+                // Update previous state
+                prevQueueState.current = {
+                    queueNumber: newQueueNumber,
+                    currentNumber: newCurrentNumber,
                 }
             },
             (error) => {
                 console.error('[PatientDashboard] Queue SSE error:', error)
+                toast({
+                    variant: "destructive",
+                    title: "Queue connection error",
+                    description: "Lost connection to queue updates. Please refresh the page.",
+                })
             }
         )
 

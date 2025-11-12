@@ -262,6 +262,7 @@ export function subscribeToQueueState(
     const existing = queueSseClients.get(clinicId);
     if (existing) {
         try {
+            console.log('[QueueSSE] Closing existing connection for clinic:', clinicId);
             existing.close();
         } catch (e) {
             console.warn('[QueueSSE] Error closing existing connection:', e);
@@ -274,21 +275,31 @@ export function subscribeToQueueState(
     console.log('[QueueSSE] Connecting to SSE endpoint:', `${baseURL}/api/stream/queues/${clinicId}`);
 
     eventSource.onopen = () => {
-        console.log('[QueueSSE] SSE connection opened for clinic:', clinicId);
+        console.log('[QueueSSE] SSE connection opened successfully for clinic:', clinicId);
     };
 
     eventSource.addEventListener('queue-event', (e) => {
-        console.log('[QueueSSE] Received queue-event for clinic:', clinicId, 'data:', e.data);
+        console.log('[QueueSSE] Received queue-event for clinic:', clinicId);
         try {
             const data = JSON.parse(e.data);
+            console.log('[QueueSSE] Parsed queue event data:', {
+                type: data.type,
+                clinicId: data.clinicId,
+                nowServing: data.nowServing,
+                totalWaiting: data.totalWaiting,
+                queueItemsCount: data.queueItems?.length || 0
+            });
 
             // Only handle QUEUE_STATE_UPDATE events
             if (data.type === 'QUEUE_STATE_UPDATE') {
+                console.log('[QueueSSE] Processing QUEUE_STATE_UPDATE for clinic:', clinicId);
                 onUpdate(data as QueueStateUpdate);
+            } else {
+                console.log('[QueueSSE] Ignoring event type:', data.type);
             }
-            // Ignore other event types (those are for Kafka/toast notifications)
         } catch (err) {
-            console.error('[QueueSSE] Failed to parse queue state update:', err);
+            console.error('[QueueSSE] Failed to parse queue state update:', err, 'Raw data:', e.data);
+            // Don't call onError here - this is a parsing error, not a connection error
         }
     });
 
@@ -298,7 +309,16 @@ export function subscribeToQueueState(
     });
 
     eventSource.onerror = (error) => {
-        console.error('[QueueSSE] Connection error for clinic:', clinicId, error);
+        console.error('[QueueSSE] Connection error for clinic:', clinicId, {
+            readyState: eventSource.readyState,
+            error: error
+        });
+
+        // readyState: 0 = CONNECTING, 1 = OPEN, 2 = CLOSED
+        if (eventSource.readyState === EventSource.CLOSED) {
+            console.error('[QueueSSE] Connection closed for clinic:', clinicId);
+        }
+
         if (onError) {
             onError(error);
         }
@@ -308,8 +328,10 @@ export function subscribeToQueueState(
     return {
         close: () => {
             try {
+                console.log('[QueueSSE] Closing SSE connection for clinic:', clinicId);
                 eventSource.close();
                 queueSseClients.delete(clinicId);
+                console.log('[QueueSSE] SSE connection closed for clinic:', clinicId);
             } catch (e) {
                 console.warn('[QueueSSE] Error closing connection:', e);
             }
