@@ -113,6 +113,19 @@ public class AppointmentService {
             logger.warn("Failed to publish slot update message: {}", e.getMessage());
         }
 
+        // --- NEW: publish appointment creation so staff dashboards receive it
+        // immediately ---
+        try {
+            messagingTemplate.convertAndSend("/topic/appointments/status", java.util.Map.of(
+                    "appointmentId", saved.getAppointmentId().toString(),
+                    "status", saved.getStatus(),
+                    "clinicId", saved.getClinicId(),
+                    "patientId", saved.getPatientId(),
+                    "doctorId", saved.getDoctorId()));
+        } catch (Exception e) {
+            logger.warn("Failed to publish appointment creation event: {}", e.getMessage());
+        }
+
         return new AppointmentResponse(saved);
     }
 
@@ -346,8 +359,7 @@ public class AppointmentService {
                     "status", updated.getStatus(),
                     "clinicId", updated.getClinicId(),
                     "patientId", updated.getPatientId(),
-                    "doctorId", updated.getDoctorId()
-            ));
+                    "doctorId", updated.getDoctorId()));
         } catch (Exception e) {
             logger.warn("Failed to publish appointment status update: {}", e.getMessage());
         }
@@ -429,6 +441,23 @@ public class AppointmentService {
                 clinicType = "Specialist Clinic";
             }
         }
+        // Publish reschedule event (staff) so patient dashboard / other staff update
+        try {
+            messagingTemplate.convertAndSend("/topic/appointments/status", java.util.Map.ofEntries(
+                    java.util.Map.entry("appointmentId", updated.getAppointmentId().toString()),
+                    java.util.Map.entry("status", "RESCHEDULED"),
+                    java.util.Map.entry("clinicId", updated.getClinicId()),
+                    java.util.Map.entry("patientId", updated.getPatientId()),
+                    java.util.Map.entry("doctorId", updated.getDoctorId()),
+                    java.util.Map.entry("doctorName", doctorName),
+                    java.util.Map.entry("clinicName", clinicName),
+                    java.util.Map.entry("bookingDate", updated.getBookingDate().toString()),
+                    java.util.Map.entry("startTime", updated.getStartTime().toString()),
+                    java.util.Map.entry("endTime", updated.getEndTime().toString()),
+                    java.util.Map.entry("type", updated.getType() != null ? updated.getType() : "UNKNOWN")));
+        } catch (Exception e) {
+            logger.warn("Failed to publish staff reschedule event: {}", e.getMessage());
+        }
 
         return new AppointmentResponse(updated, doctorName, clinicName, clinicType);
     }
@@ -443,6 +472,16 @@ public class AppointmentService {
 
         // Validate 24-hour advance notice
         validateAdvanceNotice(appointment);
+        try {
+            messagingTemplate.convertAndSend("/topic/appointments/status", java.util.Map.of(
+                    "appointmentId", appointment.getAppointmentId().toString(),
+                    "status", "CANCELLED",
+                    "clinicId", appointment.getClinicId(),
+                    "patientId", appointment.getPatientId(),
+                    "doctorId", appointment.getDoctorId()));
+        } catch (Exception e) {
+            logger.warn("Failed to publish appointment cancellation: {}", e.getMessage());
+        }
 
         appointmentRepository.deleteById(id);
     }
@@ -451,7 +490,16 @@ public class AppointmentService {
     public void deleteAppt(UUID id) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Appointment not found with id: " + id));
-
+        try {
+            messagingTemplate.convertAndSend("/topic/appointments/status", java.util.Map.of(
+                    "appointmentId", appointment.getAppointmentId().toString(),
+                    "status", "CANCELLED",
+                    "clinicId", appointment.getClinicId(),
+                    "patientId", appointment.getPatientId(),
+                    "doctorId", appointment.getDoctorId()));
+        } catch (Exception e) {
+            logger.warn("Failed to publish appointment cancellation (staff): {}", e.getMessage());
+        }
         appointmentRepository.deleteById(id);
     }
 
@@ -505,6 +553,24 @@ public class AppointmentService {
             } else {
                 clinicType = "Specialist Clinic";
             }
+        }
+
+        // Publish reschedule event (staff) so patient dashboard / other staff update
+        try {
+            messagingTemplate.convertAndSend("/topic/appointments/status", java.util.Map.ofEntries(
+                    java.util.Map.entry("appointmentId", updated.getAppointmentId().toString()),
+                    java.util.Map.entry("status", "RESCHEDULED"),
+                    java.util.Map.entry("clinicId", updated.getClinicId()),
+                    java.util.Map.entry("patientId", updated.getPatientId()),
+                    java.util.Map.entry("doctorId", updated.getDoctorId()),
+                    java.util.Map.entry("doctorName", doctorName),
+                    java.util.Map.entry("clinicName", clinicName),
+                    java.util.Map.entry("bookingDate", updated.getBookingDate().toString()),
+                    java.util.Map.entry("startTime", updated.getStartTime().toString()),
+                    java.util.Map.entry("endTime", updated.getEndTime().toString()),
+                    java.util.Map.entry("type", updated.getType() != null ? updated.getType() : "UNKNOWN")));
+        } catch (Exception e) {
+            logger.warn("Failed to publish staff reschedule event: {}", e.getMessage());
         }
 
         return new AppointmentResponse(updated, doctorName, clinicName, clinicType);
@@ -585,18 +651,39 @@ public class AppointmentService {
             entityManager.flush();
             logger.info("Successfully created walk-in appointment: appointmentId={}, status=CHECKED-IN",
                     appointmentId);
-            // Broadcast new walk-in as CHECKED-IN so dashboards update
+
+            String doctorName = "";
+            String clinicName = "";
             try {
-                messagingTemplate.convertAndSend("/topic/appointments/status", java.util.Map.of(
-                        "appointmentId", appointmentId.toString(),
-                        "status", "CHECKED-IN",
-                        "clinicId", clinicId,
-                        "patientId", patientId,
-                        "doctorId", doctorId
-                ));
-            } catch (Exception e2) {
-                logger.warn("Failed to publish walk-in status: {}", e2.getMessage());
+                if (doctorId != null && !"UNASSIGNED".equals(doctorId)) {
+                    Optional<Doctor> docOpt = doctorRepository.findByDoctorId(doctorId);
+                    if (docOpt.isPresent()) {
+                        Doctor doc = docOpt.get();
+                        doctorName = doc.getDoctorName() != null ? doc.getDoctorName() : "";
+                        clinicName = doc.getClinicName() != null ? doc.getClinicName() : "";
+                    }
+                }
+            } catch (Exception e) {
+                logger.warn("Failed to resolve doctor/clinic names for walk-in publish: {}", e.getMessage());
             }
+            // Broadcast new walk-in as CHECKED-IN so dashboards update
+           try {
+                    messagingTemplate.convertAndSend("/topic/appointments/status", java.util.Map.ofEntries(
+                            java.util.Map.entry("appointmentId", appointmentId.toString()),
+                            java.util.Map.entry("status", "CHECKED-IN"),
+                            java.util.Map.entry("clinicId", clinicId),
+                            java.util.Map.entry("clinicName", clinicName),
+                            java.util.Map.entry("patientId", patientId),
+                            java.util.Map.entry("doctorId", doctorId),
+                            java.util.Map.entry("doctorName", doctorName),
+                            java.util.Map.entry("bookingDate", today.toString()),
+                            java.util.Map.entry("startTime", now.toString()),
+                            java.util.Map.entry("endTime", endTime.toString()),
+                            java.util.Map.entry("createdAt", createdAt.toString()),
+                            java.util.Map.entry("type", "WALK_IN")));
+                } catch (Exception e2) {
+                    logger.warn("Failed to publish walk-in status: {}", e2.getMessage());
+                }
         } catch (Exception e) {
             // Check if it's a duplicate key error (appointment was created in another
             // transaction)
@@ -641,8 +728,7 @@ public class AppointmentService {
                         "status", appointment.getStatus(),
                         "clinicId", appointment.getClinicId(),
                         "patientId", appointment.getPatientId(),
-                        "doctorId", appointment.getDoctorId()
-                ));
+                        "doctorId", appointment.getDoctorId()));
             } catch (Exception e2) {
                 logger.warn("Failed to publish checked-in update: {}", e2.getMessage());
             }

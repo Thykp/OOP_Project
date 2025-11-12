@@ -36,7 +36,7 @@ import {
 import Loader from "@/components/Loader"
 import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/context/auth-context"
-import { fetchQueueState, subscribeToQueueState } from "@/lib/socket"
+import { fetchQueueState, subscribeToQueueState, subscribeToAppointmentStatus } from "@/lib/socket"
 
 interface Appointment {
     appointment_id: string
@@ -127,6 +127,182 @@ export default function PatientDashboard() {
 
     const toDateTime = (booking_date: any, start_time: any): Date => {
         return new Date(`${toDateString(booking_date)}T${toTimeString(start_time)}`)
+    }
+
+    const doctorsLoadedRef = useRef(false)
+    const doctorCache = useRef<Map<string, string>>(new Map())
+    const clinicCache = useRef<Map<string, string>>(new Map())
+    const doctorToClinicMap = useRef<Map<string, string>>(new Map())
+
+    const loadDoctorsAndBuildCaches = async () => {
+        if (doctorsLoadedRef.current) return
+        try {
+            const res = await fetch(`${API_BASE}/api/doctors`)
+            if (!res.ok) return
+            const arr = await res.json()
+            if (!Array.isArray(arr)) return
+            arr.forEach((d: any) => {
+                if (d.doctorId) doctorCache.current.set(String(d.doctorId), d.doctorName ?? d.doctor_name ?? "")
+                // if doctor carries clinic info, use it to populate clinic cache
+                const cid = d.clinicId ?? d.clinic_id
+                const cname = d.clinicName ?? d.clinic_name
+                if (cid && cname) {
+                    clinicCache.current.set(String(cid), cname)
+                }
+                // also keep a doctorId -> clinicId mapping so we can resolve clinic names from doctor id
+                if (d.doctorId && cid) {
+                    doctorToClinicMap.current.set(String(d.doctorId), String(cid))
+                }
+            })
+            doctorsLoadedRef.current = true
+        } catch (e) {
+            console.warn("Failed to load doctors for name/clinic cache", e)
+        }
+    }
+
+    const getDoctorNameById = async (id?: string) => {
+        if (!id) return ""
+        const key = String(id)
+        if (doctorCache.current.has(key)) return doctorCache.current.get(key) || ""
+        await loadDoctorsAndBuildCaches()
+        return doctorCache.current.get(key) || ""
+    }
+
+    const getClinicNameById = async (id?: string) => {
+        if (!id) return ""
+        const key = String(id)
+        if (clinicCache.current.has(key)) return clinicCache.current.get(key) || ""
+        // ensure doctors loaded to build clinic cache from doctor objects
+        await loadDoctorsAndBuildCaches()
+        if (clinicCache.current.has(key)) return clinicCache.current.get(key) || ""
+        // fallback: try to get clinic name via a single-appointment fetch if available
+        try {
+            const res = await fetch(`${API_BASE}/api/appointments/${id}`)
+            if (res.ok) {
+                const data = await res.json()
+                const cname = data.clinicName ?? data.clinic_name
+                if (cname) {
+                    clinicCache.current.set(key, cname)
+                    return cname
+                }
+            }
+        } catch { /* ignore */ }
+        return ""
+    }
+
+    // Enrich either raw socket event or mapped Appointment with names
+    const enrichAppointmentNames = async (obj: any) => {
+        // obj may be raw event or appointment-shaped object
+        const doctorId = obj.doctorId ?? obj.doctor_id ?? obj.doctor_id
+        const clinicId = obj.clinicId ?? obj.clinic_id ?? obj.clinic_id
+
+        const [dName, cName] = await Promise.all([
+            getDoctorNameById(doctorId),
+            getClinicNameById(clinicId)
+        ])
+
+        const doctorNameFinal = dName || obj.doctorName || obj.doctor_name || ""
+        const clinicNameFinal = cName || obj.clinicName || obj.clinic_name || ""
+
+        // Return both forms so mapEventToAppointment and UI (which uses doctor_name/clinic_name) see the values
+        return {
+            ...obj,
+            // camelCase fields (used by some handlers)
+            doctorName: doctorNameFinal,
+            clinicName: clinicNameFinal,
+            // snake_case fields (used by mapEventToAppointment / UI)
+            doctor_name: doctorNameFinal,
+            clinic_name: clinicNameFinal,
+        }
+    }
+
+    // Map incoming websocket event to Appointment shape and indicate if we need to fetch full appointment
+    const mapEventToAppointment = (event: any, currentUserId: string) => {
+        if (!event) return { appointment: null, needsFetch: false }
+        const evtPatientId = String(event.patientId ?? event.patient_id ?? "")
+        if (evtPatientId !== String(currentUserId)) return { appointment: null, needsFetch: false }
+
+        const apptId = String(event.appointmentId ?? event.appointment_id ?? "")
+        const status = String((event.status ?? "")).toUpperCase()
+
+        // Normalize simple fields
+        const booking_date = event.bookingDate ?? event.booking_date ?? ""
+        const start_time = event.startTime ?? event.start_time ?? ""
+        const end_time = event.endTime ?? event.end_time ?? ""
+
+        const clinic_id = event.clinicId ?? event.clinic_id ?? ""
+        const clinic_name = event.clinicName ?? event.clinic_name ?? ""
+        const doctor_id = event.doctorId ?? event.doctor_id ?? ""
+        const doctor_name = event.doctorName ?? event.doctor_name ?? ""
+
+        // If the event lacks human-friendly fields, ask to fetch the appointment by id
+        const needsFetch = !clinic_name || !doctor_name || !booking_date
+
+        const appointment: Appointment = {
+            appointment_id: apptId,
+            booking_date,
+            clinic_id,
+            clinic_name: clinic_name ?? "",
+            clinic_type: event.type ?? event.clinic_type ?? "",
+            clinic_address: "",
+            created_at: event.createdAt ?? event.created_at ?? new Date().toISOString(),
+            doctor_id,
+            doctor_name: doctor_name ?? "",
+            end_time: end_time ?? "",
+            patient_id: evtPatientId,
+            start_time: start_time ?? "",
+            status,
+            updated_at: event.updatedAt ?? event.updated_at ?? new Date().toISOString(),
+        }
+
+        return { appointment, needsFetch }
+    }
+
+
+    // Fetch single appointment by id (returns Appointment or null)
+    const fetchAppointmentById = async (id: string): Promise<Appointment | null> => {
+        try {
+            const res = await fetch(`${API_BASE}/api/appointments/${id}`)
+            if (!res.ok) return null
+            const data = await res.json()
+            // Try to get doctor name if missing from appointment response
+            let doctorName = data.doctorName ?? data.doctor_name ?? ""
+            if (!doctorName && data.doctorId) {
+                doctorName = doctorCache.current.get(String(data.doctorId)) ?? ""
+            }
+            // Try to get clinic name if missing
+            let clinicName = data.clinicName ?? data.clinic_name ?? ""
+            const cid = data.clinicId ?? data.clinic_id
+            if (!clinicName && cid) {
+                clinicName = clinicCache.current.get(String(cid)) ?? ""
+            }
+            if (!clinicName && data.doctorId) {
+                const derivedCid = doctorToClinicMap.current.get(String(data.doctorId))
+                if (derivedCid) {
+                    clinicName = clinicCache.current.get(derivedCid) ?? ""
+                }
+            }
+            // backend AppointmentResponse should contain fields compatible with our Appointment interface
+            return {
+                appointment_id: data.appointmentId ?? data.appointment_id,
+                booking_date: data.bookingDate ?? data.booking_date ?? "",
+                clinic_id: data.clinicId ?? data.clinic_id ?? "",
+                clinic_name: data.clinicName ?? data.clinic_name ?? "",
+                clinic_type: data.clinicType ?? data.clinic_type ?? "",
+                clinic_address: data.clinicAddress ?? "",
+                created_at: data.createdAt ?? data.created_at ?? new Date().toISOString(),
+                doctor_id: data.doctorId ?? data.doctor_id ?? "",
+                doctor_name: data.doctorName ?? data.doctor_name ?? "",
+                end_time: data.endTime ?? data.end_time ?? "",
+                patient_id: data.patientId ?? data.patient_id ?? "",
+                start_time: data.startTime ?? data.start_time ?? "",
+                status: (data.status ?? "").toUpperCase(),
+                updated_at: data.updatedAt ?? data.updated_at ?? new Date().toISOString(),
+            }
+        } catch (e) {
+            console.warn("Failed to fetch appointment by id:", id, e)
+            return null
+        }
     }
 
     // --- helpers ---
@@ -523,6 +699,151 @@ export default function PatientDashboard() {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isCheckedIn, checkedInAppointmentId, checkedInClinicId])
+    // Subscribe to appointment status events so patient UI updates in real-time
+    useEffect(() => {
+        if (!user?.id) return;
+
+        const appointmentHandler = async (event: any) => {
+            if (!event) return;
+
+            // Step 1: Enrich with doctor/clinic names first using your caching or manual resolution
+            let enrichedEvent;
+            try {
+                enrichedEvent = await enrichAppointmentNames(event);
+            } catch (e) {
+                console.warn('[PatientDashboard] enrichAppointmentNames failed', e);
+                enrichedEvent = event;
+            }
+            console.debug('[socket] enrichedEvent:', enrichedEvent);
+
+            // Step 2: Map to Appointment shape (as before)
+            const { appointment, needsFetch } = mapEventToAppointment(enrichedEvent, user.id);
+            if (!appointment) return;
+            const apptId = appointment.appointment_id;
+            const status = appointment.status;
+
+            // Step 3: Parallel fetch for clinic/doctor info (only if needed)
+            if (status === "SCHEDULED" || status === "RESCHEDULED" || status === "CHECKEDIN" || status === "CHECKED-IN") {
+                if (needsFetch) {
+                    const fetched = await fetchAppointmentById(apptId);
+
+                    // Fetch GP and Specialist clinics for address enrichment
+                    const [gpClinicsRes, specialistClinicsRes, gpDoctorsRes] = await Promise.all([
+                        fetch(`${API_BASE}/api/clinics/gp?limit=100`),
+                        fetch(`${API_BASE}/api/clinics/specialist?limit=100`),
+                        fetch(`${API_BASE}/api/doctors`),           // change endpoint as relevant!
+                    ]);
+
+                    const gpClinics = gpClinicsRes.ok ? await gpClinicsRes.json() : [];
+                    const specialistClinics = specialistClinicsRes.ok ? await specialistClinicsRes.json() : [];
+                    const doctors = gpDoctorsRes.ok ? await gpDoctorsRes.json() : [];
+
+
+                    let clinic = gpClinics.find((c: { clinicId: string | undefined }) => c.clinicId === fetched?.clinic_id);
+                    let clinicType = ""; // "GP" | "Specialist" | "Unknown"
+
+                    if (clinic) {
+                        clinicType = "General Practice";
+                    } else {
+                        clinic = specialistClinics.find((c: { ihpClinicId: string | undefined }) => c.ihpClinicId === fetched?.clinic_id);
+                        if (clinic) {
+                            console.log(clinic)
+                            clinicType = "Specialist";
+                        } else {
+                            clinicType = "Unknown";
+                        }
+                    }
+
+
+                    let doctor = doctors.find((d: { doctorId: string | undefined }) => d.doctorId === fetched?.doctor_id);
+                    const enriched = {
+                        ...fetched,
+                        clinic_address: clinic?.address || 'Address not available',
+                        clinic_name: clinic?.clinicName || clinic?.name || fetched?.clinic_name || '',
+                        doctor_name: doctor?.doctorName || fetched?.doctor_name || '',
+                        clinic_type: clinicType || fetched?.clinic_type || '',
+                    };
+                    console.log(enriched)
+
+                    setAppointments(prev => {
+                        const exists = prev.some(a => a.appointment_id === apptId);
+                        const enrichedAppointment = enriched as Appointment;
+                        if (exists) {
+                            return prev.map(a => a.appointment_id === apptId ? ({ ...a, ...enrichedAppointment } as Appointment) : a);
+                        }
+                        return [enrichedAppointment, ...prev];
+                    });
+                } else {
+                    // Enrich clinic (for upserted "appointment" object)
+                    const [gpClinicsRes, specialistClinicsRes] = await Promise.all([
+                        fetch(`${API_BASE}/api/clinics/gp?limit=100`),
+                        fetch(`${API_BASE}/api/clinics/specialist?limit=100`)
+                    ]);
+
+                    const gpClinics = gpClinicsRes.ok ? await gpClinicsRes.json() : [];
+                    const specialistClinics = specialistClinicsRes.ok ? await specialistClinicsRes.json() : [];
+
+                    let clinic = gpClinics.find((c: { clinicId: string }) => c.clinicId === appointment.clinic_id)
+                        || specialistClinics.find((c: { ihpClinicId: string }) => c.ihpClinicId === appointment.clinic_id);
+
+                    const enriched = {
+                        ...appointment,
+                        clinic_address: clinic?.address || 'Address not available'
+                    };
+
+                    setAppointments(prev => {
+                        const exists = prev.some(a => a.appointment_id === apptId);
+                        if (exists) {
+                            return prev.map(a => a.appointment_id === apptId ? { ...a, ...enriched } : a);
+                        }
+                        return [enriched, ...prev];
+                    });
+                }
+
+                toast({
+                    title: (status === "CHECKEDIN" || status === "CHECKED-IN")
+                        ? "Walk-in Created"
+                        : "Appointment updated",
+                    description: (status === "CHECKEDIN" || status === "CHECKED-IN")
+                        ? "A walk-in was created for you."
+                        : "Your appointment has been updated.",
+                });
+                return;
+            }
+
+            // Handle other status updates in-place
+            setAppointments(prev => prev.map(a =>
+                a.appointment_id === apptId
+                    ? { ...a, status }
+                    : a
+            ));
+
+            if (status === "CANCELLED" || status === "NO_SHOW") {
+                setAppointments(prev => prev.filter(a => a.appointment_id !== apptId));
+                setPastAppointments(prev => prev.filter(a => a.appointment_id !== apptId));
+                // Handle check-in UI...
+                toast({
+                    variant: "destructive",
+                    title: "Appointment cancelled",
+                    description: "One of your appointments was cancelled.",
+                });
+                return;
+            }
+
+            if (status === "COMPLETED") {
+                try { fetchPastAppointments(); } catch (e) { }
+            }
+        };
+
+        const sub = subscribeToAppointmentStatus(appointmentHandler);
+
+        return () => {
+            try { if (sub && typeof sub.unsubscribe === "function") sub.unsubscribe(); } catch (e) { }
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.id, checkedInAppointmentId, checkedInClinicId, fetchAppointments, fetchPastAppointments, toast]);
+
+
 
     // --- actions ---
     const handleRescheduleAppointment = (appointment: Appointment) => {
