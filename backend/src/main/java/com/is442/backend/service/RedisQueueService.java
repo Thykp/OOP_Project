@@ -3,6 +3,8 @@ package com.is442.backend.service;
 import com.is442.backend.dto.CallNextResult;
 import com.is442.backend.dto.NotificationEvent;
 import com.is442.backend.dto.PositionSnapshot;
+import com.is442.backend.dto.QueueItemDto;
+import com.is442.backend.dto.QueueStateDto;
 import com.is442.backend.dto.QueueStatus;
 import com.is442.backend.model.Doctor;
 import com.is442.backend.model.User;
@@ -358,6 +360,49 @@ public class RedisQueueService {
         return new QueueStatus(clinicId, nowServing, waiting == null ? 0 : waiting.intValue());
     }
 
+    /**
+     * Returns the complete queue state for a clinic, including all queue items with
+     * their details.
+     * 
+     * @param clinicId the clinic identifier
+     * @return QueueStateDto containing clinic status and list of all queue items
+     * @throws IllegalArgumentException if clinicId is invalid
+     */
+    public QueueStateDto getQueueState(String clinicId) {
+        validateNonEmpty(clinicId, "clinicId");
+
+        // Get basic queue status
+        QueueStatus status = getQueueStatus(clinicId);
+        long nowServing = status.getNowServing();
+        int totalWaiting = status.getTotalWaiting();
+
+        // Get all appointment IDs from the queue (sorted by score/seq)
+        Set<String> appointmentIds = strTpl.opsForZSet().range(kQueue(clinicId), 0, -1);
+
+        List<QueueItemDto> queueItems = new ArrayList<>();
+
+        if (appointmentIds != null && !appointmentIds.isEmpty()) {
+            // Convert to list to get index-based position
+            List<String> appointmentList = new ArrayList<>(appointmentIds);
+
+            // For each appointment, get its metadata and create QueueItemDto
+            for (int i = 0; i < appointmentList.size(); i++) {
+                String appointmentId = appointmentList.get(i);
+                int position = i + 1; // 1-based position
+
+                // Get appointment metadata from Redis hash
+                Map<Object, Object> meta = strTpl.opsForHash().entries(kAppointment(appointmentId));
+
+                if (meta != null && !meta.isEmpty()) {
+                    QueueItemDto item = QueueItemDto.fromRedisMetadata(appointmentId, meta, position);
+                    queueItems.add(item);
+                }
+            }
+        }
+
+        return new QueueStateDto(clinicId, nowServing, totalWaiting, queueItems);
+    }
+
     /** Stable ticket number for an appointment (seq stored in the hash). */
     public long getQueueNumber(String appointmentId) {
         validateNonEmpty(appointmentId, "appointmentId");
@@ -432,13 +477,13 @@ public class RedisQueueService {
         }
 
         // Get minimum score from the queue
-        Set<org.springframework.data.redis.core.ZSetOperations.TypedTuple<String>> rangeWithScores = 
-            strTpl.opsForZSet().rangeWithScores(kQueue(clinicId), 0, 0);
-        
+        Set<org.springframework.data.redis.core.ZSetOperations.TypedTuple<String>> rangeWithScores = strTpl.opsForZSet()
+                .rangeWithScores(kQueue(clinicId), 0, 0);
+
         double minScore = 1.0; // Default if queue is somehow empty
         if (rangeWithScores != null && !rangeWithScores.isEmpty()) {
-            org.springframework.data.redis.core.ZSetOperations.TypedTuple<String> first = 
-                rangeWithScores.iterator().next();
+            org.springframework.data.redis.core.ZSetOperations.TypedTuple<String> first = rangeWithScores.iterator()
+                    .next();
             Double score = first.getScore();
             minScore = (score != null) ? score.doubleValue() : 1.0;
         }
