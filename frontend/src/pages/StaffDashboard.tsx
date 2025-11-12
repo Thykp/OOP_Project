@@ -585,17 +585,71 @@ export default function StaffDashboard() {
         return u
     }
 
-    // Update Status
-    const updateApptStatus = async (apptId: String, status: String) => {
-        const response = await fetch(
-            `${baseURL}/api/appointments/${apptId}/updateStatus/${status}`,
-            {
-                method: "PATCH",
+    // Update Status with optimistic UI updates
+    const updateApptStatus = async (apptId: string, status: string) => {
+        // Find the appointment to update
+        const appointmentToUpdate = appointments.find(a => a.appointment_id === apptId)
+        if (!appointmentToUpdate) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Appointment not found",
+            })
+            return
+        }
+
+        // Store original state for potential rollback
+        const originalAppointments = [...appointments]
+        const originalCompletedAppointments = [...completedAppointments]
+
+        // Optimistically update the UI immediately
+        if (status === "COMPLETED" || status === "NO_SHOW") {
+            // Remove from active appointments and add to completed
+            setAppointments(prev => prev.filter(a => a.appointment_id !== apptId))
+            setCompletedAppointments(prev => {
+                const updatedAppt = { ...appointmentToUpdate, status: status as string }
+                // Add to the beginning of the list (most recent first)
+                return [updatedAppt, ...prev]
+            })
+        } else {
+            // For other status updates, just update the status in place
+            setAppointments(prev =>
+                prev.map(a => a.appointment_id === apptId ? { ...a, status: status as string } : a)
+            )
+        }
+
+        // Make the API call in the background
+        try {
+            const response = await fetch(
+                `${baseURL}/api/appointments/${apptId}/updateStatus/${status}`,
+                {
+                    method: "PATCH",
+                }
+            )
+
+            if (!response.ok) {
+                throw new Error("Failed to update status")
             }
-        )
-        if (!response.ok) throw new Error("Failed to update status")
-        fetchAppointments()
-        fetchCompletedAppointments()
+
+            // Success - show notification
+            toast({
+                variant: "default",
+                title: "Status updated",
+                description: `Appointment status updated to ${status}`,
+            })
+
+            // No need to refresh - optimistic update already applied to UI
+        } catch (error) {
+            // Error - revert optimistic update
+            setAppointments(originalAppointments)
+            setCompletedAppointments(originalCompletedAppointments)
+
+            toast({
+                variant: "destructive",
+                title: "Update failed",
+                description: error instanceof Error ? error.message : "Failed to update appointment status. Please try again.",
+            })
+        }
     }
 
     // Backend-driven call next
