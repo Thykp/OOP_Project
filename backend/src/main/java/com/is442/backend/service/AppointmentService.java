@@ -648,7 +648,7 @@ public class AppointmentService {
         query.setParameter(5, today);
         query.setParameter(6, now);
         query.setParameter(7, endTime);
-        query.setParameter(8, "CHECKED-IN");
+        query.setParameter(8, "SCHEDULED");
         query.setParameter(9, "WALK_IN");
         query.setParameter(10, createdAt);
         query.setParameter(11, createdAt);
@@ -656,7 +656,7 @@ public class AppointmentService {
         try {
             query.executeUpdate();
             entityManager.flush();
-            logger.info("Successfully created walk-in appointment: appointmentId={}, status=CHECKED-IN",
+            logger.info("Successfully created walk-in appointment: appointmentId={}, status=SCHEDULED",
                     appointmentId);
 
             String doctorName = "";
@@ -673,11 +673,11 @@ public class AppointmentService {
             } catch (Exception e) {
                 logger.warn("Failed to resolve doctor/clinic names for walk-in publish: {}", e.getMessage());
             }
-            // Broadcast new walk-in as CHECKED-IN so dashboards update
+            // Broadcast new walk-in as SCHEDULED so dashboards update
            try {
                     messagingTemplate.convertAndSend("/topic/appointments/status", java.util.Map.ofEntries(
                             java.util.Map.entry("appointmentId", appointmentId.toString()),
-                            java.util.Map.entry("status", "CHECKED-IN"),
+                            java.util.Map.entry("status", "SCHEDULED"),
                             java.util.Map.entry("clinicId", clinicId),
                             java.util.Map.entry("clinicName", clinicName),
                             java.util.Map.entry("patientId", patientId),
