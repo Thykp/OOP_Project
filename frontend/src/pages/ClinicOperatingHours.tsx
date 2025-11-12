@@ -230,9 +230,9 @@ export default function ClinicOperatingHours() {
         <PageLayout>
             <div className="container mx-auto max-w-7xl px-4 py-8">
                 <div className="mb-8">
-                    <Link to="/admin/dashboard" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">
+                    <Link to="/admin/clinic-config" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">
                         <ArrowLeft className="w-4 h-4" />
-                        Back to Dashboard
+                        Back to Clinic Configuration
                     </Link>
                     <div className="flex items-center gap-3 mb-2">
                         <Clock className="w-8 h-8 text-green-600" />

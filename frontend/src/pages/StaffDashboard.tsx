@@ -1525,7 +1525,7 @@ export default function StaffDashboard() {
                                     </CardHeader>
                                     <CardContent>
                                         <div className="space-y-3">
-                                            {queueAppointments.map((appt, index) => (
+                                            {queueAppointments.map((appt) => (
                                                 <div
                                                     key={appt.appointment_id}
                                                     className={cn(
