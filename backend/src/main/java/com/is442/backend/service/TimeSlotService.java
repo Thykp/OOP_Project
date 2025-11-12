@@ -151,8 +151,10 @@ public class TimeSlotService {
     }
 
     public List<AvailableDateSlotsDto> getAvailableDatesWithSlots(String speciality, String clinicId, List<String> doctorIds) {
-        LocalDate today = LocalDate.now();
-        LocalTime currentTime = LocalTime.now();
+        // LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.of(2025, 11, 13); // MOCK: fixed demo date
+        // LocalTime currentTime = LocalTime.now();
+        LocalTime currentTime = LocalTime.of(13, 0, 0); // MOCK: fixed demo time
         LocalDate end = today.plusWeeks(8);
         List<AvailableDateSlotsDto> result = new ArrayList<>();
 
@@ -216,8 +218,9 @@ public class TimeSlotService {
                             // Filter out past time slots for today
                             if (currentDate.equals(today)) {
                                 LocalTime slotStartTime = slot.getStartTime();
-                                if (slotStartTime != null && slotStartTime.isBefore(currentTime)) {
-                                    System.out.println("  -> FILTERED OUT (PAST TIME): " + slot.getStartTime() + "-" + slot.getEndTime() + " for " + doctor.getDoctorName());
+                                // Only allow strictly AFTER current time: exclude before or equal
+                                if (slotStartTime != null && !slotStartTime.isAfter(currentTime)) {
+                                    System.out.println("  -> FILTERED OUT (PAST OR EQUAL TIME): " + slot.getStartTime() + "-" + slot.getEndTime() + " for " + doctor.getDoctorName());
                                     return false;
                                 }
                             }
