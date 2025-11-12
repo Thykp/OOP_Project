@@ -1252,10 +1252,14 @@ export default function StaffDashboard() {
         const bookingDate = normalizeDate(bookingDateRaw)
         const startTime = normalizeTime(startTimeRaw)
         const endTime = normalizeTime(endTimeRaw)
+        
+        // Keep status as SCHEDULED for rescheduled appointments so they remain visible
+        const displayStatus = status === "RESCHEDULED" ? "SCHEDULED" : status
+        
         setAppointments(prev => {
           const exists = prev.some(a => String(a.appointment_id) === apptId)
           if (exists) {
-            return prev.map(a => String(a.appointment_id) === apptId ? { ...a, booking_date: bookingDate || a.booking_date, start_time: startTime ?? a.start_time, end_time: endTime ?? a.end_time, status } : a)
+            return prev.map(a => String(a.appointment_id) === apptId ? { ...a, booking_date: bookingDate || a.booking_date, start_time: startTime ?? a.start_time, end_time: endTime ?? a.end_time, status: displayStatus } : a)
           }
           // Insert minimal record if not present so UI updates immediately
           const newAppt: any = {
@@ -1268,7 +1272,8 @@ export default function StaffDashboard() {
             patient_id: event.patientId ?? event.patient_id ?? "",
             start_time: startTime ?? null,
             end_time: endTime ?? null,
-            patient_name: event.patientName ?? event.patient_name ?? null, status,
+            patient_name: event.patientName ?? event.patient_name ?? null, 
+            status: displayStatus,
             // created_at: event.createdAt ?? event.created_at ?? new Date().toISOString(),
             // updated_at: new Date().toISOString()
             created_at: event.createdAt ?? event.created_at ?? nowTime().toISOString(), // MOCK
@@ -1592,13 +1597,16 @@ export default function StaffDashboard() {
             return evtAppt
           }
 
+          // Keep status as SCHEDULED for rescheduled appointments so they remain visible in the Upcoming tab
+          const displayStatus = status === "RESCHEDULED" ? "SCHEDULED" : status
+
           // await enrichment so names/date/time are available before upsert
           await enrich()
           setAppointments(prev => {
             console.log
             const idx = prev.findIndex(a => a.appointment_id === apptId)
             if (idx >= 0) {
-              const updated = { ...prev[idx], ...evtAppt, status }
+              const updated = { ...prev[idx], ...evtAppt, status: displayStatus }
               const copy = [...prev]
               copy[idx] = updated
               return copy
@@ -1606,7 +1614,7 @@ export default function StaffDashboard() {
             // if we have an existing elsewhere, merge to preserve names
             const existing = prev.find(a => a.appointment_id === apptId)
             if (existing) {
-              const merged = { ...existing, ...evtAppt, status }
+              const merged = { ...existing, ...evtAppt, status: displayStatus }
               return [merged, ...prev.filter(a => a.appointment_id !== apptId)]
             }
             return [evtAppt, ...prev]
