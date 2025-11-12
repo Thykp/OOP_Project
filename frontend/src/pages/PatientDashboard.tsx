@@ -91,8 +91,8 @@ export default function PatientDashboard() {
   const { toast } = useToast()
 
   //this is a fake test date to test my function
-  const currentNow = () => new Date(2025, 11, 11, 8, 0, 0)
-  // const currentNow = () => new Date()
+  // const currentNow = () => new Date(2025, 11, 11, 8, 0, 0)
+  const currentNow = () => new Date()
 
   // --- normalization helpers ---
   const toDateString = (booking_date: any): string => {
