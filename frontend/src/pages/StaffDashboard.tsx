@@ -103,6 +103,7 @@ export default function StaffDashboard() {
   const [staffClinicName, setStaffClinicName] = useState<string | undefined>(user?.user_metadata?.clinicName)
   const staffPosition = user?.user_metadata.position
 
+  console.log(staffPosition)
   useEffect(() => {
     const supabaseId = user?.id
     if (!supabaseId) return
