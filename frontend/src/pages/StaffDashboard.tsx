@@ -454,7 +454,7 @@ export default function StaffDashboard() {
 
             toast({
                 variant: "success",
-                title: "Appointment cancelled",
+                title: "Appointment Cancelled",
                 description: `${appointmentToCancel.doctor_name} • ${formatDate(
                     appointmentToCancel.booking_date
                 )} ${formatTime(appointmentToCancel.start_time)}`,
@@ -1088,6 +1088,83 @@ export default function StaffDashboard() {
             disconnectSocket()
         }
     }, [showWalkInDialog])
+
+    
+useEffect(() => {
+        connectSocket()
+    // subscribe to appointment status events so cancellations are removed in real-time
+    const appointmentHandler = (event: any) => {
+        if (!event) return;
+        // Ensure this event is for this staff's clinic
+        if (!staffClinicId || event.clinicId !== staffClinicId) return;
+
+        const apptId: string = event.appointmentId;
+        const status: string = (event.status || "").toUpperCase();
+
+        if (status === "CANCELLED" || status === "NO_SHOW") {
+            // remove from lists
+            setAppointments((prev) => prev.filter(a => a.appointment_id !== apptId));
+            setQueueAppointments((prev) => prev.filter(q => q.appointment_id !== apptId));
+            setCompletedAppointments((prev) => prev.filter(a => a.appointment_id !== apptId));
+             toast({
+                variant: "destructive",
+                title: "Appointment Cancelled",
+                description: "An appointment was cancelled.",
+            })
+            return;
+        }
+
+// Handle reschedule or new schedule: update in place if present, otherwise fetch
+        if (status === "RESCHEDULED" || status === "SCHEDULED") {
+            // attempt to update existing appointment in-memory using payload fields
+            const bookingDate = event.bookingDate ?? event.booking_date
+            const startTime = event.startTime ?? event.start_time
+            const endTime = event.endTime ?? event.end_time
+            setAppointments(prev => {
+                const exists = prev.some(a => a.appointment_id === apptId)
+                if (exists) {
+                    return prev.map(a => a.appointment_id === apptId ? { ...a, booking_date: bookingDate ?? a.booking_date, start_time: startTime ?? a.start_time, end_time: endTime ?? a.end_time, status: status } : a)
+                }
+                // Insert minimal record if not present so UI updates immediately
+                const newAppt: any = {
+                    appointment_id: apptId,
+                    booking_date: bookingDate ?? "",
+                    clinic_id: event.clinicId ?? event.clinicId ?? null,
+                    clinic_name: event.clinicName ?? event.clinic_name ?? null,
+                    doctor_id: event.doctorId ?? event.doctor_id ?? "",
+                    doctor_name: event.doctorName ?? event.doctor_name ?? null,
+                    patient_id: event.patientId ?? event.patient_id ?? "",
+                    start_time: startTime ?? null,
+                    end_time: endTime ?? null,
+                    status,
+                    created_at: event.createdAt ?? event.created_at ?? new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                }
+                return [newAppt, ...prev]
+            })
+            // ensure completed list is fresh if needed
+            // if (status === "SCHEDULED") {
+            //     // optional: fetchAppointments() if you need fully enriched data
+            //     try { fetchAppointments() } catch {}
+            // }
+            return;
+        }
+
+        // For other status updates (CHECKED-IN, COMPLETED, IN_CONSULTATION) update existing entries
+        setAppointments((prev) => prev.map(a => a.appointment_id === apptId ? {...a, status} : a));
+        setQueueAppointments((prev) => prev.map(q => q.appointment_id === apptId ? {...q, status} : q));
+    };
+
+    // If you have a helper subscribe function (subscribeToAppointmentStatus), use it:
+    const sub = subscribeToAppointmentStatus(appointmentHandler);
+
+    // If subscribeToAppointmentStatus returns an object with unsubscribe, keep it; otherwise adapt
+    return () => {
+        try {
+            if (sub && typeof sub.unsubscribe === "function") sub.unsubscribe();
+        } catch (e) { /* ignore */ }
+    };
+}, [staffClinicId, fetchAppointments, toast, subscribeToAppointmentStatus]);
 
     // Handle Walk-in Appointment
     const handleWalkInSubmit = async () => {
