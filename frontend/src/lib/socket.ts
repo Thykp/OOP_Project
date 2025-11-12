@@ -107,155 +107,79 @@ export function subscribeToSlots(handler: (payload: any) => void) {
 }
 
 export function subscribeToAppointmentStatus(handler: (payload: any) => void) {
-  const destination = '/topic/appointments/status';
-  if (!client) connectSocket();
+    const destination = '/topic/appointments/status';
+    if (!client) connectSocket();
 
-  if (client && (client as any).connected) {
-    try {
-      const sub = client.subscribe(destination, (message) => {
+    if (client && (client as any).connected) {
         try {
-          const body = JSON.parse(message.body);
-          handler(body);
+            const sub = client.subscribe(destination, (message) => {
+                try {
+                    const body = JSON.parse(message.body);
+                    handler(body);
+                } catch (e) {
+                    console.error('Failed to parse appointment status update', e);
+                }
+            });
+            return {
+                unsubscribe: () => {
+                    try { sub.unsubscribe(); } catch (e) { }
+                },
+            };
         } catch (e) {
-          console.error('Failed to parse appointment status update', e);
+            console.error('Failed to subscribe immediately', e);
         }
-      });
-      return {
-        unsubscribe: () => {
-          try { sub.unsubscribe(); } catch (e) {}
-        },
-      };
-    } catch (e) {
-      console.error('Failed to subscribe immediately', e);
     }
-  }
 
-  const pending: { destination: string; handler: (payload: any) => void; sub?: any } = { destination, handler, sub: undefined };
-  pendingSubs.push(pending);
+    const pending: { destination: string; handler: (payload: any) => void; sub?: any } = { destination, handler, sub: undefined };
+    pendingSubs.push(pending);
 
-  return {
-    unsubscribe: () => {
-      if (pending.sub) {
-        try { pending.sub.unsubscribe(); } catch (e) {}
-      } else {
-        pendingSubs = pendingSubs.filter((p) => p !== pending);
-      }
-    },
-  };
+    return {
+        unsubscribe: () => {
+            if (pending.sub) {
+                try { pending.sub.unsubscribe(); } catch (e) { }
+            } else {
+                pendingSubs = pendingSubs.filter((p) => p !== pending);
+            }
+        },
+    };
 }
 
 export function subscribeToTreatmentNotes(handler: (payload: any) => void) {
-  const destination = '/topic/appointments/treatment-notes';
-  if (!client) connectSocket();
+    const destination = '/topic/appointments/treatment-notes';
+    if (!client) connectSocket();
 
-  if (client && (client as any).connected) {
-    try {
-      const sub = client.subscribe(destination, (message) => {
+    if (client && (client as any).connected) {
         try {
-          const body = JSON.parse(message.body);
-          handler(body);
+            const sub = client.subscribe(destination, (message) => {
+                try {
+                    const body = JSON.parse(message.body);
+                    handler(body);
+                } catch (e) {
+                    console.error('Failed to parse treatment note update', e);
+                }
+            });
+            return {
+                unsubscribe: () => {
+                    try { sub.unsubscribe(); } catch (e) { }
+                },
+            };
         } catch (e) {
-          console.error('Failed to parse treatment note update', e);
+            console.error('Failed to subscribe immediately', e);
         }
-      });
-      return {
-        unsubscribe: () => {
-          try { sub.unsubscribe(); } catch (e) {}
-        },
-      };
-    } catch (e) {
-      console.error('Failed to subscribe immediately', e);
     }
-  }
 
-  const pending: { destination: string; handler: (payload: any) => void; sub?: any } = { destination, handler, sub: undefined };
-  pendingSubs.push(pending);
+    const pending: { destination: string; handler: (payload: any) => void; sub?: any } = { destination, handler, sub: undefined };
+    pendingSubs.push(pending);
 
-  return {
-    unsubscribe: () => {
-      if (pending.sub) {
-        try { pending.sub.unsubscribe(); } catch (e) {}
-      } else {
-        pendingSubs = pendingSubs.filter((p) => p !== pending);
-      }
-    },
-  };
-}
-
-export function subscribeToAppointmentStatus(handler: (payload: any) => void) {
-  const destination = '/topic/appointments/status';
-  if (!client) connectSocket();
-
-  if (client && (client as any).connected) {
-    try {
-      const sub = client.subscribe(destination, (message) => {
-        try {
-          const body = JSON.parse(message.body);
-          handler(body);
-        } catch (e) {
-          console.error('Failed to parse appointment status update', e);
-        }
-      });
-      return {
+    return {
         unsubscribe: () => {
-          try { sub.unsubscribe(); } catch (e) {}
+            if (pending.sub) {
+                try { pending.sub.unsubscribe(); } catch (e) { }
+            } else {
+                pendingSubs = pendingSubs.filter((p) => p !== pending);
+            }
         },
-      };
-    } catch (e) {
-      console.error('Failed to subscribe immediately', e);
-    }
-  }
-
-  const pending: { destination: string; handler: (payload: any) => void; sub?: any } = { destination, handler, sub: undefined };
-  pendingSubs.push(pending);
-
-  return {
-    unsubscribe: () => {
-      if (pending.sub) {
-        try { pending.sub.unsubscribe(); } catch (e) {}
-      } else {
-        pendingSubs = pendingSubs.filter((p) => p !== pending);
-      }
-    },
-  };
-}
-
-export function subscribeToTreatmentNotes(handler: (payload: any) => void) {
-  const destination = '/topic/appointments/treatment-notes';
-  if (!client) connectSocket();
-
-  if (client && (client as any).connected) {
-    try {
-      const sub = client.subscribe(destination, (message) => {
-        try {
-          const body = JSON.parse(message.body);
-          handler(body);
-        } catch (e) {
-          console.error('Failed to parse treatment note update', e);
-        }
-      });
-      return {
-        unsubscribe: () => {
-          try { sub.unsubscribe(); } catch (e) {}
-        },
-      };
-    } catch (e) {
-      console.error('Failed to subscribe immediately', e);
-    }
-  }
-
-  const pending: { destination: string; handler: (payload: any) => void; sub?: any } = { destination, handler, sub: undefined };
-  pendingSubs.push(pending);
-
-  return {
-    unsubscribe: () => {
-      if (pending.sub) {
-        try { pending.sub.unsubscribe(); } catch (e) {}
-      } else {
-        pendingSubs = pendingSubs.filter((p) => p !== pending);
-      }
-    },
-  };
+    };
 }
 
 export function disconnectSocket() {
@@ -347,7 +271,14 @@ export function subscribeToQueueState(
     const eventSource = new EventSource(`${baseURL}/api/stream/queues/${clinicId}`);
     queueSseClients.set(clinicId, eventSource);
 
+    console.log('[QueueSSE] Connecting to SSE endpoint:', `${baseURL}/api/stream/queues/${clinicId}`);
+
+    eventSource.onopen = () => {
+        console.log('[QueueSSE] SSE connection opened for clinic:', clinicId);
+    };
+
     eventSource.addEventListener('queue-event', (e) => {
+        console.log('[QueueSSE] Received queue-event for clinic:', clinicId, 'data:', e.data);
         try {
             const data = JSON.parse(e.data);
 

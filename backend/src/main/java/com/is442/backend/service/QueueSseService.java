@@ -19,7 +19,12 @@ public class QueueSseService {
     }
 
     public void publishToClinic(String clinicId, String json) {
-        sinkForClinic(clinicId).tryEmitNext(json);
+        Sinks.EmitResult result = sinkForClinic(clinicId).tryEmitNext(json);
+        if (result.isFailure()) {
+            System.err.println("[QueueSseService] Failed to emit event for clinic " + clinicId + ": " + result);
+        } else {
+            System.out.println("[QueueSseService] Successfully emitted event for clinic " + clinicId);
+        }
     }
 
     public Flux<ServerSentEvent<String>> streamClinic(String clinicId) {

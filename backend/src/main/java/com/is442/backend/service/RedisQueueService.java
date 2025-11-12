@@ -306,6 +306,7 @@ public class RedisQueueService {
         }
 
         // Broadcast queue state update via SSE (for UI updates)
+        System.out.println("[RedisQueueService] callNext completed, broadcasting queue state update for clinic: " + clinicId);
         broadcastQueueStateUpdate(clinicId);
 
         // position=0 to mean "this appointment is now being served"
@@ -424,6 +425,7 @@ public class RedisQueueService {
      */
     private void broadcastQueueStateUpdate(String clinicId) {
         if (queueSseService == null) {
+            System.err.println("[RedisQueueService] QueueSseService is null - cannot broadcast queue state update for clinic: " + clinicId);
             return; // SSE service not available
         }
 
@@ -461,6 +463,8 @@ public class RedisQueueService {
             // Serialize to JSON and broadcast
             String json = objectMapper.writeValueAsString(eventPayload);
             queueSseService.publishToClinic(clinicId, json);
+            System.out.println("[RedisQueueService] Broadcasted queue state update for clinic: " + clinicId 
+                    + ", nowServing: " + state.getNowServing() + ", totalWaiting: " + state.getTotalWaiting());
 
         } catch (Exception e) {
             // Log but don't fail the operation
