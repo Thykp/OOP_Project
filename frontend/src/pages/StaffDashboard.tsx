@@ -1316,11 +1316,7 @@ export default function StaffDashboard() {
         setAppointments((prev) => prev.filter(a => String(a.appointment_id) !== apptId));
         setQueueAppointments((prev) => prev.filter(q => String(q.appointment_id) !== apptId));
         setCompletedAppointments((prev) => prev.filter(a => String(a.appointment_id) !== apptId));
-        toast({
-          variant: "destructive",
-          title: "Appointment Cancelled",
-          description: "An appointment was cancelled.",
-        })
+        
         return;
       }
 
@@ -1629,11 +1625,6 @@ export default function StaffDashboard() {
           setAppointments(prev => prev.filter(a => a.appointment_id !== apptId))
           setQueueAppointments(prev => prev.filter(q => q.appointment_id !== apptId))
           setCompletedAppointments(prev => prev.filter(a => a.appointment_id !== apptId))
-          toast({
-            variant: "destructive",
-            title: "Appointment Cancelled",
-            description: "An appointment was cancelled.",
-          })
           return
         }
 
