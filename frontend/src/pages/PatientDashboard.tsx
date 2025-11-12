@@ -13,30 +13,30 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
 import Loader from "@/components/Loader"
 import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/context/auth-context"
-import { fetchQueueState, subscribeToQueueState, subscribeToAppointmentStatus } from "@/lib/socket"
+import { fetchQueueState, subscribeToAppointmentStatus, subscribeToQueueState } from "@/lib/socket"
 
 interface Appointment {
     appointment_id: string
@@ -99,9 +99,9 @@ export default function PatientDashboard() {
         currentNumber: null,
     })
 
-    //this is a fake test date to test my function
-    // const currentNow = () => new Date(2025, 11, 11, 8, 0, 0)
-    const currentNow = () => new Date()
+    // Mock current time for demo
+    // const currentNow = () => new Date() // real current time
+    const currentNow = () => new Date(2025, 10, 13, 13, 0, 0) // MOCK: 13 Nov 2025 1:00 PM local
 
     // --- normalization helpers ---
     const toDateString = (booking_date: any): string => {
@@ -245,14 +245,16 @@ export default function PatientDashboard() {
             clinic_name: clinic_name ?? "",
             clinic_type: event.type ?? event.clinic_type ?? "",
             clinic_address: "",
-            created_at: event.createdAt ?? event.created_at ?? new Date().toISOString(),
+            // created_at: event.createdAt ?? event.created_at ?? new Date().toISOString(),
+            created_at: event.createdAt ?? event.created_at ?? currentNow().toISOString(), // MOCK
             doctor_id,
             doctor_name: doctor_name ?? "",
             end_time: end_time ?? "",
             patient_id: evtPatientId,
             start_time: start_time ?? "",
             status,
-            updated_at: event.updatedAt ?? event.updated_at ?? new Date().toISOString(),
+            // updated_at: event.updatedAt ?? event.updated_at ?? new Date().toISOString(),
+            updated_at: event.updatedAt ?? event.updated_at ?? currentNow().toISOString(), // MOCK
         }
 
         return { appointment, needsFetch }
@@ -290,14 +292,16 @@ export default function PatientDashboard() {
                 clinic_name: data.clinicName ?? data.clinic_name ?? "",
                 clinic_type: data.clinicType ?? data.clinic_type ?? "",
                 clinic_address: data.clinicAddress ?? "",
-                created_at: data.createdAt ?? data.created_at ?? new Date().toISOString(),
+                // created_at: data.createdAt ?? data.created_at ?? new Date().toISOString(),
+                created_at: data.createdAt ?? data.created_at ?? currentNow().toISOString(), // MOCK
                 doctor_id: data.doctorId ?? data.doctor_id ?? "",
                 doctor_name: data.doctorName ?? data.doctor_name ?? "",
                 end_time: data.endTime ?? data.end_time ?? "",
                 patient_id: data.patientId ?? data.patient_id ?? "",
                 start_time: data.startTime ?? data.start_time ?? "",
                 status: (data.status ?? "").toUpperCase(),
-                updated_at: data.updatedAt ?? data.updated_at ?? new Date().toISOString(),
+                // updated_at: data.updatedAt ?? data.updated_at ?? new Date().toISOString(),
+                updated_at: data.updatedAt ?? data.updated_at ?? currentNow().toISOString(), // MOCK
             }
         } catch (e) {
             console.warn("Failed to fetch appointment by id:", id, e)
@@ -472,6 +476,7 @@ export default function PatientDashboard() {
                 }
             })
 
+            console.log('[fetchAppointments] Loaded appointments:', enrichedAppointments.map((a: Appointment) => ({ id: a.appointment_id, status: a.status })));
             setAppointments(enrichedAppointments)
         } catch (err) {
             console.error("Error fetching appointments:", err)
@@ -783,12 +788,24 @@ export default function PatientDashboard() {
                     const gpClinics = gpClinicsRes.ok ? await gpClinicsRes.json() : [];
                     const specialistClinics = specialistClinicsRes.ok ? await specialistClinicsRes.json() : [];
 
-                    let clinic = gpClinics.find((c: { clinicId: string }) => c.clinicId === appointment.clinic_id)
-                        || specialistClinics.find((c: { ihpClinicId: string }) => c.ihpClinicId === appointment.clinic_id);
+                    let clinic = gpClinics.find((c: { clinicId: string }) => c.clinicId === appointment.clinic_id);
+                    let clinicType = "";
+                    
+                    if (clinic) {
+                        clinicType = "General Practice";
+                    } else {
+                        clinic = specialistClinics.find((c: { ihpClinicId: string }) => c.ihpClinicId === appointment.clinic_id);
+                        if (clinic) {
+                            clinicType = "Specialist";
+                        } else {
+                            clinicType = "Unknown";
+                        }
+                    }
 
                     const enriched = {
                         ...appointment,
-                        clinic_address: clinic?.address || 'Address not available'
+                        clinic_address: clinic?.address || 'Address not available',
+                        clinic_type: clinicType || appointment.clinic_type || ''
                     };
 
                     setAppointments(prev => {
@@ -799,14 +816,37 @@ export default function PatientDashboard() {
                         return [enriched, ...prev];
                     });
                 }
+            }
 
+            // Handle cancellation/no-show FIRST before other status updates
+            if (status === "CANCELLED" || status === "NO_SHOW") {
+                console.log('[socket CANCEL] Removing appointment:', apptId);
+                
+                setAppointments(prev => {
+                    console.log('[socket CANCEL] Prev appointments in state:', prev.map(a => a.appointment_id));
+                    const filtered = prev.filter(a => {
+                        const match = a.appointment_id === apptId;
+                        console.log(`[socket CANCEL] Comparing ${a.appointment_id} === ${apptId}? Match: ${match}`);
+                        return !match;
+                    });
+                    console.log('[socket CANCEL] After filter:', filtered.map(a => a.appointment_id));
+                    return filtered;
+                });
+                
+                setPastAppointments(prev => prev.filter(a => a.appointment_id !== apptId));
+                
+                // Handle check-in UI if this was the checked-in appointment
+                if (checkedInAppointmentId === apptId) {
+                    setIsCheckedIn(false);
+                    setCheckedInAppointmentId(null);
+                    setCheckedInClinicId(null);
+                    setQueueNumber(null);
+                    setCurrentNumber(null);
+                }
                 toast({
-                    title: (status === "CHECKEDIN" || status === "CHECKED-IN")
-                        ? "Walk-in Created"
-                        : "Appointment updated",
-                    description: (status === "CHECKEDIN" || status === "CHECKED-IN")
-                        ? "A walk-in was created for you."
-                        : "Your appointment has been updated.",
+                    variant: "destructive",
+                    title: "Appointment cancelled",
+                    description: "One of your appointments was cancelled.",
                 });
                 return;
             }
@@ -817,18 +857,6 @@ export default function PatientDashboard() {
                     ? { ...a, status }
                     : a
             ));
-
-            if (status === "CANCELLED" || status === "NO_SHOW") {
-                setAppointments(prev => prev.filter(a => a.appointment_id !== apptId));
-                setPastAppointments(prev => prev.filter(a => a.appointment_id !== apptId));
-                // Handle check-in UI...
-                toast({
-                    variant: "destructive",
-                    title: "Appointment cancelled",
-                    description: "One of your appointments was cancelled.",
-                });
-                return;
-            }
 
             if (status === "COMPLETED") {
                 try { fetchPastAppointments(); } catch (e) { }
@@ -841,7 +869,7 @@ export default function PatientDashboard() {
             try { if (sub && typeof sub.unsubscribe === "function") sub.unsubscribe(); } catch (e) { }
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user?.id, checkedInAppointmentId, checkedInClinicId, fetchAppointments, fetchPastAppointments, toast]);
+    }, [user?.id, toast]);
 
 
 
