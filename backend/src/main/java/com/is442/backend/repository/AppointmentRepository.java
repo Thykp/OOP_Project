@@ -54,8 +54,8 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
         @Param("today") LocalDate today
     );
 
-    // Upcoming should include SCHEDULED and CHECKED-IN (and keep future dates)
-    @Query("SELECT a FROM Appointment a WHERE (a.status = 'SCHEDULED' OR a.status = 'CHECKED-IN') " +
+    // Upcoming should include SCHEDULED, CHECKED-IN, and IN_CONSULTATION (and keep future dates)
+    @Query("SELECT a FROM Appointment a WHERE (a.status = 'SCHEDULED' OR a.status = 'CHECKED-IN' OR a.status = 'IN_CONSULTATION') " +
            "AND a.bookingDate >= :today " +
            "ORDER BY a.bookingDate, a.startTime")
     List<Appointment> findUpcomingAppointments(

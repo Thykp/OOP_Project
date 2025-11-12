@@ -143,6 +143,14 @@ public class TreatmentNoteService {
         TreatmentNote note = treatmentNoteRepository.findById(noteId)
                 .orElseThrow(() -> new RuntimeException("Treatment note not found with ID: " + noteId));
         
+        // Validate appointment is completed (not NO_SHOW)
+        Appointment appointment = appointmentRepository.findById(note.getAppointmentId())
+                .orElseThrow(() -> new RuntimeException("Appointment not found"));
+        
+        if (!"COMPLETED".equals(appointment.getStatus())) {
+            throw new RuntimeException("Treatment notes can only be updated for completed appointments");
+        }
+        
         if (request.getNoteType() != null && !request.getNoteType().isBlank()) {
             note.setNoteType(request.getNoteType());
         }
@@ -151,28 +159,27 @@ public class TreatmentNoteService {
             note.setNotes(request.getNotes());
         }
         
-    TreatmentNote updated = treatmentNoteRepository.save(note);
-    Appointment appointment = appointmentRepository.findById(updated.getAppointmentId())
-        .orElse(null);
-    Doctor doctor = appointment != null 
-        ? doctorRepository.findByDoctorId(appointment.getDoctorId()).orElse(null)
-        : null;
-    TreatmentNoteResponse response = toResponse(updated, appointment, doctor);
-    if (messagingTemplate != null) {
-        try {
-        messagingTemplate.convertAndSend("/topic/appointments/treatment-notes", java.util.Map.of(
-            "appointmentId", response.getAppointmentId(),
-            "noteId", response.getId(),
-            "noteType", response.getNoteType(),
-            "notes", response.getNotes(),
-            "createdByName", response.getCreatedByName(),
-            "updatedAt", response.getUpdatedAt()
-        ));
-        } catch (Exception e) {
-        // swallow
+        TreatmentNote updated = treatmentNoteRepository.save(note);
+        Doctor doctor = appointment != null 
+                ? doctorRepository.findByDoctorId(appointment.getDoctorId()).orElse(null)
+                : null;
+        TreatmentNoteResponse response = toResponse(updated, appointment, doctor);
+        // Broadcast updated treatment note (minimal payload for clients)
+        if (messagingTemplate != null) {
+            try {
+                messagingTemplate.convertAndSend("/topic/appointments/treatment-notes", java.util.Map.of(
+                        "appointmentId", response.getAppointmentId(),
+                        "noteId", response.getId(),
+                        "noteType", response.getNoteType(),
+                        "notes", response.getNotes(),
+                        "createdByName", response.getCreatedByName(),
+                        "updatedAt", response.getUpdatedAt()
+                ));
+            } catch (Exception e) {
+                // swallow to avoid impacting main flow
+            }
         }
-    }
-    return response;
+        return response;
     }
     
     /**
