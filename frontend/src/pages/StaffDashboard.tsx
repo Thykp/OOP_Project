@@ -26,7 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/context/auth-context"
-import { connectSocket, disconnectSocket, subscribeToAppointmentStatus, subscribeToSlots, subscribeToTreatmentNotes, fetchQueueState, subscribeToQueueState } from "@/lib/socket"
+import { connectSocket, disconnectSocket, fetchQueueState, subscribeToAppointmentStatus, subscribeToQueueState, subscribeToSlots, subscribeToTreatmentNotes } from "@/lib/socket"
 import { cn } from "@/lib/utils"
 import { AlertTriangle, Calendar as CalendarIcon, CheckCircle, CheckCircle2, Clock, FileText, User, UserPlus } from "lucide-react"
 import { useEffect, useState, useRef } from "react"
@@ -147,6 +147,10 @@ export default function StaffDashboard() {
 
   const navigate = useNavigate()
 
+    // const REAL_NOW = new Date();
+    const MOCK_NOW = new Date(2025, 10, 13, 13, 0, 0) // MOCK: 13 Nov 2025 1:00 PM local (comment this and use REAL_NOW to revert)
+    const nowTime = () => MOCK_NOW
+
   const doctorCache = useRef<Map<string, string>>(new Map())
   const clinicCache = useRef<Map<string, string>>(new Map())
   const patientCache = useRef<Map<string, string>>(new Map())
@@ -236,8 +240,9 @@ export default function StaffDashboard() {
           status: normalizeStatus(appt.status),
         }))
 
-        const today = new Date()
-        today.setHours(0, 0, 0, 0) // Set to start of today
+                // const today = new Date()
+                const today = new Date(nowTime())
+                today.setHours(0, 0, 0, 0) // Set to start of today
 
         const filteredData = normalized.filter(appt => {
           // Filter by clinic - check both clinic_id and clinic_name for better matching
@@ -615,13 +620,14 @@ export default function StaffDashboard() {
       y = dt.getFullYear(); m = dt.getMonth() + 1; d = dt.getDate()
     }
 
-    const now = new Date()
-    return (
-      now.getFullYear() === y &&
-      now.getMonth() + 1 === m &&
-      now.getDate() === d
-    )
-  }
+    // const now = new Date()
+    const now = nowTime()
+        return (
+            now.getFullYear() === y &&
+            now.getMonth() + 1 === m &&
+            now.getDate() === d
+        )
+    }
 
   const canAccessNoShow = (appt: Appointment): boolean => {
     if (!appt) return false;
@@ -662,8 +668,9 @@ export default function StaffDashboard() {
       return false;
     }
 
-    const start = new Date(y, m - 1, d, hh, mm, 0, 0);
-    const now = new Date();
+        const start = new Date(y, m - 1, d, hh, mm, 0, 0);
+    // const now = new Date();
+    const now = nowTime();
 
     // Allow access to "No Show" if current time >= appt start time
     return now >= start;
@@ -970,18 +977,19 @@ export default function StaffDashboard() {
         if (!res.ok) throw new Error("Failed to fetch available slots")
         const data = await res.json()
 
-        const now = new Date()
-        const currentMinutes = now.getHours() * 60 + now.getMinutes()
-        function parseTimeToMinutes(timeStr: string): number {
-          const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i)
-          if (!match) return 0
-          let [, h, m, period] = match
-          let hours = parseInt(h)
-          const minutes = parseInt(m)
-          if (period?.toUpperCase() === "PM" && hours < 12) hours += 12
-          if (period?.toUpperCase() === "AM" && hours === 12) hours = 0
-          return hours * 60 + minutes
-        }
+                // const now = new Date()
+                const now = nowTime()
+                const currentMinutes = now.getHours() * 60 + now.getMinutes()
+                function parseTimeToMinutes(timeStr: string): number {
+                    const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i)
+                    if (!match) return 0
+                    let [, h, m, period] = match
+                    let hours = parseInt(h)
+                    const minutes = parseInt(m)
+                    if (period?.toUpperCase() === "PM" && hours < 12) hours += 12
+                    if (period?.toUpperCase() === "AM" && hours === 12) hours = 0
+                    return hours * 60 + minutes
+                }
 
         const filtered = (data || [])
           .map((entry: any) => {
@@ -1000,28 +1008,30 @@ export default function StaffDashboard() {
         setWalkInAvailableDates(filtered)
         setWalkInHighlightedDates(filtered.map((d: any) => new Date(d.date)))
 
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        const maxDate = new Date()
-        maxDate.setDate(today.getDate() + 7 * 8)
-        const allDates: Date[] = []
-        for (let d = new Date(today); d <= maxDate; d.setDate(d.getDate() + 1)) {
-          allDates.push(new Date(d))
+                // const today = new Date()
+                const today = new Date(nowTime())
+                today.setHours(0, 0, 0, 0)
+                // const maxDate = new Date()
+                const maxDate = new Date(today)
+                maxDate.setDate(today.getDate() + 7 * 8)
+                const allDates: Date[] = []
+                for (let d = new Date(today); d <= maxDate; d.setDate(d.getDate() + 1)) {
+                    allDates.push(new Date(d))
+                }
+                const highlightedStrings = new Set(
+                    filtered.map((d: any) => new Date(d.date).toDateString())
+                )
+                const unavailable = allDates.filter(d => !highlightedStrings.has(d.toDateString()))
+                setWalkInUnavailableDates(unavailable)
+            } catch (err) {
+                console.error("Error fetching walk-in slots:", err)
+                toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: "Failed to fetch available slots. Please try again.",
+                })
+            }
         }
-        const highlightedStrings = new Set(
-          filtered.map((d: any) => new Date(d.date).toDateString())
-        )
-        const unavailable = allDates.filter(d => !highlightedStrings.has(d.toDateString()))
-        setWalkInUnavailableDates(unavailable)
-      } catch (err) {
-        console.error("Error fetching walk-in slots:", err)
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to fetch available slots. Please try again.",
-        })
-      }
-    }
 
     ensureDoctorsAndFetch()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1149,21 +1159,22 @@ export default function StaffDashboard() {
       // Ensure this event is for this staff's clinic
       if (!staffClinicId || event.clinicId !== staffClinicId) return;
 
-      const apptId: string = event.appointmentId;
-      const status: string = (event.status || "").toUpperCase();
+        // Normalize appointment ID to string (handle both camelCase and snake_case)
+        const apptId: string = String(event.appointmentId ?? event.appointment_id ?? "");
+        const status: string = (event.status || "").toUpperCase();
 
-      if (status === "CANCELLED" || status === "NO_SHOW") {
-        // remove from lists
-        setAppointments((prev) => prev.filter(a => a.appointment_id !== apptId));
-        setQueueAppointments((prev) => prev.filter(q => q.appointment_id !== apptId));
-        setCompletedAppointments((prev) => prev.filter(a => a.appointment_id !== apptId));
-        toast({
-          variant: "destructive",
-          title: "Appointment Cancelled",
-          description: "An appointment was cancelled.",
-        })
-        return;
-      }
+        if (status === "CANCELLED" || status === "NO_SHOW") {
+            // remove from lists - normalize both sides of comparison to string
+            setAppointments((prev) => prev.filter(a => String(a.appointment_id) !== apptId));
+            setQueueAppointments((prev) => prev.filter(q => String(q.appointment_id) !== apptId));
+            setCompletedAppointments((prev) => prev.filter(a => String(a.appointment_id) !== apptId));
+             toast({
+                variant: "destructive",
+                title: "Appointment Cancelled",
+                description: "An appointment was cancelled.",
+            })
+            return;
+        }
 
       // Handle reschedule or new schedule: update in place if present, otherwise fetch
       if (status === "RESCHEDULED" || status === "SCHEDULED") {
@@ -1172,12 +1183,12 @@ export default function StaffDashboard() {
         const startTime = event.startTime ?? event.start_time
         const endTime = event.endTime ?? event.end_time
         setAppointments(prev => {
-          const exists = prev.some(a => a.appointment_id === apptId)
+          const exists = prev.some(a => String(a.appointment_id) === apptId)
           if (exists) {
-            return prev.map(a => a.appointment_id === apptId ? { ...a, booking_date: bookingDate ?? a.booking_date, start_time: startTime ?? a.start_time, end_time: endTime ?? a.end_time, status: status } : a)
+            return prev.map(a => String(a.appointment_id) === apptId ? { ...a, booking_date: bookingDate ?? a.booking_date, start_time: startTime ?? a.start_time, end_time: endTime ?? a.end_time, status: status } : a)
           }
           // Insert minimal record if not present so UI updates immediately
-          const newAppt: any = {
+              const newAppt: any = {
             appointment_id: apptId,
             booking_date: bookingDate ?? "",
             clinic_id: event.clinicId ?? event.clinicId ?? null,
@@ -1188,8 +1199,10 @@ export default function StaffDashboard() {
             start_time: startTime ?? null,
             end_time: endTime ?? null,
             patient_name: event.patientName ?? event.patient_name ?? null, status,
-            created_at: event.createdAt ?? event.created_at ?? new Date().toISOString(),
-            updated_at: new Date().toISOString()
+                // created_at: event.createdAt ?? event.created_at ?? new Date().toISOString(),
+                // updated_at: new Date().toISOString()
+                        created_at: event.createdAt ?? event.created_at ?? nowTime().toISOString(), // MOCK
+                        updated_at: nowTime().toISOString() // MOCK
           }
           return [newAppt, ...prev]
         })
@@ -1198,8 +1211,8 @@ export default function StaffDashboard() {
       }
 
       // For other status updates (CHECKED-IN, COMPLETED, IN_CONSULTATION) update existing entries
-      setAppointments((prev) => prev.map(a => a.appointment_id === apptId ? { ...a, status } : a));
-      setQueueAppointments((prev) => prev.map(q => q.appointment_id === apptId ? { ...q, status } : q));
+      setAppointments((prev) => prev.map(a => String(a.appointment_id) === apptId ? { ...a, status } : a));
+      setQueueAppointments((prev) => prev.map(q => String(q.appointment_id) === apptId ? { ...q, status } : q));
     };
 
     // If you have a helper subscribe function (subscribeToAppointmentStatus), use it:

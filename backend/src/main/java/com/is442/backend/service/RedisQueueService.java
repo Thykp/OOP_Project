@@ -16,7 +16,6 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.*;
 
@@ -46,8 +45,9 @@ public class RedisQueueService {
     }
 
     private final StringRedisTemplate strTpl; // strings, hashes, zsets
+    @SuppressWarnings("unused")
     private final RedisTemplate<String, Object> jsonTpl; // (unused here but kept)
-    private final DefaultRedisScript<List> dequeueScript; // Lua: [pid, nowServing, k1,v1,...]
+    private final DefaultRedisScript<List<Object>> dequeueScript; // Lua: [pid, nowServing, k1,v1,...]
 
     @Autowired
     private UserService userService;
@@ -68,7 +68,7 @@ public class RedisQueueService {
 
     public RedisQueueService(StringRedisTemplate strTpl,
             RedisTemplate<String, Object> jsonTpl,
-            DefaultRedisScript<List> dequeueScript) {
+            DefaultRedisScript<List<Object>> dequeueScript) {
         this.strTpl = strTpl;
         this.jsonTpl = jsonTpl;
         this.dequeueScript = dequeueScript;
@@ -154,7 +154,8 @@ public class RedisQueueService {
         meta.put("phone", user.getPhone());
         meta.put("email", user.getEmail());
         meta.put("name", user.getFirstName() + " " + user.getLastName());
-        meta.put("createdAt", Instant.now().toString());
+    // meta.put("createdAt", Instant.now().toString());
+    meta.put("createdAt", "2025-11-13T13:00:00Z"); // MOCK: fixed demo instant
 
         // 3) Validate and fetch doctor information if provided
         if (doctorId != null && !doctorId.trim().isEmpty()) {

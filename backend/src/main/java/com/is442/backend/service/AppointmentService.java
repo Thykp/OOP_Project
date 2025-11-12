@@ -60,7 +60,8 @@ public class AppointmentService {
      */
     private void validateAdvanceNotice(Appointment appointment) {
         LocalDateTime appointmentDateTime = LocalDateTime.of(appointment.getBookingDate(), appointment.getStartTime());
-        LocalDateTime now = LocalDateTime.now();
+        // LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.of(2025, 11, 13, 13, 0, 0); // MOCK: fixed demo time (comment out to use real now)
         LocalDateTime minimumTime = now.plusHours(24);
 
         if (appointmentDateTime.isBefore(minimumTime)) {
@@ -278,7 +279,8 @@ public class AppointmentService {
 
     @Transactional(readOnly = true)
     public List<AppointmentResponse> getUpcomingAppointments(String patientId) {
-        LocalDate today = LocalDate.now();
+        // LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.of(2025, 11, 13); // MOCK: fixed demo date (comment out to use real today)
         return appointmentRepository.findUpcomingAppointmentsByPatient(patientId, today).stream()
                 .map(appointment -> {
                     Optional<Doctor> docOpt = doctorRepository.findByDoctorId(appointment.getDoctorId());
@@ -309,7 +311,8 @@ public class AppointmentService {
 
     @Transactional(readOnly = true)
     public List<AppointmentResponse> getUpcomingAppointments() {
-        LocalDate today = LocalDate.now();
+        // LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.of(2025, 11, 13); // MOCK: fixed demo date (comment out to use real today)
         return appointmentRepository.findUpcomingAppointments(today).stream()
                 .map(appointment -> {
                     Optional<Doctor> docOpt = doctorRepository.findByDoctorId(appointment.getDoctorId());
@@ -619,12 +622,16 @@ public class AppointmentService {
             return;
         }
 
-        LocalDate today = LocalDate.now();
-        LocalTime now = LocalTime.now();
-        // end_time can be null for walk-in appointments but has some issues, we put an
-        // estimated end time first
-        LocalTime endTime = LocalTime.now().plusHours(1);
-        LocalDateTime createdAt = LocalDateTime.now();
+    // LocalDate today = LocalDate.now();
+    LocalDate today = LocalDate.of(2025, 11, 13); // MOCK: fixed demo date
+    // LocalTime now = LocalTime.now();
+    LocalTime now = LocalTime.of(13, 0, 0); // MOCK: fixed demo time
+    // end_time can be null for walk-in appointments but has some issues, we put an
+    // estimated end time first
+    // LocalTime endTime = LocalTime.now().plusHours(1);
+    LocalTime endTime = now.plusHours(1); // MOCK: derive from fixed demo time
+    // LocalDateTime createdAt = LocalDateTime.now();
+    LocalDateTime createdAt = LocalDateTime.of(2025, 11, 13, 13, 0, 0); // MOCK: fixed demo timestamp
 
         // Use native SQL INSERT to bypass Hibernate's entity management
         // This allows us to manually set the UUID without conflicts with
@@ -641,7 +648,7 @@ public class AppointmentService {
         query.setParameter(5, today);
         query.setParameter(6, now);
         query.setParameter(7, endTime);
-        query.setParameter(8, "CHECKED-IN");
+        query.setParameter(8, "SCHEDULED");
         query.setParameter(9, "WALK_IN");
         query.setParameter(10, createdAt);
         query.setParameter(11, createdAt);
@@ -649,7 +656,7 @@ public class AppointmentService {
         try {
             query.executeUpdate();
             entityManager.flush();
-            logger.info("Successfully created walk-in appointment: appointmentId={}, status=CHECKED-IN",
+            logger.info("Successfully created walk-in appointment: appointmentId={}, status=SCHEDULED",
                     appointmentId);
 
             String doctorName = "";
@@ -666,11 +673,11 @@ public class AppointmentService {
             } catch (Exception e) {
                 logger.warn("Failed to resolve doctor/clinic names for walk-in publish: {}", e.getMessage());
             }
-            // Broadcast new walk-in as CHECKED-IN so dashboards update
+            // Broadcast new walk-in as SCHEDULED so dashboards update
            try {
                     messagingTemplate.convertAndSend("/topic/appointments/status", java.util.Map.ofEntries(
                             java.util.Map.entry("appointmentId", appointmentId.toString()),
-                            java.util.Map.entry("status", "CHECKED-IN"),
+                            java.util.Map.entry("status", "SCHEDULED"),
                             java.util.Map.entry("clinicId", clinicId),
                             java.util.Map.entry("clinicName", clinicName),
                             java.util.Map.entry("patientId", patientId),

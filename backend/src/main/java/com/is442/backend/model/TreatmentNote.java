@@ -42,13 +42,16 @@ public class TreatmentNote {
     
     @PrePersist
     protected void onCreate() {
-        createdAt = OffsetDateTime.now();
-        updatedAt = OffsetDateTime.now();
+        // createdAt = OffsetDateTime.now();
+        // updatedAt = OffsetDateTime.now();
+        createdAt = OffsetDateTime.of(2025, 11, 13, 13, 0, 0, 0, java.time.ZoneOffset.UTC); // MOCK
+        updatedAt = createdAt; // MOCK
     }
     
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = OffsetDateTime.now();
+        // updatedAt = OffsetDateTime.now();
+        updatedAt = OffsetDateTime.of(2025, 11, 13, 13, 0, 0, 0, java.time.ZoneOffset.UTC); // MOCK
     }
     
     // Getters and Setters
