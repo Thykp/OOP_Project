@@ -95,8 +95,6 @@ const convertQueueStateToItems = (state: { clinicId: string; queueItems: Array<{
         updated_at: item.createdAt,
         queueNumber: item.queueNumber,
         position: item.position,
-        // isFastTrack: position 1 with other items in queue suggests fast-track, but we'll reset it on updates
-        // Since fast-track moves to position 1, we can infer it's fast-tracked if position is 1 and queue has multiple items
         isFastTrack: item.position === 1 && state.queueItems.length > 1,
     }))
 }
@@ -166,7 +164,7 @@ export default function StaffDashboard() {
         return () => controller.abort()
     }, [user?.id, baseURL])
 
-    // Fetch appointments for staff's clinic only
+    // Fetch appointments for staff's clinic only with enhanced filtering
     const fetchAppointments = () => {
         setLoading(true)
         const endpoint = staffClinicId
@@ -189,22 +187,71 @@ export default function StaffDashboard() {
                     status: normalizeStatus(appt.status),
                 }))
 
+                const today = new Date()
+                today.setHours(0, 0, 0, 0) // Set to start of today
+
                 const filteredData = normalized.filter(appt => {
+                    // Filter by clinic - check both clinic_id and clinic_name for better matching
+                    let clinicMatch = false
+
                     if (staffClinicId) {
-                        return appt.clinic_id === staffClinicId
+                        // Primary match: exact clinic_id match
+                        clinicMatch = appt.clinic_id === staffClinicId
+                        // Fallback: also check clinic_name if clinic_id doesn't match (in case of data inconsistency)
+                        if (!clinicMatch && appt.clinic_name && staffClinicName) {
+                            clinicMatch = appt.clinic_name.toLowerCase().trim() === staffClinicName.toLowerCase().trim()
+                        }
+                    } else if (staffClinicName) {
+                        // Match by clinic_name (case-insensitive, trimmed)
+                        clinicMatch = !!(appt.clinic_name &&
+                            appt.clinic_name.toLowerCase().trim() === staffClinicName.toLowerCase().trim())
+                    } else {
+                        // No clinic filter - show all (shouldn't happen in normal operation)
+                        clinicMatch = true
                     }
-                    if (staffClinicName) {
-                        return (
-                            appt.clinic_name &&
-                            appt.clinic_name.toLowerCase() === staffClinicName.toLowerCase()
-                        )
+
+                    if (!clinicMatch) return false
+
+                    // Filter out past appointments (unless they're IN_CONSULTATION or COMPLETED)
+                    // Only show SCHEDULED, CHECKED-IN, or IN_CONSULTATION appointments that are today or future
+                    const validStatuses = ["SCHEDULED", "CHECKED_IN", "CHECKED-IN", "CHECKED IN", "IN_CONSULTATION"]
+                    const hasValidStatus = validStatuses.includes(appt.status)
+
+                    if (!hasValidStatus) return false
+
+                    // Parse appointment date
+                    let appointmentDate: Date
+                    if (Array.isArray(appt.booking_date)) {
+                        const [year, month, day] = appt.booking_date
+                        appointmentDate = new Date(year, month - 1, day)
+                    } else if (typeof appt.booking_date === "string") {
+                        // Handle string dates (YYYY-MM-DD format)
+                        const dateStr = appt.booking_date.substring(0, 10)
+                        const [year, month, day] = dateStr.split("-").map(Number)
+                        appointmentDate = new Date(year, month - 1, day)
+                    } else {
+                        appointmentDate = new Date(appt.booking_date)
                     }
-                    return true
+
+                    appointmentDate.setHours(0, 0, 0, 0)
+
+                    // Include appointments from today onwards
+                    const isTodayOrFuture = appointmentDate >= today
+
+                    return isTodayOrFuture
                 })
 
                 console.log("appointments raw:", normalized.length, "filtered:", filteredData.length, {
                     staffClinicId,
                     staffClinicName,
+                    staffPosition,
+                    today: today.toISOString().split("T")[0],
+                    sampleAppointments: normalized.slice(0, 3).map(a => ({
+                        clinic_id: a.clinic_id,
+                        clinic_name: a.clinic_name,
+                        status: a.status,
+                        booking_date: a.booking_date
+                    }))
                 })
 
                 // Sort by booking date and start time ascending (earliest first)
@@ -268,8 +315,18 @@ export default function StaffDashboard() {
         }
     }
 
-    // Open treatment notes dialog
+    // Open treatment notes dialog with NO_SHOW validation
     const handleAddNotes = async (appointment: Appointment) => {
+        // Prevent adding notes for NO_SHOW appointments
+        if (appointment.status === "NO_SHOW") {
+            toast({
+                variant: "destructive",
+                title: "Cannot Add Treatment Notes",
+                description: "Treatment notes cannot be added for no-show appointments.",
+            })
+            return
+        }
+
         setSelectedAppointment(appointment)
 
         try {
@@ -292,9 +349,19 @@ export default function StaffDashboard() {
         setShowNotesDialog(true)
     }
 
-    // Save treatment notes (create new or update existing)
+    // Save treatment notes (create new or update existing) with NO_SHOW validation
     const handleSaveNotes = async () => {
         if (!selectedAppointment) return
+
+        // Prevent saving notes for NO_SHOW appointments
+        if (selectedAppointment.status === "NO_SHOW") {
+            toast({
+                variant: "destructive",
+                title: "Cannot Save Treatment Notes",
+                description: "Treatment notes cannot be saved for no-show appointments.",
+            })
+            return
+        }
 
         if (!notes || notes.trim() === "") {
             toast({
@@ -440,13 +507,23 @@ export default function StaffDashboard() {
             })
     }
 
-    // Helper: normalize date to "YYYY-MM-DD" for filtering
+    // Helper: normalize date to "YYYY-MM-DD" for filtering (improved version)
     const toIsoDate = (value: string | number[] | Date) => {
         if (Array.isArray(value)) {
             const [year, month, day] = value
             return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
         }
+        // If it's already a string in YYYY-MM-DD format, return it directly
+        if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+            return value.substring(0, 10) // Extract just the date part (YYYY-MM-DD)
+        }
+        // Otherwise, parse it as a Date
         const d = new Date(value)
+        // Check if date is valid
+        if (isNaN(d.getTime())) {
+            console.warn("Invalid date value:", value)
+            return ""
+        }
         const y = d.getFullYear()
         const m = String(d.getMonth() + 1).padStart(2, "0")
         const day = String(d.getDate()).padStart(2, "0")
@@ -543,11 +620,11 @@ export default function StaffDashboard() {
 
 
 
-    // Filter Function
+    // Filter Function with IN_CONSULTATION support
     const filteredAppointments = appointments.filter(appt => {
-        // Restrict upcoming to SCHEDULED and CHECKED-IN only
+        // Restrict upcoming to SCHEDULED, CHECKED-IN, and IN_CONSULTATION
         const norm = normalizeStatus(appt.status)
-        const statusMatch = norm === "SCHEDULED" || norm === "CHECKED-IN"
+        const statusMatch = norm === "SCHEDULED" || norm === "CHECKED-IN" || norm === "IN_CONSULTATION"
         const doctorMatch = filterDoctor === "All" || appt.doctor_id === filterDoctor
         const targetDate = dateToYMD(filterDate)
         const dateMatch = !targetDate || toIsoDate(appt.booking_date) === targetDate
@@ -582,6 +659,7 @@ export default function StaffDashboard() {
         if (u === "CHECKED-IN") return "CHECKED-IN"
         if (u === "COMPLETED") return "COMPLETED"
         if (u === "NO-SHOW") return "NO_SHOW"
+        if (u === "IN-CONSULTATION") return "IN_CONSULTATION"
         return u
     }
 
@@ -1654,7 +1732,13 @@ export default function StaffDashboard() {
                                                                                 appt.status === "CHECKED-IN" ||
                                                                                 appt.status === "CHECKED IN"
                                                                                 ? "bg-blue-100 text-blue-700"
-                                                                                : "bg-gray-100 text-gray-700"
+                                                                                : appt.status === "IN_CONSULTATION"
+                                                                                    ? "bg-purple-100 text-purple-700"
+                                                                                    : appt.status === "COMPLETED"
+                                                                                        ? "bg-green-100 text-green-700"
+                                                                                        : appt.status === "NO_SHOW"
+                                                                                            ? "bg-red-100 text-red-700"
+                                                                                            : "bg-gray-100 text-gray-700"
                                                                             }`}
                                                                     >
                                                                         {appt.status.replace("_", " ")}
@@ -1711,7 +1795,8 @@ export default function StaffDashboard() {
                                                             )}
                                                             {(appt.status === "CHECKED_IN" ||
                                                                 appt.status === "CHECKED IN" ||
-                                                                appt.status === "CHECKED-IN") &&
+                                                                appt.status === "CHECKED-IN" ||
+                                                                appt.status === "IN_CONSULTATION") &&
                                                                 staffPosition === "nurse" && (
                                                                     <Button
                                                                         size="sm"
@@ -1810,7 +1895,7 @@ export default function StaffDashboard() {
                                                                 )}
                                                             </div>
                                                         </div>
-                                                        {staffPosition === "nurse" && (
+                                                        {staffPosition === "nurse" && appt.status === "COMPLETED" && (
                                                             <Button
                                                                 size="sm"
                                                                 variant="outline"
