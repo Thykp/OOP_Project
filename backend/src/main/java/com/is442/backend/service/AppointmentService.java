@@ -234,8 +234,8 @@ public class AppointmentService {
                     }
 
                     // ---- patient info ----
-                    Optional<Patient> patientOpt =
-                            patientRepository.findBysupabaseUserId(UUID.fromString(appointment.getPatientId()));
+                    Optional<Patient> patientOpt = patientRepository
+                            .findBysupabaseUserId(UUID.fromString(appointment.getPatientId()));
 
                     String patientName;
                     if (patientOpt.isPresent()) {
@@ -251,8 +251,7 @@ public class AppointmentService {
                             doctorName,
                             clinicName,
                             patientName,
-                            clinicType
-                    );
+                            clinicType);
                 })
                 .collect(Collectors.toList());
     }
@@ -430,6 +429,69 @@ public class AppointmentService {
         validateAdvanceNotice(appointment);
 
         appointmentRepository.deleteById(id);
+    }
+
+    // For receptionist - can cancel anytime before the appt
+    public void deleteAppt(UUID id) {
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Appointment not found with id: " + id));
+
+        appointmentRepository.deleteById(id);
+    }
+
+    // For receptionist - can reschdule anytime before the appt
+    public AppointmentResponse rescheduleAppt(UUID id, RescheduleRequest request) {
+        // Find the existing appointment
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Appointment not found with id: " + id));
+
+        // Check for conflicts with the new time slot
+        List<Appointment> conflicts = appointmentRepository.findConflictingAppointments(
+                request.getDoctorId(),
+                request.getBookingDate(),
+                request.getStartTime(),
+                request.getEndTime());
+
+        // Filter out the current appointment from conflicts
+        conflicts = conflicts.stream()
+                .filter(conflict -> !conflict.getAppointmentId().equals(id))
+                .collect(Collectors.toList());
+
+        if (!conflicts.isEmpty()) {
+            throw new RuntimeException("Doctor already has an appointment during this time slot");
+        }
+
+        // Update appointment details
+        appointment.setDoctorId(request.getDoctorId());
+        appointment.setClinicId(request.getClinicId());
+        appointment.setBookingDate(request.getBookingDate());
+        appointment.setStartTime(request.getStartTime());
+        appointment.setEndTime(request.getEndTime());
+        // Keep status as SCHEDULED so it appears in upcoming appointments
+
+        // Save the updated appointment
+        Appointment updated = appointmentRepository.save(appointment);
+
+        // Get doctor details for response
+        Optional<Doctor> docOpt = doctorRepository.findByDoctorId(updated.getDoctorId());
+        String doctorName = "Unknown";
+        String clinicName = "Unknown";
+        String clinicType = "Unknown";
+
+        if (docOpt.isPresent()) {
+            Doctor doc = docOpt.get();
+            doctorName = (doc.getDoctorName() != null) ? doc.getDoctorName() : "Unknown";
+            clinicName = (doc.getClinicName() != null) ? doc.getClinicName() : "Unknown";
+
+            String speciality = doc.getSpeciality();
+            if (speciality != null && speciality.toUpperCase().contains("GENERAL PRACTICE")) {
+                clinicType = "General Practice";
+            } else {
+                clinicType = "Specialist Clinic";
+            }
+        }
+
+        return new AppointmentResponse(updated, doctorName, clinicName, clinicType);
     }
 
     /**

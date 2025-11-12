@@ -165,4 +165,33 @@ public class AppointmentController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    // For receptionist - can cancel anytime before the appt
+    @DeleteMapping("/staff/{id}")
+    public ResponseEntity<?> deleteAppt(@PathVariable UUID id) {
+        try {
+            appointmentService.deleteAppt(id);
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ErrorResponse(e.getMessage()));
+        }
+    }
+
+    // For receptionist - can cancel anytime before the appt
+    @PatchMapping("/{id}/reschedule/staff")
+    public ResponseEntity<?> rescheduleAppt(
+            @PathVariable UUID id,
+            @Valid @RequestBody RescheduleRequest request) {
+        try {
+            AppointmentResponse response = appointmentService.rescheduleAppt(id, request);
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            if (e.getMessage().contains("time slot")) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(new ErrorResponse(e.getMessage()));
+            }
+            return ResponseEntity.notFound().build();
+        }
+    }
 }

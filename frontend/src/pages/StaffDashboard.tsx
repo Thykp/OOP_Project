@@ -30,6 +30,19 @@ import { connectSocket, disconnectSocket, subscribeToSlots } from "@/lib/socket"
 import { cn } from "@/lib/utils"
 import { AlertTriangle, Calendar as CalendarIcon, CheckCircle, CheckCircle2, Clock, FileText, User, UserPlus } from "lucide-react"
 import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
+
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface Appointment {
   appointment_id: string
@@ -96,12 +109,19 @@ export default function StaffDashboard() {
   type WalkInSlot = { time: string; doctorId: string; doctorName: string; clinicId?: string }
   const [walkInSelectedSlot, setWalkInSelectedSlot] = useState<WalkInSlot | null>(null)
 
+  // cancel dialog state
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [appointmentToCancel, setAppointmentToCancel] = useState<Appointment | null>(null)
+
   const baseURL = import.meta.env.VITE_API_BASE_URL
 
   // Resolve staff clinic info: prefer backend value over metadata
   const [staffClinicId, setStaffClinicId] = useState<string | undefined>(user?.user_metadata?.clinicId)
   const [staffClinicName, setStaffClinicName] = useState<string | undefined>(user?.user_metadata?.clinicName)
   const staffPosition = user?.user_metadata.position
+
+  const navigate = useNavigate()
+
 
   console.log(staffPosition)
   useEffect(() => {
@@ -115,7 +135,7 @@ export default function StaffDashboard() {
         if (data.clinic_id) setStaffClinicId(data.clinic_id)
         if (data.clinic_name) setStaffClinicName(data.clinic_name)
       })
-      .catch(() => {})
+      .catch(() => { })
     return () => controller.abort()
   }, [user?.id, baseURL])
 
@@ -303,6 +323,59 @@ export default function StaffDashboard() {
     }
   }
 
+  // --- actions ---
+  const handleRescheduleAppointment = (appointment: Appointment) => {
+    navigate("/bookappointment", {
+      state: { rescheduleMode: true, appointmentToReschedule: appointment },
+    })
+  }
+
+  const handleAskCancel = (appointment: Appointment) => {
+    setAppointmentToCancel(appointment)
+    setCancelDialogOpen(true)
+  }
+
+  const confirmCancelAppointment = async () => {
+    if (!appointmentToCancel) return
+    try {
+      const response = await fetch(`${baseURL}/api/appointments/staff/${appointmentToCancel.appointment_id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        if (response.status === 400) {
+          const errorData = await response.json()
+          toast({
+            variant: "destructive",
+            title: "Unable to cancel",
+            description: errorData?.message ?? "Please try again later.",
+          })
+          return
+        }
+        throw new Error("Failed to cancel appointment")
+      }
+
+      toast({
+        variant: "success",
+        title: "Appointment cancelled",
+        description: `${appointmentToCancel.doctor_name} • ${formatDate(
+          appointmentToCancel.booking_date
+        )} ${formatTime(appointmentToCancel.start_time)}`,
+      })
+      setCancelDialogOpen(false)
+      setAppointmentToCancel(null)
+      fetchAppointments()
+    } catch (err) {
+      console.error("Error cancelling appointment:", err)
+      toast({
+        variant: "destructive",
+        title: "Error cancelling appointment",
+        description: "Something went wrong. Please try again.",
+      })
+    }
+  }
+
+
   type DoctorOption = { value: string; label: string }
 
   const [doctorOptions, setDoctorOptions] = useState<DoctorOption[]>([])
@@ -323,8 +396,8 @@ export default function StaffDashboard() {
         const clinicDoctors = staffClinicId
           ? data.filter((doc: any) => doc.clinicId === staffClinicId)
           : staffClinicName
-          ? data.filter((doc: any) => doc.clinicName === staffClinicName)
-          : data
+            ? data.filter((doc: any) => doc.clinicName === staffClinicName)
+            : data
 
         const doctorOptions = clinicDoctors.map((doc: { doctorId: string; doctorName: string }) => ({
           value: doc.doctorId,
@@ -394,15 +467,15 @@ export default function StaffDashboard() {
       mm = Number(arr[1]) || 0
     } else if (typeof appt.start_time === "string") {
       const t = appt.start_time.substring(0, 5)
-      const [hStr, mStr] = t.split(":" )
+      const [hStr, mStr] = t.split(":")
       hh = parseInt(hStr || "0", 10)
       mm = parseInt(mStr || "0", 10)
     } else {
       return false
     }
 
-  const start = new Date(y, (m as number) - 1, d as number, hh, mm, 0, 0)
-  const now = new Date()
+    const start = new Date(y, (m as number) - 1, d as number, hh, mm, 0, 0)
+    const now = new Date()
 
     const sameDay =
       now.getFullYear() === start.getFullYear() &&
@@ -413,6 +486,54 @@ export default function StaffDashboard() {
     const windowStart = new Date(start.getTime() - 2 * 60 * 60 * 1000)
     return now >= windowStart && now <= start
   }
+
+  const canAccessNoShow = (appt: Appointment): boolean => {
+    if (!appt) return false;
+
+    // Get the appt start datetime using previous logic
+    let y: number, m: number, d: number;
+    if (Array.isArray(appt.booking_date)) {
+      [y, m, d] = appt.booking_date as number[];
+    } else if (typeof appt.booking_date === "string") {
+      const match = appt.booking_date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (match) {
+        y = parseInt(match[1], 10);
+        m = parseInt(match[2], 10);
+        d = parseInt(match[3], 10);
+      } else {
+        const dt = new Date(appt.booking_date);
+        if (isNaN(dt.getTime())) return false;
+        y = dt.getFullYear(); m = dt.getMonth() + 1; d = dt.getDate();
+      }
+    } else {
+      const dt = new Date(appt.booking_date as any);
+      if (isNaN(dt.getTime())) return false;
+      y = dt.getFullYear(); m = dt.getMonth() + 1; d = dt.getDate();
+    }
+
+    // Parse start time
+    let hh = 0, mm = 0;
+    if (Array.isArray(appt.start_time)) {
+      const arr = appt.start_time as number[];
+      hh = Number(arr[0]) || 0;
+      mm = Number(arr[1]) || 0;
+    } else if (typeof appt.start_time === "string") {
+      const t = appt.start_time.substring(0, 5);
+      const [hStr, mStr] = t.split(":");
+      hh = parseInt(hStr || "0", 10);
+      mm = parseInt(mStr || "0", 10);
+    } else {
+      return false;
+    }
+
+    const start = new Date(y, m - 1, d, hh, mm, 0, 0);
+    const now = new Date();
+
+    // Allow access to "No Show" if current time >= appt start time
+    return now >= start;
+  };
+
+
 
   // Filter Function
   const filteredAppointments = appointments.filter(appt => {
@@ -471,9 +592,9 @@ export default function StaffDashboard() {
 
         const params = new URLSearchParams({})
         if (staffClinicId) params.set("clinicId", staffClinicId)
-        ;(doctorOptions.length ? doctorOptions : []).forEach(opt =>
-          params.append("doctorId", opt.value)
-        )
+          ; (doctorOptions.length ? doctorOptions : []).forEach(opt =>
+            params.append("doctorId", opt.value)
+          )
 
         const res = await fetch(
           `${baseURL}/api/timeslots/available/dateslots?${params.toString()}`
@@ -704,7 +825,7 @@ export default function StaffDashboard() {
         try {
           const errJson = await res.json()
           if (errJson?.message) message = errJson.message
-        } catch {}
+        } catch { }
         toast({
           variant: "destructive",
           title: "Booking failed",
@@ -783,7 +904,7 @@ export default function StaffDashboard() {
         try {
           const j = await res.json()
           if (j?.message) msg = j.message
-        } catch {}
+        } catch { }
         throw new Error(msg)
       }
       const data = await res.json()
@@ -1175,15 +1296,14 @@ export default function StaffDashboard() {
                                     {formatTime(appt.end_time)}
                                   </span>
                                   <span
-                                    className={`text-xs font-medium px-2 py-0.5 rounded ${
-                                      appt.status === "SCHEDULED"
-                                        ? "bg-yellow-100 text-yellow-700"
-                                        : appt.status === "CHECKED_IN" ||
-                                          appt.status === "CHECKED-IN" ||
-                                          appt.status === "CHECKED IN"
+                                    className={`text-xs font-medium px-2 py-0.5 rounded ${appt.status === "SCHEDULED"
+                                      ? "bg-yellow-100 text-yellow-700"
+                                      : appt.status === "CHECKED_IN" ||
+                                        appt.status === "CHECKED-IN" ||
+                                        appt.status === "CHECKED IN"
                                         ? "bg-blue-100 text-blue-700"
                                         : "bg-gray-100 text-gray-700"
-                                    }`}
+                                      }`}
                                   >
                                     {appt.status.replace("_", " ")}
                                   </span>
@@ -1203,16 +1323,38 @@ export default function StaffDashboard() {
                                       Check In
                                     </Button>
                                   )}
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="text-red-600 hover:bg-red-50"
-                                    onClick={() =>
-                                      updateApptStatus(appt.appointment_id, "NO_SHOW")
-                                    }
-                                  >
-                                    No Show
-                                  </Button>
+                                  {canAccessNoShow(appt) && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-red-600 hover:bg-red-50"
+                                      onClick={() =>
+                                        updateApptStatus(appt.appointment_id, "NO_SHOW")
+                                      }
+                                    >
+                                      No Show
+                                    </Button>
+                                  )}
+                                  {!canAccessNoShow(appt) && (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="border-blue-200 text-blue-600 hover:bg-blue-50"
+                                      onClick={() => handleRescheduleAppointment(appt)}
+                                      >
+                                        Reschedule
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-red-600 hover:bg-red-50"
+                                        onClick={() => handleAskCancel(appt)}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </>
+                                  )}
                                 </>
                               )}
                               {(appt.status === "CHECKED_IN" ||
@@ -1286,13 +1428,12 @@ export default function StaffDashboard() {
                                     {formatTime(appt.end_time)}
                                   </span>
                                   <span
-                                    className={`text-xs font-medium px-2 py-0.5 rounded ${
-                                      appt.status === "COMPLETED"
-                                        ? "bg-green-100 text-green-700"
-                                        : appt.status === "NO_SHOW"
+                                    className={`text-xs font-medium px-2 py-0.5 rounded ${appt.status === "COMPLETED"
+                                      ? "bg-green-100 text-green-700"
+                                      : appt.status === "NO_SHOW"
                                         ? "bg-red-100 text-red-700"
                                         : "bg-gray-100 text-gray-700"
-                                    }`}
+                                      }`}
                                   >
                                     {appt.status.replace("_", " ")}
                                   </span>
@@ -1585,7 +1726,7 @@ export default function StaffDashboard() {
                               className={cn(
                                 "justify-center h-12 transition-all duration-300 border-green-500 px-3 py-2 text-sm",
                                 isSelected &&
-                                  "bg-green-600 hover:bg-green-700 text-white shadow"
+                                "bg-green-600 hover:bg-green-700 text-white shadow"
                               )}
                               onClick={() => setWalkInSelectedSlot(slot)}
                             >
@@ -1703,6 +1844,22 @@ export default function StaffDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Cancel Confirmation Dialog */}
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this appointment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep appointment</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmCancelAppointment}>Cancel appointment</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageLayout>
   )
 }
