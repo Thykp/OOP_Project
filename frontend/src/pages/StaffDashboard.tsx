@@ -29,7 +29,7 @@ import { useAuth } from "@/context/auth-context"
 import { connectSocket, disconnectSocket, fetchQueueState, subscribeToAppointmentStatus, subscribeToQueueState, subscribeToSlots, subscribeToTreatmentNotes } from "@/lib/socket"
 import { cn } from "@/lib/utils"
 import { AlertTriangle, Calendar as CalendarIcon, CheckCircle, CheckCircle2, Clock, FileText, User, UserPlus } from "lucide-react"
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 
@@ -1331,25 +1331,40 @@ export default function StaffDashboard() {
         const startTimeRaw = event.startTime ?? event.start_time
         const endTimeRaw = event.endTime ?? event.end_time
         const bookingDate = normalizeDate(bookingDateRaw)
-        const startTime = normalizeTime(startTimeRaw)
-        const endTime = normalizeTime(endTimeRaw)
+        const startTime = normalizeTime(startTimeRaw) || null  // Convert empty string to null
+        const endTime = normalizeTime(endTimeRaw) || null      // Convert empty string to null
+        
+        // Keep status as SCHEDULED for rescheduled appointments so they remain visible
+        const displayStatus = status === "RESCHEDULED" ? "SCHEDULED" : status
+        
         setAppointments(prev => {
           const exists = prev.some(a => String(a.appointment_id) === apptId)
           if (exists) {
-            return prev.map(a => String(a.appointment_id) === apptId ? { ...a, booking_date: bookingDate || a.booking_date, start_time: startTime ?? a.start_time, end_time: endTime ?? a.end_time, status } : a)
+            return prev.map(a => String(a.appointment_id) === apptId ? { 
+              ...a, 
+              booking_date: bookingDate || a.booking_date, 
+              start_time: startTime ?? a.start_time, 
+              end_time: endTime ?? a.end_time, 
+              status: displayStatus,
+              // Also update names if they come in the event
+              doctor_name: doctorName ?? a.doctor_name,
+              patient_name: patientName ?? a.patient_name,
+              clinic_name: clinicName ?? a.clinic_name,
+            } : a)
           }
           // Insert minimal record if not present so UI updates immediately
           const newAppt: any = {
             appointment_id: apptId,
             booking_date: bookingDate || "",
-            clinic_id: event.clinicId ?? event.clinicId ?? null,
-            clinic_name: event.clinicName ?? event.clinic_name ?? null,
+            clinic_id: event.clinicId ?? event.clinic_id ?? null,
+            clinic_name: clinicName,
             doctor_id: event.doctorId ?? event.doctor_id ?? "",
-            doctor_name: event.doctorName ?? event.doctor_name ?? null,
+            doctor_name: doctorName,
             patient_id: event.patientId ?? event.patient_id ?? "",
-            start_time: startTime ?? null,
-            end_time: endTime ?? null,
-            patient_name: event.patientName ?? event.patient_name ?? null, status,
+            start_time: startTime,
+            end_time: endTime,
+            patient_name: patientName, 
+            status: displayStatus,
             // created_at: event.createdAt ?? event.created_at ?? new Date().toISOString(),
             // updated_at: new Date().toISOString()
             created_at: event.createdAt ?? event.created_at ?? nowTime().toISOString(), // MOCK
@@ -1668,13 +1683,16 @@ export default function StaffDashboard() {
             return evtAppt
           }
 
+          // Keep status as SCHEDULED for rescheduled appointments so they remain visible in the Upcoming tab
+          const displayStatus = status === "RESCHEDULED" ? "SCHEDULED" : status
+
           // await enrichment so names/date/time are available before upsert
           await enrich()
           setAppointments(prev => {
             console.log
             const idx = prev.findIndex(a => a.appointment_id === apptId)
             if (idx >= 0) {
-              const updated = { ...prev[idx], ...evtAppt, status }
+              const updated = { ...prev[idx], ...evtAppt, status: displayStatus }
               const copy = [...prev]
               copy[idx] = updated
               return copy
@@ -1682,7 +1700,7 @@ export default function StaffDashboard() {
             // if we have an existing elsewhere, merge to preserve names
             const existing = prev.find(a => a.appointment_id === apptId)
             if (existing) {
-              const merged = { ...existing, ...evtAppt, status }
+              const merged = { ...existing, ...evtAppt, status: displayStatus }
               return [merged, ...prev.filter(a => a.appointment_id !== apptId)]
             }
             return [evtAppt, ...prev]
