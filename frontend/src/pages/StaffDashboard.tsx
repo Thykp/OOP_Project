@@ -1221,7 +1221,7 @@ export default function StaffDashboard() {
   useEffect(() => {
     connectSocket()
     // subscribe to appointment status events so cancellations are removed in real-time
-    const appointmentHandler = (event: any) => {
+    const appointmentHandler = async (event: any) => {
       if (!event) return;
       // Ensure this event is for this staff's clinic
       if (!staffClinicId || event.clinicId !== staffClinicId) return;
@@ -1229,6 +1229,87 @@ export default function StaffDashboard() {
       // Normalize appointment ID to string (handle both camelCase and snake_case)
       const apptId: string = String(event.appointmentId ?? event.appointment_id ?? "");
       const status: string = (event.status || "").toUpperCase();
+
+      if (!apptId) return;
+
+      // If names are missing, fetch full appointment details and merge
+      const needsEnrichment = !event.doctorName && !event.doctor_name || !event.patientName && !event.patient_name;
+      let full = null;
+      if (needsEnrichment) {
+        try {
+          full = await fetchAppointmentById(apptId);
+        } catch (e) {
+          console.warn("[StaffDashboard] enrichment failed for", apptId, e);
+        }
+      }
+
+      // build a normalized object that prefers event fields then full fetch
+      const doctorName = event.doctorName ?? event.doctor_name ?? full?.doctorName ?? full?.doctor_name ?? null;
+      const patientName = event.patientName ?? event.patient_name ?? full?.patientName ?? full?.patient_name ?? null;
+      const clinicName = event.clinicName ?? event.clinic_name ?? full?.clinicName ?? full?.clinic_name ?? null;
+
+      // Update appointment lists using enriched names
+      if (status === "CHECKED-IN" || status === "CHECKED IN") {
+        const evtAppt = {
+          appointment_id: apptId,
+          doctor_name: doctorName,
+          patient_name: patientName,
+          clinic_name: clinicName,
+          status: "CHECKED-IN",
+          // optionally include times/dates from full if available
+          booking_date: full?.bookingDate ?? full?.booking_date ?? event.bookingDate ?? event.booking_date ?? "",
+          start_time: full?.startTime ?? full?.start_time ?? event.startTime ?? event.start_time ?? null,
+          end_time: full?.endTime ?? full?.end_time ?? event.endTime ?? event.end_time ?? null,
+          created_at: event.createdAt ?? event.created_at ?? full?.createdAt ?? full?.created_at ?? new Date().toISOString(),
+          updated_at: event.updatedAt ?? event.updated_at ?? full?.updatedAt ?? full?.updated_at ?? new Date().toISOString(),
+        };
+
+        setAppointments(prev => {
+          const idx = prev.findIndex(a => a.appointment_id === apptId);
+          if (idx >= 0) {
+            const copy = [...prev];
+            copy[idx] = { ...copy[idx], ...evtAppt };
+            return copy;
+          }
+          return [evtAppt as any, ...prev];
+        });
+
+        // queue update (if any) — preserve existing logic
+        if (event.queueNumber || event.position) {
+          setQueueAppointments(prev => {
+            const item: QueueItem = {
+              ...evtAppt as any,
+              appointment_id: apptId,
+              queueNumber: Number(event.queueNumber ?? event.queue_number ?? 0),
+              position: Number(event.position ?? event.pos ?? 0),
+              isFastTrack: Number(event.position ?? event.pos ?? 0) === 1 && (event.queueLength ? Number(event.queueLength) > 1 : true),
+            };
+            const exists = prev.some(q => q.appointment_id === apptId);
+            if (exists) return prev.map(q => q.appointment_id === apptId ? { ...q, ...item } : q)
+            return [item, ...prev];
+          })
+        }
+        return;
+      }
+
+      // For COMPLETED: similar enrichment before moving to completed list
+      if (status === "COMPLETED") {
+        const evt = {
+          appointment_id: apptId,
+          doctor_name: doctorName,
+          patient_name: patientName,
+          clinic_name: clinicName,
+          status: "COMPLETED",
+          booking_date: full?.bookingDate ?? full?.booking_date ?? event.bookingDate ?? event.booking_date ?? "",
+          start_time: full?.startTime ?? full?.start_time ?? event.startTime ?? event.start_time ?? null,
+          end_time: full?.endTime ?? full?.end_time ?? event.endTime ?? event.end_time ?? null,
+          created_at: event.createdAt ?? event.created_at ?? full?.createdAt ?? full?.created_at ?? new Date().toISOString(),
+          updated_at: event.updatedAt ?? event.updated_at ?? full?.updatedAt ?? full?.updated_at ?? new Date().toISOString(),
+        };
+        setAppointments(prev => prev.filter(a => a.appointment_id !== apptId));
+        setCompletedAppointments(prev => [evt as any, ...prev]);
+        return;
+      }
 
       if (status === "CANCELLED" || status === "NO_SHOW") {
         // remove from lists - normalize both sides of comparison to string
@@ -1472,7 +1553,7 @@ export default function StaffDashboard() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [staffClinicId, staffClinicName])
-  
+
   async function fetchAppointmentById(apptId: any) {
     try {
       const url = `${baseURL}/api/appointments/${encodeURIComponent(String(apptId))}`
@@ -1624,13 +1705,71 @@ export default function StaffDashboard() {
 
         // CHECKED-IN -> mark checked-in or insert minimal appointment and queue item
         if (status === "CHECKED-IN" || status === "CHECKED IN") {
-          const evtAppt = buildFromEvent(update)
+        let evtAppt = buildFromEvent(update)
+
+          // Ensure caches populate in background (do not block on doctors)
+          if (!doctorsLoadedRef.current) fetchDoctors()
+
+          // If patient id present, ensure patient name is loaded before enrichment
+          if (evtAppt.patient_id) {
+            try { await loadPatientsIntoCache([String(evtAppt.patient_id)]) } catch (e) { /* ignore */ }
+          }
+
+          // Async enrichment: fill names/date/time from event, caches, or local lists.
+          const enrich = async () => {
+            // prefer event-provided fields
+            evtAppt.doctor_name = evtAppt.doctor_name || update.doctorName || update.doctor_name || null
+            evtAppt.clinic_name = evtAppt.clinic_name || update.clinicName || update.clinic_name || null
+            evtAppt.patient_name = evtAppt.patient_name || update.patientName || update.patient_name || null
+
+            // caches
+            if (!evtAppt.doctor_name && evtAppt.doctor_id) {
+              const d = doctorCache.current.get(String(evtAppt.doctor_id))
+              if (d) evtAppt.doctor_name = d
+            }
+            if (!evtAppt.clinic_name && evtAppt.clinic_id) {
+              const c = clinicCache.current.get(String(evtAppt.clinic_id))
+              if (c) evtAppt.clinic_name = c
+            }
+            if (!evtAppt.patient_name && evtAppt.patient_id) {
+              const p = patientCache.current.get(String(evtAppt.patient_id))
+              if (p) evtAppt.patient_name = p
+            }
+
+            // local lists fallback
+            if (!evtAppt.doctor_name || !evtAppt.clinic_name || !evtAppt.patient_name) {
+              const existing =
+                appointments.find(a => a.appointment_id === apptId) ||
+                queueAppointments.find(q => q.appointment_id === apptId) ||
+                completedAppointments.find(c => c.appointment_id === apptId) ||
+                null
+              if (existing) evtAppt = { ...existing, ...evtAppt }
+            }
+
+            // ensure booking_date / start_time / end_time present (prefer event then existing)
+            evtAppt.booking_date = evtAppt.booking_date || update.bookingDate || update.booking_date || (appointments.find(a => a.appointment_id === apptId)?.booking_date) || ""
+            evtAppt.start_time = evtAppt.start_time || update.startTime || update.start_time || (appointments.find(a => a.appointment_id === apptId)?.start_time) || null
+            evtAppt.end_time = evtAppt.end_time || update.endTime || update.end_time || (appointments.find(a => a.appointment_id === apptId)?.end_time) || null
+
+            return evtAppt
+          }
+
+          // await enrichment so names/date/time are available before upsert
+          await enrich()
           setAppointments(prev => {
+            console.log
             const idx = prev.findIndex(a => a.appointment_id === apptId)
             if (idx >= 0) {
+              const updated = { ...prev[idx], ...evtAppt, status }
               const copy = [...prev]
-              copy[idx] = { ...copy[idx], ...evtAppt, status: "CHECKED-IN" }
+              copy[idx] = updated
               return copy
+            }
+            // if we have an existing elsewhere, merge to preserve names
+            const existing = prev.find(a => a.appointment_id === apptId)
+            if (existing) {
+              const merged = { ...existing, ...evtAppt, status }
+              return [merged, ...prev.filter(a => a.appointment_id !== apptId)]
             }
             return [evtAppt, ...prev]
           })
@@ -1654,13 +1793,73 @@ export default function StaffDashboard() {
 
         // COMPLETED -> move to completed list without refreshing everything
         if (status === "COMPLETED") {
-          setAppointments(prev => prev.filter(a => a.appointment_id !== apptId))
+           let evtAppt = buildFromEvent(update)
+
+          // Ensure caches populate in background (do not block on doctors)
+          if (!doctorsLoadedRef.current) fetchDoctors()
+
+          // If patient id present, ensure patient name is loaded before enrichment
+          if (evtAppt.patient_id) {
+            try { await loadPatientsIntoCache([String(evtAppt.patient_id)]) } catch (e) { /* ignore */ }
+          }
+
+          // Async enrichment: fill names/date/time from event, caches, or local lists.
+          const enrich = async () => {
+            // prefer event-provided fields
+            evtAppt.doctor_name = evtAppt.doctor_name || update.doctorName || update.doctor_name || null
+            evtAppt.clinic_name = evtAppt.clinic_name || update.clinicName || update.clinic_name || null
+            evtAppt.patient_name = evtAppt.patient_name || update.patientName || update.patient_name || null
+
+            // caches
+            if (!evtAppt.doctor_name && evtAppt.doctor_id) {
+              const d = doctorCache.current.get(String(evtAppt.doctor_id))
+              if (d) evtAppt.doctor_name = d
+            }
+            if (!evtAppt.clinic_name && evtAppt.clinic_id) {
+              const c = clinicCache.current.get(String(evtAppt.clinic_id))
+              if (c) evtAppt.clinic_name = c
+            }
+            if (!evtAppt.patient_name && evtAppt.patient_id) {
+              const p = patientCache.current.get(String(evtAppt.patient_id))
+              if (p) evtAppt.patient_name = p
+            }
+
+            // local lists fallback
+            if (!evtAppt.doctor_name || !evtAppt.clinic_name || !evtAppt.patient_name) {
+              const existing =
+                appointments.find(a => a.appointment_id === apptId) ||
+                queueAppointments.find(q => q.appointment_id === apptId) ||
+                completedAppointments.find(c => c.appointment_id === apptId) ||
+                null
+              if (existing) evtAppt = { ...existing, ...evtAppt }
+            }
+
+            // ensure booking_date / start_time / end_time present (prefer event then existing)
+            evtAppt.booking_date = evtAppt.booking_date || update.bookingDate || update.booking_date || (appointments.find(a => a.appointment_id === apptId)?.booking_date) || ""
+            evtAppt.start_time = evtAppt.start_time || update.startTime || update.start_time || (appointments.find(a => a.appointment_id === apptId)?.start_time) || null
+            evtAppt.end_time = evtAppt.end_time || update.endTime || update.end_time || (appointments.find(a => a.appointment_id === apptId)?.end_time) || null
+
+            return evtAppt
+          }
+
+          // await enrichment so names/date/time are available before upsert
+          await enrich()
           setCompletedAppointments(prev => {
-            const evt = buildFromEvent(update)
-            // preserve names if we have them in existing lists
-            const existing = appointments.find(a => a.appointment_id === apptId)
-            const merged = existing ? { ...existing, ...evt, status } : { ...evt, status }
-            return [merged, ...prev]
+            console.log
+            const idx = prev.findIndex(a => a.appointment_id === apptId)
+            if (idx >= 0) {
+              const updated = { ...prev[idx], ...evtAppt, status }
+              const copy = [...prev]
+              copy[idx] = updated
+              return copy
+            }
+            // if we have an existing elsewhere, merge to preserve names
+            const existing = prev.find(a => a.appointment_id === apptId)
+            if (existing) {
+              const merged = { ...existing, ...evtAppt, status }
+              return [merged, ...prev.filter(a => a.appointment_id !== apptId)]
+            }
+            return [evtAppt, ...prev]
           })
           return
         }
