@@ -162,6 +162,8 @@ export default function PatientDashboard() {
   // Memoize eligible appointment so UI stays consistent across renders
   const eligibleAppointmentForCheckIn = useMemo(() => getEligibleAppointmentForCheckIn(), [appointments])
 
+  // (Removed debug logging for check-in selection)
+
   // Unique clinic lists for dropdowns
   const upcomingClinics = useMemo(() => {
     return Array.from(new Set(appointments.map(a => a.clinic_name).filter(Boolean))) as string[]
@@ -489,7 +491,7 @@ export default function PatientDashboard() {
                       <strong>{eligibleAppointment.doctor_name}</strong>
                     </p>
                     <p className="text-sm text-gray-600 mb-3">
-                      {formatTime(eligibleAppointment.start_time)} • {eligibleAppointment.clinic_name}
+                      {formatDate(eligibleAppointment.booking_date)} • {formatTime(eligibleAppointment.start_time)} - {formatTime(eligibleAppointment.end_time)} • {eligibleAppointment.clinic_name}
                     </p>
                     <Button 
                       className="w-full bg-green-600 hover:bg-green-700" 
@@ -685,7 +687,7 @@ export default function PatientDashboard() {
                               {eligibleAppointmentForCheckIn.clinic_name}
                             </p>
                             <p className="text-sm text-gray-600">
-                              {formatDate(eligibleAppointmentForCheckIn.booking_date)} • {formatTime(eligibleAppointmentForCheckIn.start_time)}
+                              {formatDate(eligibleAppointmentForCheckIn.booking_date)} • {formatTime(eligibleAppointmentForCheckIn.start_time)} - {formatTime(eligibleAppointmentForCheckIn.end_time)}
                             </p>
                           </div>
                           <p className="text-gray-600 mb-4">Check in when you arrive at the clinic to join the queue</p>
