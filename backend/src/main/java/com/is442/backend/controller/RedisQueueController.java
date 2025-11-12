@@ -14,6 +14,9 @@ import com.is442.backend.dto.QueueEvent;
 import com.is442.backend.dto.CallNextResult;
 import com.is442.backend.dto.PositionSnapshot;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -295,6 +298,53 @@ public class RedisQueueController {
         }
     }
 
+    // GET /state/{clinicId} — returns complete queue state with all queue items
+    @GetMapping("/state/{clinicId}")
+    public ResponseEntity<?> queueState(@PathVariable String clinicId) {
+        try {
+            // Validate clinicId parameter
+            if (clinicId == null || clinicId.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(new ErrorResponse("clinicId path variable is required"));
+            }
+
+            var state = redisQueueService.getQueueState(clinicId);
+
+            // Build response map with queue state
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("clinicId", state.getClinicId());
+            response.put("nowServing", state.getNowServing());
+            response.put("totalWaiting", state.getTotalWaiting());
+
+            // Convert queue items to list of maps
+            List<Map<String, Object>> queueItemsList = new ArrayList<>();
+            for (var item : state.getQueueItems()) {
+                Map<String, Object> itemMap = new LinkedHashMap<>();
+                itemMap.put("appointmentId", item.getAppointmentId());
+                itemMap.put("patientId", item.getPatientId());
+                itemMap.put("patientName", item.getPatientName());
+                itemMap.put("email", item.getEmail());
+                itemMap.put("phone", item.getPhone());
+                itemMap.put("position", item.getPosition());
+                itemMap.put("queueNumber", item.getQueueNumber());
+                itemMap.put("doctorId", item.getDoctorId());
+                itemMap.put("doctorName", item.getDoctorName());
+                itemMap.put("doctorSpeciality", item.getDoctorSpeciality());
+                itemMap.put("createdAt", item.getCreatedAt());
+                queueItemsList.add(itemMap);
+            }
+            response.put("queueItems", queueItemsList);
+
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Error retrieving queue state: " + e.getMessage()));
+        }
+    }
+
     // GET /reset/{clinicId} — soft reset (seq -> 0); optional: also zero nowServing
     // if you want
     @GetMapping("/reset/{clinicId}")
@@ -367,6 +417,54 @@ public class RedisQueueController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("Unexpected error during fast-track: " + e.getMessage()));
+        }
+    }
+
+    // POST /remove — removes an appointment from the queue and marks as NO_SHOW
+    @PostMapping("/remove")
+    public ResponseEntity<?> removeFromQueue(@RequestBody Map<String, Object> body) {
+        try {
+            // Validate request body
+            if (body == null) {
+                return ResponseEntity.badRequest()
+                        .body(new ErrorResponse("Request body cannot be null"));
+            }
+
+            Object appointmentIdObj = body.get("appointmentId");
+            if (appointmentIdObj == null) {
+                return ResponseEntity.badRequest()
+                        .body(new ErrorResponse("appointmentId is required"));
+            }
+
+            String appointmentId = String.valueOf(appointmentIdObj);
+            if (appointmentId == null || appointmentId.equals("null") || appointmentId.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(new ErrorResponse("appointmentId is required"));
+            }
+
+            // Remove from queue (this also deletes hash and updates status to NO_SHOW
+            // asynchronously)
+            String clinicId = redisQueueService.removeFromQueue(appointmentId);
+
+            return ResponseEntity.ok(Map.of(
+                    "status", "ok",
+                    "appointmentId", appointmentId,
+                    "clinicId", clinicId,
+                    "message", "Appointment removed from queue and marked as NO_SHOW"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponse(e.getMessage()));
+        } catch (RuntimeException e) {
+            // Handle appointment not found or not in queue
+            if (e.getMessage() != null && e.getMessage().contains("not found")) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ErrorResponse(e.getMessage()));
+            }
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Error removing appointment from queue: " + e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Unexpected error during removal: " + e.getMessage()));
         }
     }
 }
