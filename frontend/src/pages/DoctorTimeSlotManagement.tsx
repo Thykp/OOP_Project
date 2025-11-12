@@ -227,9 +227,9 @@ export default function AdminClinicConfig() {
         <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between">
 
           <div>
-            <Link to="/admin/dashboard" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">
+            <Link to="/admin/clinic-config" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">
               <ArrowLeft className="w-4 h-4" />
-              Back to Dashboard
+              Back to Clinic Configuration
             </Link>
             <div className="flex items-center gap-3 mb-2">
               <Users className="w-8 h-8 text-blue-600" />
