@@ -583,7 +583,6 @@ export default function StaffDashboard() {
       })
       setCancelDialogOpen(false)
       setAppointmentToCancel(null)
-      fetchAppointments()
     } catch (err) {
       console.error("Error cancelling appointment:", err)
       toast({
