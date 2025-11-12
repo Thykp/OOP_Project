@@ -1,5 +1,6 @@
 package com.is442.backend.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.is442.backend.dto.CallNextResult;
 import com.is442.backend.dto.NotificationEvent;
 import com.is442.backend.dto.PositionSnapshot;
@@ -16,6 +17,7 @@ import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.concurrent.CompletableFuture;
 import java.util.*;
 
 @Service
@@ -58,6 +60,11 @@ public class RedisQueueService {
 
     @Autowired(required = false)
     private DoctorRepository doctorRepository;
+
+    @Autowired(required = false)
+    private QueueSseService queueSseService; // For queue state broadcasts via SSE
+
+    private final ObjectMapper objectMapper = new ObjectMapper(); // For JSON serialization
 
     public RedisQueueService(StringRedisTemplate strTpl,
             RedisTemplate<String, Object> jsonTpl,
@@ -186,6 +193,9 @@ public class RedisQueueService {
             sendN3AwayNotification(clinicId, appointmentId, patientId, user);
         }
 
+        // 8) Broadcast queue state update via SSE (for UI updates)
+        broadcastQueueStateUpdate(clinicId);
+
         return new CheckinResult(position, seq);
     }
 
@@ -295,6 +305,9 @@ public class RedisQueueService {
             checkAndNotifyN3Away(clinicId);
         }
 
+        // Broadcast queue state update via SSE (for UI updates)
+        broadcastQueueStateUpdate(clinicId);
+
         // position=0 to mean "this appointment is now being served"
         return new CallNextResult(clinicId, appointmentId, patientId, 0, nowServing, queueNumber);
     }
@@ -403,6 +416,59 @@ public class RedisQueueService {
         return new QueueStateDto(clinicId, nowServing, totalWaiting, queueItems);
     }
 
+    /**
+     * Broadcasts complete queue state to SSE subscribers.
+     * This is called after queue-changing operations to keep frontend in sync.
+     * 
+     * @param clinicId the clinic identifier
+     */
+    private void broadcastQueueStateUpdate(String clinicId) {
+        if (queueSseService == null) {
+            return; // SSE service not available
+        }
+
+        try {
+            // Get current queue state
+            QueueStateDto state = getQueueState(clinicId);
+
+            // Create event payload with full state
+            Map<String, Object> eventPayload = new LinkedHashMap<>();
+            eventPayload.put("type", "QUEUE_STATE_UPDATE");
+            eventPayload.put("clinicId", clinicId);
+            eventPayload.put("timestamp", System.currentTimeMillis());
+            eventPayload.put("nowServing", state.getNowServing());
+            eventPayload.put("totalWaiting", state.getTotalWaiting());
+
+            // Convert queue items to maps
+            List<Map<String, Object>> queueItemsList = new ArrayList<>();
+            for (QueueItemDto item : state.getQueueItems()) {
+                Map<String, Object> itemMap = new LinkedHashMap<>();
+                itemMap.put("appointmentId", item.getAppointmentId());
+                itemMap.put("patientId", item.getPatientId());
+                itemMap.put("patientName", item.getPatientName());
+                itemMap.put("email", item.getEmail());
+                itemMap.put("phone", item.getPhone());
+                itemMap.put("position", item.getPosition());
+                itemMap.put("queueNumber", item.getQueueNumber());
+                itemMap.put("doctorId", item.getDoctorId());
+                itemMap.put("doctorName", item.getDoctorName());
+                itemMap.put("doctorSpeciality", item.getDoctorSpeciality());
+                itemMap.put("createdAt", item.getCreatedAt());
+                queueItemsList.add(itemMap);
+            }
+            eventPayload.put("queueItems", queueItemsList);
+
+            // Serialize to JSON and broadcast
+            String json = objectMapper.writeValueAsString(eventPayload);
+            queueSseService.publishToClinic(clinicId, json);
+
+        } catch (Exception e) {
+            // Log but don't fail the operation
+            System.err.println("[RedisQueueService] Failed to broadcast queue state update: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     /** Stable ticket number for an appointment (seq stored in the hash). */
     public long getQueueNumber(String appointmentId) {
         validateNonEmpty(appointmentId, "appointmentId");
@@ -497,7 +563,82 @@ public class RedisQueueService {
         Long rank = strTpl.opsForZSet().rank(kQueue(clinicId), appointmentId);
         int position = (rank == null ? 0 : (int) (rank + 1));
 
+        // Broadcast queue state update via SSE (for UI updates)
+        broadcastQueueStateUpdate(clinicId);
+
         return position;
+    }
+
+    /**
+     * Removes an appointment from the queue.
+     * This removes the appointment from the ZSET (queue) and deletes the
+     * appointment hash.
+     * Asynchronously updates the appointment status to "NO_SHOW" in the database.
+     * 
+     * @param appointmentId the appointment identifier to remove from queue
+     * @return the clinicId of the removed appointment
+     * @throws IllegalArgumentException if appointmentId is invalid
+     * @throws RuntimeException         if appointment is not found in queue
+     */
+    public String removeFromQueue(String appointmentId) {
+        validateNonEmpty(appointmentId, "appointmentId");
+
+        // Validate UUID format
+        UUID appointmentUuid;
+        try {
+            appointmentUuid = UUID.fromString(appointmentId);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "Invalid appointmentId format: " + appointmentId + ". Must be a valid UUID.");
+        }
+
+        // Get appointment metadata to find clinicId
+        Map<Object, Object> meta = strTpl.opsForHash().entries(kAppointment(appointmentId));
+        if (meta == null || meta.isEmpty()) {
+            throw new RuntimeException("Appointment not found: " + appointmentId);
+        }
+
+        String clinicId = (String) meta.get("clinicId");
+        if (clinicId == null || clinicId.trim().isEmpty()) {
+            throw new RuntimeException("Appointment does not have a clinicId: " + appointmentId);
+        }
+
+        // Check if appointment exists in queue
+        Double currentScore = strTpl.opsForZSet().score(kQueue(clinicId), appointmentId);
+        if (currentScore == null) {
+            throw new RuntimeException("Appointment not found in queue: " + appointmentId);
+        }
+
+        // Remove from queue (ZSET)
+        Long removed = strTpl.opsForZSet().remove(kQueue(clinicId), appointmentId);
+        if (removed == null || removed == 0) {
+            throw new RuntimeException("Failed to remove appointment from queue: " + appointmentId);
+        }
+
+        // Delete the appointment hash
+        strTpl.delete(kAppointment(appointmentId));
+
+        // Asynchronously update appointment status to NO_SHOW in database
+        if (appointmentService != null) {
+            CompletableFuture.runAsync(() -> {
+                try {
+                    appointmentService.markNoShow(appointmentUuid);
+                    System.out.println("[RedisQueueService] Asynchronously updated appointment " + appointmentId
+                            + " status to NO_SHOW");
+                } catch (Exception e) {
+                    // Log but don't fail the queue removal if status update fails
+                    // This is a non-critical operation
+                    System.err.println(
+                            "[RedisQueueService] Failed to update appointment status to NO_SHOW: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            });
+        }
+
+        // Broadcast queue state update via SSE (for UI updates)
+        broadcastQueueStateUpdate(clinicId);
+
+        return clinicId;
     }
 
     /**

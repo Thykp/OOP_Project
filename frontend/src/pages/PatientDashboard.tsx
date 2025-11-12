@@ -36,6 +36,7 @@ import {
 import Loader from "@/components/Loader"
 import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/context/auth-context"
+import { fetchQueueState, subscribeToQueueState } from "@/lib/socket"
 
 interface Appointment {
   appointment_id: string
@@ -67,8 +68,9 @@ interface PastAppointment extends Appointment {
 export default function PatientDashboard() {
   // check-in / queue
   const [isCheckedIn, setIsCheckedIn] = useState(false)
-  const [queueNumber, setQueueNumber] = useState(15)
-  const [currentNumber] = useState(12)
+  const [queueNumber, setQueueNumber] = useState<number | null>(null)
+  const [currentNumber, setCurrentNumber] = useState<number | null>(null)
+  const [checkedInAppointmentId, setCheckedInAppointmentId] = useState<string | null>(null)
 
   // data
   const [appointments, setAppointments] = useState<Appointment[]>([])
@@ -359,6 +361,68 @@ export default function PatientDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id])
 
+  // Fetch initial queue state when checked in
+  useEffect(() => {
+    if (!isCheckedIn || !eligibleAppointmentForCheckIn || !checkedInAppointmentId) return
+
+    const clinicId = eligibleAppointmentForCheckIn.clinic_id
+    if (!clinicId) return
+
+    const loadInitialQueueState = async () => {
+      try {
+        const state = await fetchQueueState(clinicId)
+
+        // Find patient's position in queue
+        const patientItem = state.queueItems.find(
+          (item) => item.appointmentId === checkedInAppointmentId
+        )
+
+        if (patientItem) {
+          setQueueNumber(patientItem.queueNumber)
+          setCurrentNumber(state.nowServing)
+        }
+      } catch (err) {
+        console.error('Failed to fetch initial queue state:', err)
+      }
+    }
+
+    loadInitialQueueState()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCheckedIn, checkedInAppointmentId])
+
+  // Subscribe to queue state updates via SSE
+  useEffect(() => {
+    if (!isCheckedIn || !eligibleAppointmentForCheckIn || !checkedInAppointmentId) return
+
+    const clinicId = eligibleAppointmentForCheckIn.clinic_id
+    if (!clinicId) return
+
+    const { close } = subscribeToQueueState(
+      clinicId,
+      (update) => {
+        console.log('[PatientDashboard] Queue state update received:', update)
+
+        // Find patient's position in queue
+        const patientItem = update.queueItems.find(
+          (item) => item.appointmentId === checkedInAppointmentId
+        )
+
+        if (patientItem) {
+          setQueueNumber(patientItem.queueNumber)
+          setCurrentNumber(update.nowServing)
+        }
+      },
+      (error) => {
+        console.error('[PatientDashboard] Queue SSE error:', error)
+      }
+    )
+
+    return () => {
+      close()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCheckedIn, checkedInAppointmentId])
+
   // --- actions ---
   const handleRescheduleAppointment = (appointment: Appointment) => {
     navigate("/bookappointment", {
@@ -411,14 +475,46 @@ export default function PatientDashboard() {
     }
   }
 
-  const handleCheckIn = () => {
-    setIsCheckedIn(true)
-    setQueueNumber(Math.floor(Math.random() * 20) + 10)
-    toast({
-      variant: "success",
-      title: "Checked in",
-      description: "You’ve joined the queue. We’ll notify you as you get closer.",
-    })
+  const handleCheckIn = async () => {
+    const eligibleAppointment = eligibleAppointmentForCheckIn
+    if (!eligibleAppointment) return
+
+    const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+    
+    try {
+      const res = await fetch(`${baseURL}/api/queue/checkin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clinicId: eligibleAppointment.clinic_id,
+          appointmentId: eligibleAppointment.appointment_id,
+          patientId: eligibleAppointment.patient_id,
+          doctorId: eligibleAppointment.doctor_id || null,
+        }),
+      })
+
+      if (!res.ok) {
+        throw new Error(`Check-in failed: ${res.statusText}`)
+      }
+
+      const data = await res.json()
+      setIsCheckedIn(true)
+      setCheckedInAppointmentId(eligibleAppointment.appointment_id)
+      setQueueNumber(data.queueNumber)
+      
+      toast({
+        variant: "default",
+        title: "Checked in",
+        description: `You've joined the queue. Your queue number is ${data.queueNumber}.`,
+      })
+    } catch (err: any) {
+      console.error("Check-in error:", err)
+      toast({
+        variant: "destructive",
+        title: "Check-in failed",
+        description: err?.message || "Unable to check in. Please try again.",
+      })
+    }
   }
 
   if (loading) {
@@ -511,8 +607,8 @@ export default function PatientDashboard() {
             <Alert className="mb-8 border-blue-200 bg-blue-50">
               <Bell className="h-4 w-4" />
               <AlertDescription>
-                <strong>Queue Status:</strong> You are number #{queueNumber}. Current serving: #{currentNumber}.{" "}
-                {queueNumber - currentNumber <= 3 && (
+                <strong>Queue Status:</strong> You are number #{queueNumber ?? 'N/A'}. Current serving: #{currentNumber ?? 'N/A'}.{" "}
+                {queueNumber !== null && currentNumber !== null && queueNumber - currentNumber <= 3 && (
                   <span className="text-blue-700 font-semibold">Your turn is coming up soon!</span>
                 )}
               </AlertDescription>
@@ -709,24 +805,26 @@ export default function PatientDashboard() {
                     <div className="space-y-6">
                       <div className="text-center">
                         <div className="bg-blue-100 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-4">
-                          <span className="text-2xl font-bold text-blue-600">#{queueNumber}</span>
+                          <span className="text-2xl font-bold text-blue-600">#{queueNumber ?? 'N/A'}</span>
                         </div>
                         <h3 className="text-xl font-semibold mb-2">Your Queue Number</h3>
-                        <p className="text-gray-600">Currently serving: #{currentNumber}</p>
+                        <p className="text-gray-600">Currently serving: #{currentNumber ?? 'N/A'}</p>
                       </div>
 
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-sm text-gray-600">Queue Progress</span>
-                          <span className="text-sm font-medium">{Math.max(0, queueNumber - currentNumber)} people ahead</span>
+                      {queueNumber !== null && currentNumber !== null && (
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm text-gray-600">Queue Progress</span>
+                            <span className="text-sm font-medium">{Math.max(0, queueNumber - currentNumber)} people ahead</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${Math.min(100, (currentNumber / queueNumber) * 100)}%` }}
+                            />
+                          </div>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${Math.min(100, (currentNumber / queueNumber) * 100)}%` }}
-                          />
-                        </div>
-                      </div>
+                      )}
 
                       <div className="space-y-3">
                         <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
