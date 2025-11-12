@@ -843,11 +843,7 @@ export default function PatientDashboard() {
                     setQueueNumber(null);
                     setCurrentNumber(null);
                 }
-                toast({
-                    variant: "destructive",
-                    title: "Appointment cancelled",
-                    description: "One of your appointments was cancelled.",
-                });
+         
                 return;
             }
 
