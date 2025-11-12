@@ -515,6 +515,7 @@ export default function AppointmentBooking() {
         const data = await res.json();
         console.log("Reschedule response:", data);
 
+        const clinicDetails = getSelectedClinicDetails();
         setIsSubmitting(false);
         setBookingDetails({
           doctorName: selectedSlot?.doctorName || doctors.find(d => d.doctorId === selectedDoctorId)?.doctorName,
@@ -522,6 +523,8 @@ export default function AppointmentBooking() {
           time: selectedTimeRange,
           clinicType: selectedClinicType,
           specialty: selectedSpecialty,
+          clinicName: clinicDetails?.clinicName || clinicDetails?.name || "N/A",
+          clinicAddress: clinicDetails?.address || "N/A",
         });
         setShowSuccessDialog(true);
       } else {
@@ -566,6 +569,7 @@ export default function AppointmentBooking() {
         const data = await res.json();
         console.log("Booking response:", data);
 
+        const clinicDetails = getSelectedClinicDetails();
         setIsSubmitting(false);
         setBookingDetails({
           doctorName: selectedSlot?.doctorName || doctors.find(d => d.doctorId === selectedDoctorId)?.doctorName,
@@ -573,6 +577,8 @@ export default function AppointmentBooking() {
           time: selectedTimeRange,
           clinicType: selectedClinicType,
           specialty: selectedSpecialty,
+          clinicName: clinicDetails?.clinicName || clinicDetails?.name || "N/A",
+          clinicAddress: clinicDetails?.address || "N/A",
         });
         setShowSuccessDialog(true);
       }
@@ -1033,6 +1039,8 @@ export default function AppointmentBooking() {
                 <p className="text-center text-lg">Your appointment has been confirmed:</p>
                 <div className="bg-green-50 border border-green-200 p-5 rounded-lg space-y-3">
                   <p className="text-base"><span className="font-semibold">Doctor:</span> {bookingDetails?.doctorName}</p>
+                  <p className="text-base"><span className="font-semibold">Clinic:</span> {bookingDetails?.clinicName}</p>
+                  <p className="text-base"><span className="font-semibold">Address:</span> {bookingDetails?.clinicAddress}</p>
                   <p className="text-base"><span className="font-semibold">Date:</span> {bookingDetails?.date}</p>
                   <p className="text-base"><span className="font-semibold">Time:</span> {bookingDetails?.time}</p>
                   <p className="text-base"><span className="font-semibold">Clinic Type:</span> {bookingDetails?.clinicType}</p>
