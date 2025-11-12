@@ -147,9 +147,9 @@ export default function StaffDashboard() {
 
   const navigate = useNavigate()
 
-    // const REAL_NOW = new Date();
-    const MOCK_NOW = new Date(2025, 10, 13, 13, 0, 0) // MOCK: 13 Nov 2025 1:00 PM local (comment this and use REAL_NOW to revert)
-    const nowTime = () => MOCK_NOW
+  // const REAL_NOW = new Date();
+  const MOCK_NOW = new Date(2025, 10, 13, 13, 0, 0) // MOCK: 13 Nov 2025 1:00 PM local (comment this and use REAL_NOW to revert)
+  const nowTime = () => MOCK_NOW
 
   const doctorCache = useRef<Map<string, string>>(new Map())
   const clinicCache = useRef<Map<string, string>>(new Map())
@@ -166,6 +166,74 @@ export default function StaffDashboard() {
       })
       doctorsLoadedRef.current = true
     } catch (e) { /* ignore */ }
+  }
+
+  const loadPatientsIntoCache = async (ids?: string[]) => {
+    try {
+      // Collect ids from argument or local lists
+      let idsToLoad = Array.isArray(ids) && ids.length > 0
+        ? ids.slice()
+        : [
+          ...appointments.map(a => a.patient_id),
+          ...queueAppointments.map(q => q.patient_id),
+          ...completedAppointments.map(a => a.patient_id),
+        ]
+
+      // Normalize, dedupe, filter falsy
+      idsToLoad = Array.from(new Set(idsToLoad.filter(Boolean).map(String)))
+      if (idsToLoad.length === 0) return
+
+      // Only load missing ids
+      const missing = idsToLoad.filter(id => !patientCache.current.has(String(id)))
+      if (missing.length === 0) return
+
+      // Try batch endpoint (common pattern: /api/users/patients?ids=1,2,3)
+      try {
+        const q = missing.map(encodeURIComponent).join(",")
+        const batchUrl = `${baseURL}/api/users/patients?ids=${q}`
+        const res = await fetch(batchUrl)
+        if (res.ok) {
+          const arr = await res.json()
+          if (Array.isArray(arr) && arr.length > 0) {
+            arr.forEach((p: any) => {
+              const key = String(p.supabase_user_id ?? p.id ?? p.userId ?? p.patientId ?? "")
+              const name = [p.first_name, p.last_name].filter(Boolean).join(" ") || p.name || p.fullName || ""
+              if (key) patientCache.current.set(key, name.trim() || "Unknown")
+            })
+            return
+          }
+        }
+      } catch (e) {
+        // batch attempt failed -> fall back
+      }
+
+      // Fallback: per-id search endpoint (existing in your code)
+      await Promise.all(
+        missing.map(async id => {
+          try {
+            const res = await fetch(`${baseURL}/api/users/patients/search?q=${encodeURIComponent(id)}`)
+            if (!res.ok) return
+            const arr = await res.json()
+            if (!Array.isArray(arr) || arr.length === 0) return
+            // prefer exact id match if present
+            const match = arr.find((p: any) => {
+              const key = String(p.supabase_user_id ?? p.id ?? p.userId ?? p.patientId ?? "")
+              return key === String(id)
+            }) || arr[0]
+            const name = [match.first_name, match.last_name].filter(Boolean).join(" ") || match.name || match.fullName || ""
+            if (name) patientCache.current.set(String(id), name.trim())
+          } catch (e) {
+            /* ignore individual failures */
+          }
+        })
+      )
+    } catch (e) {
+      console.warn("loadPatientsIntoCache failed", e)
+    }
+  }
+  const getPatientNameById = (id?: string) => {
+    if (!id) return ""
+    return patientCache.current.get(String(id)) ?? ""
   }
 
   function resolvePatientName(evtAppt: any, update: any) {
@@ -240,9 +308,9 @@ export default function StaffDashboard() {
           status: normalizeStatus(appt.status),
         }))
 
-                // const today = new Date()
-                const today = new Date(nowTime())
-                today.setHours(0, 0, 0, 0) // Set to start of today
+        // const today = new Date()
+        const today = new Date(nowTime())
+        today.setHours(0, 0, 0, 0) // Set to start of today
 
         const filteredData = normalized.filter(appt => {
           // Filter by clinic - check both clinic_id and clinic_name for better matching
@@ -622,12 +690,12 @@ export default function StaffDashboard() {
 
     // const now = new Date()
     const now = nowTime()
-        return (
-            now.getFullYear() === y &&
-            now.getMonth() + 1 === m &&
-            now.getDate() === d
-        )
-    }
+    return (
+      now.getFullYear() === y &&
+      now.getMonth() + 1 === m &&
+      now.getDate() === d
+    )
+  }
 
   const canAccessNoShow = (appt: Appointment): boolean => {
     if (!appt) return false;
@@ -668,7 +736,7 @@ export default function StaffDashboard() {
       return false;
     }
 
-        const start = new Date(y, m - 1, d, hh, mm, 0, 0);
+    const start = new Date(y, m - 1, d, hh, mm, 0, 0);
     // const now = new Date();
     const now = nowTime();
 
@@ -977,19 +1045,19 @@ export default function StaffDashboard() {
         if (!res.ok) throw new Error("Failed to fetch available slots")
         const data = await res.json()
 
-                // const now = new Date()
-                const now = nowTime()
-                const currentMinutes = now.getHours() * 60 + now.getMinutes()
-                function parseTimeToMinutes(timeStr: string): number {
-                    const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i)
-                    if (!match) return 0
-                    let [, h, m, period] = match
-                    let hours = parseInt(h)
-                    const minutes = parseInt(m)
-                    if (period?.toUpperCase() === "PM" && hours < 12) hours += 12
-                    if (period?.toUpperCase() === "AM" && hours === 12) hours = 0
-                    return hours * 60 + minutes
-                }
+        // const now = new Date()
+        const now = nowTime()
+        const currentMinutes = now.getHours() * 60 + now.getMinutes()
+        function parseTimeToMinutes(timeStr: string): number {
+          const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i)
+          if (!match) return 0
+          let [, h, m, period] = match
+          let hours = parseInt(h)
+          const minutes = parseInt(m)
+          if (period?.toUpperCase() === "PM" && hours < 12) hours += 12
+          if (period?.toUpperCase() === "AM" && hours === 12) hours = 0
+          return hours * 60 + minutes
+        }
 
         const filtered = (data || [])
           .map((entry: any) => {
@@ -1008,30 +1076,30 @@ export default function StaffDashboard() {
         setWalkInAvailableDates(filtered)
         setWalkInHighlightedDates(filtered.map((d: any) => new Date(d.date)))
 
-                // const today = new Date()
-                const today = new Date(nowTime())
-                today.setHours(0, 0, 0, 0)
-                // const maxDate = new Date()
-                const maxDate = new Date(today)
-                maxDate.setDate(today.getDate() + 7 * 8)
-                const allDates: Date[] = []
-                for (let d = new Date(today); d <= maxDate; d.setDate(d.getDate() + 1)) {
-                    allDates.push(new Date(d))
-                }
-                const highlightedStrings = new Set(
-                    filtered.map((d: any) => new Date(d.date).toDateString())
-                )
-                const unavailable = allDates.filter(d => !highlightedStrings.has(d.toDateString()))
-                setWalkInUnavailableDates(unavailable)
-            } catch (err) {
-                console.error("Error fetching walk-in slots:", err)
-                toast({
-                    variant: "destructive",
-                    title: "Error",
-                    description: "Failed to fetch available slots. Please try again.",
-                })
-            }
+        // const today = new Date()
+        const today = new Date(nowTime())
+        today.setHours(0, 0, 0, 0)
+        // const maxDate = new Date()
+        const maxDate = new Date(today)
+        maxDate.setDate(today.getDate() + 7 * 8)
+        const allDates: Date[] = []
+        for (let d = new Date(today); d <= maxDate; d.setDate(d.getDate() + 1)) {
+          allDates.push(new Date(d))
         }
+        const highlightedStrings = new Set(
+          filtered.map((d: any) => new Date(d.date).toDateString())
+        )
+        const unavailable = allDates.filter(d => !highlightedStrings.has(d.toDateString()))
+        setWalkInUnavailableDates(unavailable)
+      } catch (err) {
+        console.error("Error fetching walk-in slots:", err)
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to fetch available slots. Please try again.",
+        })
+      }
+    }
 
     ensureDoctorsAndFetch()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1159,38 +1227,41 @@ export default function StaffDashboard() {
       // Ensure this event is for this staff's clinic
       if (!staffClinicId || event.clinicId !== staffClinicId) return;
 
-        // Normalize appointment ID to string (handle both camelCase and snake_case)
-        const apptId: string = String(event.appointmentId ?? event.appointment_id ?? "");
-        const status: string = (event.status || "").toUpperCase();
+      // Normalize appointment ID to string (handle both camelCase and snake_case)
+      const apptId: string = String(event.appointmentId ?? event.appointment_id ?? "");
+      const status: string = (event.status || "").toUpperCase();
 
-        if (status === "CANCELLED" || status === "NO_SHOW") {
-            // remove from lists - normalize both sides of comparison to string
-            setAppointments((prev) => prev.filter(a => String(a.appointment_id) !== apptId));
-            setQueueAppointments((prev) => prev.filter(q => String(q.appointment_id) !== apptId));
-            setCompletedAppointments((prev) => prev.filter(a => String(a.appointment_id) !== apptId));
-             toast({
-                variant: "destructive",
-                title: "Appointment Cancelled",
-                description: "An appointment was cancelled.",
-            })
-            return;
-        }
+      if (status === "CANCELLED" || status === "NO_SHOW") {
+        // remove from lists - normalize both sides of comparison to string
+        setAppointments((prev) => prev.filter(a => String(a.appointment_id) !== apptId));
+        setQueueAppointments((prev) => prev.filter(q => String(q.appointment_id) !== apptId));
+        setCompletedAppointments((prev) => prev.filter(a => String(a.appointment_id) !== apptId));
+        toast({
+          variant: "destructive",
+          title: "Appointment Cancelled",
+          description: "An appointment was cancelled.",
+        })
+        return;
+      }
 
       // Handle reschedule or new schedule: update in place if present, otherwise fetch
       if (status === "RESCHEDULED" || status === "SCHEDULED") {
         // attempt to update existing appointment in-memory using payload fields
-        const bookingDate = event.bookingDate ?? event.booking_date
-        const startTime = event.startTime ?? event.start_time
-        const endTime = event.endTime ?? event.end_time
+        const bookingDateRaw = event.bookingDate ?? event.booking_date
+        const startTimeRaw = event.startTime ?? event.start_time
+        const endTimeRaw = event.endTime ?? event.end_time
+        const bookingDate = normalizeDate(bookingDateRaw)
+        const startTime = normalizeTime(startTimeRaw)
+        const endTime = normalizeTime(endTimeRaw)
         setAppointments(prev => {
           const exists = prev.some(a => String(a.appointment_id) === apptId)
           if (exists) {
-            return prev.map(a => String(a.appointment_id) === apptId ? { ...a, booking_date: bookingDate ?? a.booking_date, start_time: startTime ?? a.start_time, end_time: endTime ?? a.end_time, status: status } : a)
+            return prev.map(a => String(a.appointment_id) === apptId ? { ...a, booking_date: bookingDate || a.booking_date, start_time: startTime ?? a.start_time, end_time: endTime ?? a.end_time, status } : a)
           }
           // Insert minimal record if not present so UI updates immediately
-              const newAppt: any = {
+          const newAppt: any = {
             appointment_id: apptId,
-            booking_date: bookingDate ?? "",
+            booking_date: bookingDate || "",
             clinic_id: event.clinicId ?? event.clinicId ?? null,
             clinic_name: event.clinicName ?? event.clinic_name ?? null,
             doctor_id: event.doctorId ?? event.doctor_id ?? "",
@@ -1199,10 +1270,10 @@ export default function StaffDashboard() {
             start_time: startTime ?? null,
             end_time: endTime ?? null,
             patient_name: event.patientName ?? event.patient_name ?? null, status,
-                // created_at: event.createdAt ?? event.created_at ?? new Date().toISOString(),
-                // updated_at: new Date().toISOString()
-                        created_at: event.createdAt ?? event.created_at ?? nowTime().toISOString(), // MOCK
-                        updated_at: nowTime().toISOString() // MOCK
+            // created_at: event.createdAt ?? event.created_at ?? new Date().toISOString(),
+            // updated_at: new Date().toISOString()
+            created_at: event.createdAt ?? event.created_at ?? nowTime().toISOString(), // MOCK
+            updated_at: nowTime().toISOString() // MOCK
           }
           return [newAppt, ...prev]
         })
@@ -1397,12 +1468,31 @@ export default function StaffDashboard() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [staffClinicId, staffClinicName])
-
+  
+  async function fetchAppointmentById(apptId: any) {
+    try {
+      const url = `${baseURL}/api/appointments/${encodeURIComponent(String(apptId))}`
+      const res = await fetch(url)
+      if (!res.ok) {
+        console.warn(`[StaffDashboard] fetchAppointmentById ${apptId} returned status ${res.status}`)
+        return null
+      }
+      const contentType = (res.headers.get("content-type") || "").toLowerCase()
+      if (!contentType.includes("application/json")) {
+        console.warn(`[StaffDashboard] fetchAppointmentById ${apptId} returned non-json response (content-type=${contentType})`)
+        return null
+      }
+      return await res.json()
+    } catch (e) {
+      console.warn("[StaffDashboard] fetchAppointmentById error:", e)
+      return null
+    }
+  }
   // Global WebSocket subscription for slot/appointment changes
   useEffect(() => {
     connectSocket()
 
-    const statusSub = subscribeToAppointmentStatus((update: any) => {
+    const statusSub = subscribeToAppointmentStatus(async (update: any) => {
       try {
         const apptId = String(update?.appointmentId ?? update?.appointment_id ?? update?.id ?? "").trim()
         if (!apptId) return
@@ -1410,24 +1500,32 @@ export default function StaffDashboard() {
         const rawStatus = update?.status ?? ""
         const status = normalizeStatus(rawStatus)
         const updateClinicId = String(update?.clinicId ?? update?.clinic_id ?? "").trim()
-
+        const fullDetails = await fetchAppointmentById(apptId);
+        console.log(fullDetails)
         // Ignore events for other clinics when we have clinic context
         if (staffClinicId && updateClinicId && updateClinicId !== String(staffClinicId)) return
+        console.log("Raw appointment event:", update)
 
         const buildFromEvent = (evt: any) => ({
           appointment_id: apptId,
-          booking_date: normalizeDate(evt.bookingDate ?? evt.booking_date ?? ""),
-          clinic_id: evt.clinicId ?? evt.clinic_id ?? updateClinicId ?? "",
-          clinic_name: evt.clinicName ?? evt.clinic_name ?? null,
-          doctor_id: evt.doctorId ?? evt.doctor_id ?? "",
-          doctor_name: evt.doctorName ?? evt.doctor_name ?? null,
-          patient_id: evt.patientId ?? evt.patient_id ?? "",
-          patient_name: evt.patientName ?? evt.patient_name ?? null,
-          start_time: normalizeTime(evt.startTime ?? evt.start_time ?? null),
-          end_time: normalizeTime(evt.endTime ?? evt.end_time ?? null),
+          booking_date: normalizeDate(
+            evt.bookingDate ?? evt.booking_date ?? fullDetails.bookingDate ?? fullDetails.booking_date ?? ""
+          ),
+          clinic_id: evt.clinicId ?? evt.clinic_id ?? updateClinicId ?? fullDetails.clinicId ?? fullDetails.clinic_id ?? "",
+          clinic_name: evt.clinicName ?? evt.clinic_name ?? fullDetails.clinicName ?? fullDetails.clinic_name ?? null,
+          doctor_id: evt.doctorId ?? evt.doctor_id ?? fullDetails.doctorId ?? fullDetails.doctor_id ?? "",
+          doctor_name: evt.doctorName ?? evt.doctor_name ?? fullDetails.doctorName ?? fullDetails.doctor_name ?? null,
+          patient_id: evt.patientId ?? evt.patient_id ?? fullDetails.patientId ?? fullDetails.patient_id ?? "",
+          patient_name: evt.patientName ?? evt.patient_name ?? fullDetails.patientName ?? fullDetails.patient_name ?? null,
+          start_time: normalizeTime(
+            evt.startTime ?? evt.start_time ?? fullDetails.startTime ?? fullDetails.start_time ?? null
+          ),
+          end_time: normalizeTime(
+            evt.endTime ?? evt.end_time ?? fullDetails.endTime ?? fullDetails.end_time ?? null
+          ),
           status,
-          created_at: evt.createdAt ?? evt.created_at ?? new Date().toISOString(),
-          updated_at: evt.updatedAt ?? evt.updated_at ?? new Date().toISOString(),
+          created_at: evt.createdAt ?? evt.created_at ?? fullDetails.createdAt ?? fullDetails.created_at ?? new Date().toISOString(),
+          updated_at: evt.updatedAt ?? evt.updated_at ?? fullDetails.updatedAt ?? fullDetails.updated_at ?? new Date().toISOString(),
         });
 
 
@@ -1448,45 +1546,57 @@ export default function StaffDashboard() {
         if (status === "RESCHEDULED" || status === "SCHEDULED") {
           let evtAppt = buildFromEvent(update)
 
+          // Ensure caches populate in background (do not block on doctors)
+          if (!doctorsLoadedRef.current) fetchDoctors()
+
+          // If patient id present, ensure patient name is loaded before enrichment
+          if (evtAppt.patient_id) {
+            try { await loadPatientsIntoCache([String(evtAppt.patient_id)]) } catch (e) { /* ignore */ }
+          }
+
           // Async enrichment: fill names/date/time from event, caches, or local lists.
           const enrich = async () => {
-            // 1. Payload fallback: already set in buildFromEvent above
+            // prefer event-provided fields
+            evtAppt.doctor_name = evtAppt.doctor_name || update.doctorName || update.doctor_name || null
+            evtAppt.clinic_name = evtAppt.clinic_name || update.clinicName || update.clinic_name || null
+            evtAppt.patient_name = evtAppt.patient_name || update.patientName || update.patient_name || null
 
-            // 2. Caches
+            // caches
             if (!evtAppt.doctor_name && evtAppt.doctor_id) {
-              const d = doctorCache.current.get(String(evtAppt.doctor_id));
-              if (d) evtAppt.doctor_name = d;
+              const d = doctorCache.current.get(String(evtAppt.doctor_id))
+              if (d) evtAppt.doctor_name = d
             }
             if (!evtAppt.clinic_name && evtAppt.clinic_id) {
-              const c = clinicCache.current.get(String(evtAppt.clinic_id));
-              if (c) evtAppt.clinic_name = c;
+              const c = clinicCache.current.get(String(evtAppt.clinic_id))
+              if (c) evtAppt.clinic_name = c
             }
             if (!evtAppt.patient_name && evtAppt.patient_id) {
-              const p = patientCache.current.get(String(evtAppt.patient_id));
-              if (p) evtAppt.patient_name = p;
+              const p = patientCache.current.get(String(evtAppt.patient_id))
+              if (p) evtAppt.patient_name = p
             }
-            evtAppt.patient_name = resolvePatientName(evtAppt, update)
 
-            // 3. Existing local lists
+            // local lists fallback
             if (!evtAppt.doctor_name || !evtAppt.clinic_name || !evtAppt.patient_name) {
               const existing =
                 appointments.find(a => a.appointment_id === apptId) ||
                 queueAppointments.find(q => q.appointment_id === apptId) ||
                 completedAppointments.find(c => c.appointment_id === apptId) ||
-                null;
-              if (existing) evtAppt = { ...existing, ...evtAppt };
+                null
+              if (existing) evtAppt = { ...existing, ...evtAppt }
             }
 
+            // ensure booking_date / start_time / end_time present (prefer event then existing)
+            evtAppt.booking_date = evtAppt.booking_date || update.bookingDate || update.booking_date || (appointments.find(a => a.appointment_id === apptId)?.booking_date) || ""
+            evtAppt.start_time = evtAppt.start_time || update.startTime || update.start_time || (appointments.find(a => a.appointment_id === apptId)?.start_time) || null
+            evtAppt.end_time = evtAppt.end_time || update.endTime || update.end_time || (appointments.find(a => a.appointment_id === apptId)?.end_time) || null
 
-
-            return evtAppt;
-          };
-
+            return evtAppt
+          }
 
           // await enrichment so names/date/time are available before upsert
-          enrich()
-
+          await enrich()
           setAppointments(prev => {
+            console.log
             const idx = prev.findIndex(a => a.appointment_id === apptId)
             if (idx >= 0) {
               const updated = { ...prev[idx], ...evtAppt, status }
