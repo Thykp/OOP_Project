@@ -141,22 +141,75 @@ export default function StaffDashboard() {
             typeof appt.clinic_name === "string" ? appt.clinic_name.trim() : appt.clinic_name,
         }))
 
+        const today = new Date()
+        today.setHours(0, 0, 0, 0) // Set to start of today
+
         const filteredData = normalized.filter(appt => {
+          // Filter by clinic - check both clinic_id and clinic_name for better matching
+          let clinicMatch = false
+          
           if (staffClinicId) {
-            return appt.clinic_id === staffClinicId
+            // Primary match: exact clinic_id match
+            clinicMatch = appt.clinic_id === staffClinicId
+            // Fallback: also check clinic_name if clinic_id doesn't match (in case of data inconsistency)
+            if (!clinicMatch && appt.clinic_name && staffClinicName) {
+              clinicMatch = appt.clinic_name.toLowerCase().trim() === staffClinicName.toLowerCase().trim()
+            }
+          } else if (staffClinicName) {
+            // Match by clinic_name (case-insensitive, trimmed)
+            clinicMatch = !!(appt.clinic_name &&
+              appt.clinic_name.toLowerCase().trim() === staffClinicName.toLowerCase().trim())
+            // Also check clinic_id if available in appointment
+            if (!clinicMatch && appt.clinic_id) {
+              // This shouldn't happen, but if clinic_name doesn't match, we can't use clinic_id without staffClinicId
+            }
+          } else {
+            // No clinic filter - show all (shouldn't happen in normal operation)
+            clinicMatch = true
           }
-          if (staffClinicName) {
-            return (
-              appt.clinic_name &&
-              appt.clinic_name.toLowerCase() === staffClinicName.toLowerCase()
-            )
+
+          if (!clinicMatch) return false
+
+          // Filter out past appointments (unless they're IN_CONSULTATION or COMPLETED)
+          // Only show SCHEDULED, CHECKED-IN, or IN_CONSULTATION appointments that are today or future
+          const validStatuses = ["SCHEDULED", "CHECKED_IN", "CHECKED-IN", "CHECKED IN", "IN_CONSULTATION"]
+          const hasValidStatus = validStatuses.includes(appt.status)
+          
+          if (!hasValidStatus) return false
+
+          // Parse appointment date
+          let appointmentDate: Date
+          if (Array.isArray(appt.booking_date)) {
+            const [year, month, day] = appt.booking_date
+            appointmentDate = new Date(year, month - 1, day)
+          } else if (typeof appt.booking_date === "string") {
+            // Handle string dates (YYYY-MM-DD format)
+            const dateStr = appt.booking_date.substring(0, 10)
+            const [year, month, day] = dateStr.split("-").map(Number)
+            appointmentDate = new Date(year, month - 1, day)
+          } else {
+            appointmentDate = new Date(appt.booking_date)
           }
-          return true
+          
+          appointmentDate.setHours(0, 0, 0, 0)
+
+          // Include appointments from today onwards
+          const isTodayOrFuture = appointmentDate >= today
+
+          return isTodayOrFuture
         })
 
         console.log("appointments raw:", normalized.length, "filtered:", filteredData.length, {
           staffClinicId,
           staffClinicName,
+          staffPosition,
+          today: today.toISOString().split("T")[0],
+          sampleAppointments: normalized.slice(0, 3).map(a => ({
+            clinic_id: a.clinic_id,
+            clinic_name: a.clinic_name,
+            status: a.status,
+            booking_date: a.booking_date
+          }))
         })
 
         setAppointments(filteredData)
@@ -220,6 +273,16 @@ export default function StaffDashboard() {
 
   // Open treatment notes dialog
   const handleAddNotes = async (appointment: Appointment) => {
+    // Prevent adding notes for NO_SHOW appointments
+    if (appointment.status === "NO_SHOW") {
+      toast({
+        variant: "destructive",
+        title: "Cannot Add Treatment Notes",
+        description: "Treatment notes cannot be added for no-show appointments.",
+      })
+      return
+    }
+
     setSelectedAppointment(appointment)
 
     try {
@@ -245,6 +308,16 @@ export default function StaffDashboard() {
   // Save treatment notes (create new or update existing)
   const handleSaveNotes = async () => {
     if (!selectedAppointment) return
+
+    // Prevent saving notes for NO_SHOW appointments
+    if (selectedAppointment.status === "NO_SHOW") {
+      toast({
+        variant: "destructive",
+        title: "Cannot Save Treatment Notes",
+        description: "Treatment notes cannot be saved for no-show appointments.",
+      })
+      return
+    }
 
     if (!notes || notes.trim() === "") {
       toast({
@@ -343,7 +416,17 @@ export default function StaffDashboard() {
       const [year, month, day] = value
       return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
     }
+    // If it's already a string in YYYY-MM-DD format, return it directly
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+      return value.substring(0, 10) // Extract just the date part (YYYY-MM-DD)
+    }
+    // Otherwise, parse it as a Date
     const d = new Date(value)
+    // Check if date is valid
+    if (isNaN(d.getTime())) {
+      console.warn("Invalid date value:", value)
+      return ""
+    }
     const y = d.getFullYear()
     const m = String(d.getMonth() + 1).padStart(2, "0")
     const day = String(d.getDate()).padStart(2, "0")
@@ -414,30 +497,117 @@ export default function StaffDashboard() {
     return now >= windowStart && now <= start
   }
 
-  // Filter Function
-  const filteredAppointments = appointments.filter(appt => {
-    const doctorMatch = filterDoctor === "All" || appt.doctor_id === filterDoctor
-    const targetDate = dateToYMD(filterDate)
-    const dateMatch = !targetDate || toIsoDate(appt.booking_date) === targetDate
-    const nameMatch =
-      !filterPatientName ||
-      (appt.patient_name || "")
-        .toLowerCase()
-        .includes(filterPatientName.toLowerCase())
+  // Helper function to parse appointment date and time for sorting
+  const parseAppointmentDateTime = (appt: Appointment): { date: Date; time: number } => {
+    // Parse date
+    let appointmentDate: Date
+    if (Array.isArray(appt.booking_date)) {
+      const [year, month, day] = appt.booking_date
+      appointmentDate = new Date(year, month - 1, day)
+    } else if (typeof appt.booking_date === "string") {
+      const dateStr = appt.booking_date.substring(0, 10)
+      const [year, month, day] = dateStr.split("-").map(Number)
+      appointmentDate = new Date(year, month - 1, day)
+    } else {
+      appointmentDate = new Date(appt.booking_date)
+    }
 
-    return doctorMatch && dateMatch && nameMatch
-  })
+    // Parse time
+    let timeInMinutes = 0
+    if (Array.isArray(appt.start_time)) {
+      const [hours, minutes] = appt.start_time
+      timeInMinutes = (hours || 0) * 60 + (minutes || 0)
+    } else if (typeof appt.start_time === "string") {
+      const timeStr = appt.start_time.substring(0, 5) // Get HH:MM
+      const [hours, minutes] = timeStr.split(":").map(Number)
+      timeInMinutes = (hours || 0) * 60 + (minutes || 0)
+    }
+
+    return { date: appointmentDate, time: timeInMinutes }
+  }
+
+  // Helper function to check if appointment is today
+  const isAppointmentToday = (appt: Appointment): boolean => {
+    const { date } = parseAppointmentDateTime(appt)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const appointmentDate = new Date(date)
+    appointmentDate.setHours(0, 0, 0, 0)
+    
+    return appointmentDate.getTime() === today.getTime()
+  }
+
+  // Filter Function
+  const filteredAppointments = appointments
+    .filter(appt => {
+      const doctorMatch = filterDoctor === "All" || appt.doctor_id === filterDoctor
+      const targetDate = dateToYMD(filterDate)
+      const appointmentDate = toIsoDate(appt.booking_date)
+      const dateMatch = !targetDate || appointmentDate === targetDate
+      const nameMatch =
+        !filterPatientName ||
+        (appt.patient_name || "")
+          .toLowerCase()
+          .includes(filterPatientName.toLowerCase())
+
+      // Debug logging when filters are active
+      if (targetDate || filterDoctor !== "All" || filterPatientName) {
+        console.log("Filter check:", {
+          appointmentId: appt.appointment_id,
+          patientName: appt.patient_name,
+          doctorId: appt.doctor_id,
+          bookingDate: appt.booking_date,
+          appointmentDateISO: appointmentDate,
+          targetDate,
+          doctorMatch,
+          dateMatch,
+          nameMatch,
+          passes: doctorMatch && dateMatch && nameMatch
+        })
+      }
+
+      return doctorMatch && dateMatch && nameMatch
+    })
+    .sort((a, b) => {
+      // Sort by date first (today first, then future dates)
+      const aDateTime = parseAppointmentDateTime(a)
+      const bDateTime = parseAppointmentDateTime(b)
+      
+      // Compare dates
+      const dateDiff = aDateTime.date.getTime() - bDateTime.date.getTime()
+      if (dateDiff !== 0) {
+        return dateDiff
+      }
+      
+      // If same date, sort by time (earlier times first)
+      return aDateTime.time - bDateTime.time
+    })
 
   // Apply the same filters to completed appointments
-  const filteredCompletedAppointments = completedAppointments.filter(appt => {
-    const doctorMatch = filterDoctor === "All" || appt.doctor_id === filterDoctor
-    const targetDate = dateToYMD(filterDate)
-    const dateMatch = !targetDate || toIsoDate(appt.booking_date) === targetDate
-    const nameMatch =
-      !filterPatientName ||
-      (appt.patient_name || "").toLowerCase().includes(filterPatientName.toLowerCase())
-    return doctorMatch && dateMatch && nameMatch
-  })
+  const filteredCompletedAppointments = completedAppointments
+    .filter(appt => {
+      const doctorMatch = filterDoctor === "All" || appt.doctor_id === filterDoctor
+      const targetDate = dateToYMD(filterDate)
+      const dateMatch = !targetDate || toIsoDate(appt.booking_date) === targetDate
+      const nameMatch =
+        !filterPatientName ||
+        (appt.patient_name || "").toLowerCase().includes(filterPatientName.toLowerCase())
+      return doctorMatch && dateMatch && nameMatch
+    })
+    .sort((a, b) => {
+      // Sort completed appointments by date (most recent first) and then by time
+      const aDateTime = parseAppointmentDateTime(a)
+      const bDateTime = parseAppointmentDateTime(b)
+      
+      // Compare dates (most recent first)
+      const dateDiff = bDateTime.date.getTime() - aDateTime.date.getTime()
+      if (dateDiff !== 0) {
+        return dateDiff
+      }
+      
+      // If same date, sort by time (later times first for completed appointments)
+      return bDateTime.time - aDateTime.time
+    })
 
   // Update Status
   const updateApptStatus = async (apptId: String, status: String) => {
@@ -926,18 +1096,51 @@ export default function StaffDashboard() {
                     <div className="space-y-2">
                       <Button
                         className="w-full bg-blue-600 hover:bg-blue-700"
-                        onClick={() => {
-                          if (queueAppointments.length > 0) {
-                            const nextQueue = queueAppointments[0]
-                            setCurrentQueueNumber(nextQueue.queueNumber)
-                            setQueueAppointments(prev => prev.slice(1))
+                        onClick={async () => {
+                          if (queueAppointments.length === 0 || !staffClinicId) {
+                            return
+                          }
+                          
+                          try {
+                            const response = await fetch(`${baseURL}/api/queue/call-next`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                clinicId: staffClinicId,
+                                doctorId: queueAppointments[0]?.doctor_id || null
+                              })
+                            })
+
+                            if (!response.ok) {
+                              const error = await response.json()
+                              throw new Error(error.message || "Failed to call next patient")
+                            }
+
+                            const data = await response.json()
+                            
+                            if (queueAppointments.length > 0) {
+                              const nextQueue = queueAppointments[0]
+                              setCurrentQueueNumber(data.nowServing || nextQueue.queueNumber)
+                              setQueueAppointments(prev => prev.slice(1))
+                              
+                              // Refresh appointments to reflect status change
+                              fetchAppointments()
+                              
+                              toast({
+                                title: "Next Patient Called",
+                                description: `Now serving number ${data.nowServing || nextQueue.queueNumber}`,
+                              })
+                            }
+                          } catch (error: any) {
+                            console.error("Error calling next patient:", error)
                             toast({
-                              title: "Next Patient Called",
-                              description: `Now serving number ${nextQueue.queueNumber}`,
+                              variant: "destructive",
+                              title: "Error",
+                              description: error.message || "Failed to call next patient",
                             })
                           }
                         }}
-                        disabled={queueAppointments.length === 0 || isQueuePaused}
+                        disabled={queueAppointments.length === 0 || isQueuePaused || !staffClinicId}
                       >
                         Call Next
                       </Button>
@@ -1182,6 +1385,12 @@ export default function StaffDashboard() {
                                           appt.status === "CHECKED-IN" ||
                                           appt.status === "CHECKED IN"
                                         ? "bg-blue-100 text-blue-700"
+                                        : appt.status === "IN_CONSULTATION"
+                                        ? "bg-purple-100 text-purple-700"
+                                        : appt.status === "COMPLETED"
+                                        ? "bg-green-100 text-green-700"
+                                        : appt.status === "NO_SHOW"
+                                        ? "bg-red-100 text-red-700"
                                         : "bg-gray-100 text-gray-700"
                                     }`}
                                   >
@@ -1203,32 +1412,31 @@ export default function StaffDashboard() {
                                       Check In
                                     </Button>
                                   )}
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="text-red-600 hover:bg-red-50"
-                                    onClick={() =>
-                                      updateApptStatus(appt.appointment_id, "NO_SHOW")
-                                    }
-                                  >
-                                    No Show
-                                  </Button>
+                                  {isAppointmentToday(appt) && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-red-600 hover:bg-red-50"
+                                      onClick={() =>
+                                        updateApptStatus(appt.appointment_id, "NO_SHOW")
+                                      }
+                                    >
+                                      No Show
+                                    </Button>
+                                  )}
                                 </>
                               )}
-                              {(appt.status === "CHECKED_IN" ||
-                                appt.status === "CHECKED IN" ||
-                                appt.status === "CHECKED-IN") &&
-                                staffPosition === "nurse" && (
-                                  <Button
-                                    size="sm"
-                                    className="bg-green-600 hover:bg-green-700"
-                                    onClick={() =>
-                                      updateApptStatus(appt.appointment_id, "COMPLETED")
-                                    }
-                                  >
-                                    Complete
-                                  </Button>
-                                )}
+                              {appt.status === "IN_CONSULTATION" && (
+                                <Button
+                                  size="sm"
+                                  className="bg-green-600 hover:bg-green-700"
+                                  onClick={() =>
+                                    updateApptStatus(appt.appointment_id, "COMPLETED")
+                                  }
+                                >
+                                  Complete
+                                </Button>
+                              )}
                             </div>
                           </div>
                         </CardContent>
@@ -1317,7 +1525,7 @@ export default function StaffDashboard() {
                                 )}
                               </div>
                             </div>
-                            {staffPosition === "nurse" && (
+                            {staffPosition === "nurse" && appt.status === "COMPLETED" && (
                               <Button
                                 size="sm"
                                 variant="outline"

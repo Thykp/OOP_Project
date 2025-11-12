@@ -361,6 +361,10 @@ public class AppointmentService {
         return updateAppointmentStatus(id, "NO_SHOW");
     }
 
+    public AppointmentResponse markInConsultation(UUID id) {
+        return updateAppointmentStatus(id, "IN_CONSULTATION");
+    }
+
     public AppointmentResponse rescheduleAppointment(UUID id, RescheduleRequest request) {
         // Find the existing appointment
         Appointment appointment = appointmentRepository.findById(id)

@@ -122,6 +122,14 @@ public class TreatmentNoteService {
         TreatmentNote note = treatmentNoteRepository.findById(noteId)
                 .orElseThrow(() -> new RuntimeException("Treatment note not found with ID: " + noteId));
         
+        // Validate appointment is completed (not NO_SHOW)
+        Appointment appointment = appointmentRepository.findById(note.getAppointmentId())
+                .orElseThrow(() -> new RuntimeException("Appointment not found"));
+        
+        if (!"COMPLETED".equals(appointment.getStatus())) {
+            throw new RuntimeException("Treatment notes can only be updated for completed appointments");
+        }
+        
         if (request.getNoteType() != null && !request.getNoteType().isBlank()) {
             note.setNoteType(request.getNoteType());
         }
@@ -131,8 +139,6 @@ public class TreatmentNoteService {
         }
         
         TreatmentNote updated = treatmentNoteRepository.save(note);
-        Appointment appointment = appointmentRepository.findById(updated.getAppointmentId())
-                .orElse(null);
         Doctor doctor = appointment != null 
                 ? doctorRepository.findByDoctorId(appointment.getDoctorId()).orElse(null)
                 : null;

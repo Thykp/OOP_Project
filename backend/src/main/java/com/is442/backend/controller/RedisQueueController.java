@@ -1,5 +1,6 @@
 package com.is442.backend.controller;
 
+import com.is442.backend.dto.AppointmentResponse;
 import com.is442.backend.dto.ErrorResponse;
 import com.is442.backend.service.AppointmentService;
 import com.is442.backend.service.KafkaQueueEventProducer;
@@ -181,6 +182,27 @@ public class RedisQueueController {
                         "message", "Queue is empty",
                         "nowServing", result.nowServing(),
                         "appointmentId", ""));
+            }
+
+            // Update appointment status to IN_CONSULTATION when patient is called
+            if (appointmentService != null && result.appointmentId() != null && !result.appointmentId().isEmpty()) {
+                try {
+                    UUID appointmentUuid = UUID.fromString(result.appointmentId());
+                    System.out.println("[RedisQueueController] Updating appointment status to IN_CONSULTATION for appointmentId: " + result.appointmentId());
+                    AppointmentResponse response = appointmentService.markInConsultation(appointmentUuid);
+                    System.out.println("[RedisQueueController] Successfully updated appointment status to IN_CONSULTATION. New status: " + response.getStatus());
+                } catch (IllegalArgumentException e) {
+                    System.err.println("[RedisQueueController] Failed to parse appointmentId as UUID: " + result.appointmentId() + " - " + e.getMessage());
+                    // Log but don't fail the call-next if UUID parsing fails
+                    // This shouldn't happen but handle gracefully
+                } catch (Exception e) {
+                    System.err.println("[RedisQueueController] Failed to update appointment status to IN_CONSULTATION: " + e.getMessage());
+                    e.printStackTrace();
+                    // Log but don't fail the call-next if status update fails
+                    // This is a non-critical operation - appointment can be manually completed later
+                }
+            } else {
+                System.out.println("[RedisQueueController] Skipping status update - appointmentService: " + (appointmentService != null) + ", appointmentId: " + result.appointmentId());
             }
 
             // Get final doctorId (from request or from Redis metadata)
