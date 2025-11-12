@@ -1,5 +1,14 @@
 package com.is442.backend.service;
 
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.is442.backend.dto.TreatmentNoteRequest;
 import com.is442.backend.dto.TreatmentNoteResponse;
 import com.is442.backend.model.Appointment;
@@ -10,13 +19,6 @@ import com.is442.backend.repository.AppointmentRepository;
 import com.is442.backend.repository.DoctorRepository;
 import com.is442.backend.repository.TreatmentNoteRepository;
 import com.is442.backend.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 public class TreatmentNoteService {
@@ -32,6 +34,9 @@ public class TreatmentNoteService {
     
     @Autowired(required = false)
     private UserRepository userRepository;
+
+    @Autowired(required = false)
+    private SimpMessagingTemplate messagingTemplate;
     
     /**
      * Create a treatment note for a completed appointment
@@ -61,7 +66,23 @@ public class TreatmentNoteService {
         );
         
         TreatmentNote saved = treatmentNoteRepository.save(note);
-        return toResponse(saved, appointment, doctor);
+        TreatmentNoteResponse response = toResponse(saved, appointment, doctor);
+        // Broadcast new/updated treatment note (minimal payload for clients)
+        if (messagingTemplate != null) {
+            try {
+                messagingTemplate.convertAndSend("/topic/appointments/treatment-notes", java.util.Map.of(
+                        "appointmentId", response.getAppointmentId(),
+                        "noteId", response.getId(),
+                        "noteType", response.getNoteType(),
+                        "notes", response.getNotes(),
+                        "createdByName", response.getCreatedByName(),
+                        "createdAt", response.getCreatedAt()
+                ));
+            } catch (Exception e) {
+                // swallow to avoid impacting main flow
+            }
+        }
+        return response;
     }
     
     /**
@@ -130,13 +151,28 @@ public class TreatmentNoteService {
             note.setNotes(request.getNotes());
         }
         
-        TreatmentNote updated = treatmentNoteRepository.save(note);
-        Appointment appointment = appointmentRepository.findById(updated.getAppointmentId())
-                .orElse(null);
-        Doctor doctor = appointment != null 
-                ? doctorRepository.findByDoctorId(appointment.getDoctorId()).orElse(null)
-                : null;
-        return toResponse(updated, appointment, doctor);
+    TreatmentNote updated = treatmentNoteRepository.save(note);
+    Appointment appointment = appointmentRepository.findById(updated.getAppointmentId())
+        .orElse(null);
+    Doctor doctor = appointment != null 
+        ? doctorRepository.findByDoctorId(appointment.getDoctorId()).orElse(null)
+        : null;
+    TreatmentNoteResponse response = toResponse(updated, appointment, doctor);
+    if (messagingTemplate != null) {
+        try {
+        messagingTemplate.convertAndSend("/topic/appointments/treatment-notes", java.util.Map.of(
+            "appointmentId", response.getAppointmentId(),
+            "noteId", response.getId(),
+            "noteType", response.getNoteType(),
+            "notes", response.getNotes(),
+            "createdByName", response.getCreatedByName(),
+            "updatedAt", response.getUpdatedAt()
+        ));
+        } catch (Exception e) {
+        // swallow
+        }
+    }
+    return response;
     }
     
     /**

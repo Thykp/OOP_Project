@@ -26,7 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/context/auth-context"
-import { connectSocket, disconnectSocket, subscribeToSlots } from "@/lib/socket"
+import { connectSocket, disconnectSocket, subscribeToAppointmentStatus, subscribeToSlots, subscribeToTreatmentNotes } from "@/lib/socket"
 import { cn } from "@/lib/utils"
 import { AlertTriangle, Calendar as CalendarIcon, CheckCircle, CheckCircle2, Clock, FileText, User, UserPlus } from "lucide-react"
 import { useEffect, useState } from "react"
@@ -159,6 +159,7 @@ export default function StaffDashboard() {
           clinic_id: typeof appt.clinic_id === "string" ? appt.clinic_id.trim() : appt.clinic_id,
           clinic_name:
             typeof appt.clinic_name === "string" ? appt.clinic_name.trim() : appt.clinic_name,
+          status: normalizeStatus(appt.status),
         }))
 
         const filteredData = normalized.filter(appt => {
@@ -179,7 +180,9 @@ export default function StaffDashboard() {
           staffClinicName,
         })
 
-        setAppointments(filteredData)
+        // Sort by booking date and start time ascending (earliest first)
+        const sorted = [...filteredData].sort((a, b) => getApptSortKey(a) - getApptSortKey(b))
+        setAppointments(sorted)
       })
       .catch(err => {
         console.error("Error fetching appointments:", err)
@@ -515,6 +518,9 @@ export default function StaffDashboard() {
 
   // Filter Function
   const filteredAppointments = appointments.filter(appt => {
+    // Restrict upcoming to SCHEDULED and CHECKED-IN only
+    const norm = normalizeStatus(appt.status)
+    const statusMatch = norm === "SCHEDULED" || norm === "CHECKED-IN"
     const doctorMatch = filterDoctor === "All" || appt.doctor_id === filterDoctor
     const targetDate = dateToYMD(filterDate)
     const dateMatch = !targetDate || toIsoDate(appt.booking_date) === targetDate
@@ -524,8 +530,11 @@ export default function StaffDashboard() {
         .toLowerCase()
         .includes(filterPatientName.toLowerCase())
 
-    return doctorMatch && dateMatch && nameMatch
+    return statusMatch && doctorMatch && dateMatch && nameMatch
   })
+
+  // Sort filtered list to ensure display is ordered even after in-memory mutations
+  filteredAppointments.sort((a, b) => getApptSortKey(a) - getApptSortKey(b))
 
   // Apply the same filters to completed appointments
   const filteredCompletedAppointments = completedAppointments.filter(appt => {
@@ -537,6 +546,17 @@ export default function StaffDashboard() {
       (appt.patient_name || "").toLowerCase().includes(filterPatientName.toLowerCase())
     return doctorMatch && dateMatch && nameMatch
   })
+  // Optional: keep completed sorted by date/time descending (most recent first)
+  filteredCompletedAppointments.sort((a, b) => getApptSortKey(b) - getApptSortKey(a))
+
+  // Normalize status strings to a canonical form used in UI/logic (use function declaration for hoisting)
+  function normalizeStatus(s?: string) {
+    const u = String(s || "").toUpperCase().replace(/\s+/g, "-").replace(/_/g, "-")
+    if (u === "CHECKED-IN") return "CHECKED-IN"
+    if (u === "COMPLETED") return "COMPLETED"
+    if (u === "NO-SHOW") return "NO_SHOW"
+    return u
+  }
 
   // Update Status
   const updateApptStatus = async (apptId: String, status: String) => {
@@ -931,14 +951,77 @@ export default function StaffDashboard() {
   // Global WebSocket subscription for slot/appointment changes
   useEffect(() => {
     connectSocket()
-    const { unsubscribe } = subscribeToSlots((update: any) => {
-      if (!update) return
-      fetchAppointments()
-      fetchCompletedAppointments()
+    const statusSub = subscribeToAppointmentStatus((update: any) => {
+      // Handle appointment status events without full refetch when possible
+      try {
+        const apptId: string | undefined = update?.appointmentId || update?.appointment_id || update?.id
+        const rawStatus: string | undefined = update?.status
+        const updateClinicId: string | undefined = update?.clinicId || update?.clinic_id
+        if (!apptId || !rawStatus) return
+
+        // Ignore events from other clinics when clinic context is known
+        if (staffClinicId && updateClinicId && updateClinicId !== staffClinicId) return
+
+        const status = normalizeStatus(rawStatus)
+
+        // On CHECKED-IN, just update the item in-memory for a snappier nurse UI
+        if (status === "CHECKED-IN") {
+          const exists = appointments.some(a => a.appointment_id === apptId)
+          if (exists) {
+            setAppointments(prev => prev.map(a => (a.appointment_id === apptId ? { ...a, status: "CHECKED-IN" } : a)))
+            return
+          }
+          // If we don't have it locally (rare), fall back to a single refetch
+          fetchAppointments()
+          return
+        }
+
+        // For terminal states (COMPLETED/NO_SHOW), keep refetch to ensure both lists are consistent
+        if (status === "COMPLETED" || status === "NO_SHOW") {
+          fetchAppointments()
+          fetchCompletedAppointments()
+          return
+        }
+
+        // Unknown status: default to safe refetch
+        fetchAppointments()
+        fetchCompletedAppointments()
+      } catch {
+        fetchAppointments()
+        fetchCompletedAppointments()
+      }
     })
 
+    // Listen for treatment note updates to refresh or patch completed items in receptionist view
+    const notesSub = subscribeToTreatmentNotes((payload: any) => {
+      try {
+        const apptId: string | undefined = payload?.appointmentId || payload?.appointment_id
+        if (!apptId) return
+
+        // If receptionist has this appointment in completed list, patch note; else fetch once
+        const idx = completedAppointments.findIndex(a => a.appointment_id === apptId)
+        if (idx >= 0) {
+          const latest = {
+            id: payload.noteId,
+            notes: payload.notes,
+            noteType: payload.noteType || 'TREATMENT_SUMMARY',
+            createdAt: payload.createdAt || payload.updatedAt || new Date().toISOString(),
+            createdByName: payload.createdByName,
+          }
+          setCompletedAppointments(prev => prev.map((a, i) => i === idx ? { ...a, treatmentNote: latest } : a))
+        } else {
+          // Fallback: refresh completed list once
+          fetchCompletedAppointments()
+        }
+      } catch {
+        fetchCompletedAppointments()
+      }
+    })
+
+    // Ensure cleanup doesn't throw if subs are not available
     return () => {
-      unsubscribe()
+      try { statusSub.unsubscribe() } catch {}
+      try { notesSub && notesSub.unsubscribe && notesSub.unsubscribe() } catch {}
       // keep socket globally if other pages reuse it
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -982,6 +1065,25 @@ export default function StaffDashboard() {
     const ampm = hours >= 12 ? "PM" : "AM"
     hours = hours % 12 || 12
     return `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`
+  }
+
+  // Compute a numeric sort key for an appointment using booking_date + start_time
+  function getApptSortKey(appt: Appointment): number {
+    const iso = toIsoDate(appt.booking_date)
+    let hh = 0, mm = 0
+    if (Array.isArray(appt.start_time)) {
+      const [h, m] = appt.start_time as number[]
+      hh = Number(h) || 0
+      mm = Number(m) || 0
+    } else if (typeof appt.start_time === "string" && appt.start_time) {
+      const [h, m] = appt.start_time.substring(0,5).split(":")
+      hh = Number(h) || 0
+      mm = Number(m) || 0
+    }
+    // Build Date using local time
+    const [y, mo, d] = iso.split("-").map(n => Number(n))
+    const dt = new Date(y, (mo || 1) - 1, d || 1, hh, mm, 0, 0)
+    return dt.getTime()
   }
 
   return (

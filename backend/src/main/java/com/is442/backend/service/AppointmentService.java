@@ -339,6 +339,18 @@ public class AppointmentService {
 
         appointment.setStatus(status);
         Appointment updated = appointmentRepository.save(appointment);
+        // Broadcast status change so staff dashboards can update in real-time
+        try {
+            messagingTemplate.convertAndSend("/topic/appointments/status", java.util.Map.of(
+                    "appointmentId", updated.getAppointmentId().toString(),
+                    "status", updated.getStatus(),
+                    "clinicId", updated.getClinicId(),
+                    "patientId", updated.getPatientId(),
+                    "doctorId", updated.getDoctorId()
+            ));
+        } catch (Exception e) {
+            logger.warn("Failed to publish appointment status update: {}", e.getMessage());
+        }
         return new AppointmentResponse(updated);
     }
 
@@ -569,6 +581,18 @@ public class AppointmentService {
             entityManager.flush();
             logger.info("Successfully created walk-in appointment: appointmentId={}, status=CHECKED-IN",
                     appointmentId);
+            // Broadcast new walk-in as CHECKED-IN so dashboards update
+            try {
+                messagingTemplate.convertAndSend("/topic/appointments/status", java.util.Map.of(
+                        "appointmentId", appointmentId.toString(),
+                        "status", "CHECKED-IN",
+                        "clinicId", clinicId,
+                        "patientId", patientId,
+                        "doctorId", doctorId
+                ));
+            } catch (Exception e2) {
+                logger.warn("Failed to publish walk-in status: {}", e2.getMessage());
+            }
         } catch (Exception e) {
             // Check if it's a duplicate key error (appointment was created in another
             // transaction)
@@ -606,6 +630,18 @@ public class AppointmentService {
             appointmentRepository.save(appointment);
 
             logger.info("Successfully updated appointment status to CHECKED-IN: appointmentId={}", appointmentId);
+            // Broadcast checked-in status to listeners
+            try {
+                messagingTemplate.convertAndSend("/topic/appointments/status", java.util.Map.of(
+                        "appointmentId", appointment.getAppointmentId().toString(),
+                        "status", appointment.getStatus(),
+                        "clinicId", appointment.getClinicId(),
+                        "patientId", appointment.getPatientId(),
+                        "doctorId", appointment.getDoctorId()
+                ));
+            } catch (Exception e2) {
+                logger.warn("Failed to publish checked-in update: {}", e2.getMessage());
+            }
         } catch (Exception e) {
             logger.error("Error updating appointment status to CHECKED-IN: appointmentId={}, error={}",
                     appointmentId, e.getMessage(), e);
