@@ -1,95 +1,234 @@
-# OOP_Project
+# SingHealth Clinic Management System
 
-## Prerequisite
-VScode or IntelliJ (Your Choice) <br>
-Java 21 <br>
-Maven 3.6+ <br>
-Node.js <br>
-Database Credentials <br>
+A comprehensive healthcare appointment and clinic management system built with Spring Boot and React, featuring real-time updates, queue management, and multi-role access control. It supports three user group.
 
-## Folder Structure (Spring Boot)
+- **Patients**: Book appointments, check-in, view treatment notes
+- **Staff** (Nurses/Receptionists): Manage appointments, handle queues, create treatment notes
+- **Administrators**: Configure clinics, manage users, oversee system operations
+
+---
+## 🎯 Features by Role
+
+### 👤 Patient Features
+
+#### Appointment Management
+- **Book Appointments**: Browse & book from available timeslots across GP and specialist clinics
+- **Appointment History**: View past, upcoming, and completed appointments
+
+#### Queue & Check-in
+- **Self Check-in**: Check-in for appointment 2hours before starting time 
+- **Real-time Queue Position**: View current position in clinic queue
+- **Receive notification** : Receive notification 3 positions away & current turn 
+
+#### Treatment Notes Access
+- **View Treatment Notes**: Access completed treatment notes from appointments
+- **Medical History**: Review past diagnoses, medications, and doctor notes
+
+---
+
+### 👨‍⚕️ Staff Features (Nurse/Receptionist)
+
+#### Appointment Management
+- **View All Appointments**: Filter by status, date, and clinic
+- **Appointment Actions**:
+  - Mark as "Completed" (NURSE)
+  - Add walk In (RECEPTIONIST)
+  - Cancel & reschedule/ indicate No show for appointments (RECEPTIONIST)
+
+#### Queue Management
+- **Queue Dashboard**: View all checked-in patients in real-time
+- **Queue Position Management**: Process queue and track and manage patient flow
+
+#### Treatment Notes Creation 
+- **Create Treatment Notes**: Add treatment notes after appointment completed (NURSE)
+
+#### Generate Report
+- **Generate Daily Report**: Generate daily report of clinic statistics
+
+---
+
+### 🔧 System Administrator Features
+
+#### User Management
+- **Role Management**: Create, update, delete user accounts and assign and modify user roles
+
+#### Clinic Configuration
+- Configure clinic operating hours
+
+#### Doctor Management
+- **Doctor Profiles**:
+  - Add new doctors to the system
+  - Edit doctor information
+  - Manage doctor schedules/timeslots
+
+#### System Monitoring
+- View overall system usage
+- Generate backup and restore data
+
+---
+## 📱 User Workflows
+
+### Patient Journey
+1. Sign up with email and login
+2. Browse available clinics and doctors
+3. Select date and time slot
+4. Book appointment
+5. Receive confirmation
+6. Check-in 2 hours before appointment day
+7. Wait in queue (receive notification when called)
+8. Complete appointment
+9. View treatment notes
+
+### Staff Journey
+1. Sign up with clinic assignment and login
+2. View dashboard with today's appointments
+3. Monitor check-ins and queue
+4. Call next patient from queue
+5. Mark appointment as Completed (NURSE)
+6. Create treatment note after consultation (NURSE)
+7. Add walk-in appointments (RECEPTIONIST)
+8. Cancel/reschedule or mark No-show (RECEPTIONIST)
+
+### Admin Journey
+1. Access admin dashboard
+2. Add new doctors to system
+3. Create time slots for doctors
+4. Configure clinic operating hours
+5. Manage user accounts and roles
+6. Monitor system activity
+7. Generate backup and restore data
+
+---
+
+## 🧪 Test Accounts
+
+Use the following accounts to test different user roles:
+
+### Patient Account
+**Please book an appointment at AFFINITY MEDICAL CLINIC to test the staff account flow**
+- **Email**: `geraldchee0110@gmail.com`
+- **Password**: `Password1!`
+
+### Staff Account (Nurse) - AFFINITY MEDICAL CLINIC
+- **Email**: `gerald.chee.2023@scis.smu.edu.sg`
+- **Password**: `Password1!`
+- **Access**: Mark appointments completed, create treatment notes
+
+### Staff Account (Receptionist) - AFFINITY MEDICAL CLINIC
+- **Email**: `geraldchee2002@gmail.com`
+- **Password**: `Password1!`
+- **Access**: Add walk-ins, cancel/reschedule appointments, mark no-shows
+
+### Administrator Account
+**If you wish to use your own Patient & Staff account, you may create it using this Administrator Account.**
+- **Email**: `janiee.lim17@gmail.com`
+- **Password**: `Password1!`
+- **Access**: Full system access, user management, clinic configuration
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- **VSCode** or **IntelliJ IDEA** (Your choice)
+- **Java 21** or higher
+- **Maven 3.6+**
+- **Node.js 18+** and npm
+- **Docker** and **Docker Compose**
+
+### Installation Steps
+
+#### 1. Clone the Repository
 ```bash
-.
-├── HELP.md
-├── mvnw
-├── mvnw.cmd
-├── pom.xml
-└── src
-    ├── main
-    │   ├── java
-    │   └── resources
-    └── test
-        ├── java
-        └── resources
+git clone https://github.com/Thykp/OOP_Project.git
+cd OOP_Project
 ```
 
-## Instructions
-
-Switch to your branch before starting to code:
-```bash
-  git checkout -b your-branch-name
-```
-
-<br>
-
-> Local Setup (Spring + Kafka + Redis)
-1. Open a terminal and run the following command:
+#### 2. Backend Setup (Spring Boot + Kafka + Redis)
+Open a terminal and run:
 ```bash
 cd backend
 mvn clean install
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
-To shut down:
+**To shut down the backend:**
 ```bash
 docker compose down
 ```
 
-<br>
-
-2. Open another terminal and run the following command:
+#### 3. Frontend Setup (React + Vite)
+Open another terminal and run:
 ```bash
-  cd frontend
-  npm i
-  npm run dev
+cd frontend
+npm install
+npm run dev
 ```
 
-3. Kafka Topics:
-```bash
-  docker exec -it kafka bash -lc 'kafka-topics --bootstrap-server localhost:9092 --list'
-```
-
-4. Redis Queues
-```bash
-  docker exec -it redis redis-cli
-  
-  # find all queue 
-  keys clinic:*:queue
-  
-  get clinic:123:nowServing
-  get clinic:123:seq
-```
-
-You should see the Kafka Topics listed out
+#### 4. Access the Application
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:8080
 
 ---
 
+## 🔧 Verification & Debugging
 
-## Solution Architecture (Draft)
-### Technical Architecture
-<img width="720" height="565" alt="Screenshot 2025-09-08 at 8 44 08 PM" src="https://github.com/user-attachments/assets/2d9b060e-74f9-4f9b-990a-158ebe9ea670" />
+### Check Kafka Topics
+```bash
+docker exec -it kafka bash -lc 'kafka-topics --bootstrap-server localhost:9092 --list'
+```
+
+### Check Redis Queues
+```bash
+docker exec -it redis redis-cli
+
+# Find all clinic queues
+keys clinic:*:queue
+
+# Check current serving patient
+get clinic:123:nowServing
+
+# Check queue sequence
+get clinic:123:seq
+```
+
+---
+
+## 📁 Project Structure
+
+### Backend (Spring Boot)
+```bash
+backend/
+├── src/
+│   ├── main/
+│   │   ├── java/com/is442/backend/
+│   │   │   ├── controller/     # REST API endpoints
+│   │   │   ├── model/          # JPA entities
+│   │   │   ├── repository/     # Data access layer
+│   │   │   ├── service/        # Business logic
+│   │   │   └── config/         # Configuration classes
+│   │   └── resources/
+│   │       ├── application.properties
+│   │       └── application-prod.properties
+│   └── test/                   # Unit and integration tests
+├── pom.xml                     # Maven dependencies
+└── docker-compose.yml          # Docker services
+```
+
+### Frontend (React + TypeScript)
+```bash
+frontend/
+├── src/
+│   ├── components/             # Reusable UI components
+│   ├── pages/                  # Page components
+│   ├── context/                # React context (auth)
+│   ├── lib/                    # Utilities (Supabase, WebSocket)
+│   └── main.tsx                # App entry point
+├── package.json                # npm dependencies
+└── vite.config.ts              # Vite configuration
+```
 
 
-### MVC Architecture
-<img width="853" height="438" alt="Screenshot 2025-07-22 at 5 18 01 PM" src="https://github.com/user-attachments/assets/0ffc5bb7-eb66-4eca-a817-d3bbfd392e6c" />
-<p>
-  Spring MVC Architecture that abides by standard Model, View, Controller.
-</p>
 
-### Cloud Architecture
-<img width="854" height="459" alt="Screenshot 2025-07-22 at 5 16 49 PM" src="https://github.com/user-attachments/assets/65a17bd1-ba1b-411d-9f09-5ea4c500cc3c" />
-<p>
-  Backend Spring Boot Application image built and stored on ECS and deployed via Fargate for auto scaling <br>
-  Frontend deployed as static asset, stored in S3 and distributed via Cloudfront CDN
-</p>
+
 
