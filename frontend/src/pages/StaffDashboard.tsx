@@ -147,9 +147,7 @@ export default function StaffDashboard() {
 
   const navigate = useNavigate()
 
-  // const REAL_NOW = new Date();
-  const MOCK_NOW = new Date(2025, 10, 13, 13, 0, 0) // MOCK: 13 Nov 2025 1:00 PM local (comment this and use REAL_NOW to revert)
-  const nowTime = () => MOCK_NOW
+  const nowTime = () => new Date()
 
   const doctorCache = useRef<Map<string, string>>(new Map())
   const clinicCache = useRef<Map<string, string>>(new Map())
@@ -1390,10 +1388,8 @@ export default function StaffDashboard() {
             end_time: endTime,
             patient_name: patientName, 
             status: displayStatus,
-            // created_at: event.createdAt ?? event.created_at ?? new Date().toISOString(),
-            // updated_at: new Date().toISOString()
-            created_at: event.createdAt ?? event.created_at ?? nowTime().toISOString(), // MOCK
-            updated_at: nowTime().toISOString() // MOCK
+            created_at: event.createdAt ?? event.created_at ?? nowTime().toISOString(),
+            updated_at: nowTime().toISOString()
           }
           return [newAppt, ...prev]
         })
