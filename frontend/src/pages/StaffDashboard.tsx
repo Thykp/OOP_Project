@@ -365,6 +365,12 @@ export default function StaffDashboard() {
         // Sort by booking date and start time ascending (earliest first)
         const sorted = [...filteredData].sort((a, b) => getApptSortKey(a) - getApptSortKey(b))
         setAppointments(sorted)
+        
+        // Load patient names into cache for WebSocket enrichment
+        const patientIds = sorted.map(a => a.patient_id).filter(Boolean)
+        if (patientIds.length > 0) {
+          loadPatientsIntoCache(patientIds)
+        }
       })
       .catch(err => {
         console.error("Error fetching appointments:", err)
@@ -418,6 +424,12 @@ export default function StaffDashboard() {
       )
 
       setCompletedAppointments(appointmentsWithNotes)
+      
+      // Load patient names into cache for WebSocket enrichment
+      const patientIds = appointmentsWithNotes.map(a => a.patient_id).filter(Boolean)
+      if (patientIds.length > 0) {
+        loadPatientsIntoCache(patientIds)
+      }
     } catch (err) {
       console.error("Error fetching completed appointments:", err)
     }
@@ -588,32 +600,30 @@ export default function StaffDashboard() {
   const [filterPatientName, setFilterPatientName] = useState("")
 
   // Fetch doctors from staff's clinic only
-  const fetchDoctors = () => {
-    fetch(`${baseURL}/api/doctors`)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`)
-        }
-        return response.json()
-      })
-      .then(data => {
-        const clinicDoctors = staffClinicId
-          ? data.filter((doc: any) => doc.clinicId === staffClinicId)
-          : staffClinicName
-            ? data.filter((doc: any) => doc.clinicName === staffClinicName)
-            : data
+  const fetchDoctors = async () => {
+    try {
+      const response = await fetch(`${baseURL}/api/doctors`)
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`)
+      }
+      const data = await response.json()
+      
+      const clinicDoctors = staffClinicId
+        ? data.filter((doc: any) => doc.clinicId === staffClinicId)
+        : staffClinicName
+          ? data.filter((doc: any) => doc.clinicName === staffClinicName)
+          : data
 
-        const doctorOptions = clinicDoctors.map((doc: { doctorId: string; doctorName: string }) => ({
-          value: doc.doctorId,
-          label: doc.doctorName,
-        }))
-        setDoctorOptions(doctorOptions)
-        // populate caches for enrichment
-        loadDoctorsIntoCaches(Array.isArray(data) ? data : [])
-      })
-      .catch(err => {
-        console.error("Error fetching doctors:", err)
-      })
+      const doctorOptions = clinicDoctors.map((doc: { doctorId: string; doctorName: string }) => ({
+        value: doc.doctorId,
+        label: doc.doctorName,
+      }))
+      setDoctorOptions(doctorOptions)
+      // populate caches for enrichment
+      loadDoctorsIntoCaches(Array.isArray(data) ? data : [])
+    } catch (err) {
+      console.error("Error fetching doctors:", err)
+    }
   }
 
   // Helper: normalize date to "YYYY-MM-DD" for filtering (improved version)
@@ -1218,21 +1228,54 @@ export default function StaffDashboard() {
 
       if (!apptId) return;
 
-      // If names are missing, fetch full appointment details and merge
-      const needsEnrichment = !event.doctorName && !event.doctor_name || !event.patientName && !event.patient_name;
+      // Extract IDs for cache lookup
+      const doctorId = event.doctorId ?? event.doctor_id;
+      const patientId = event.patientId ?? event.patient_id;
+      const clinicId = event.clinicId ?? event.clinic_id;
+
+      // Try to get names from event, then caches, then fetch if needed
+      let doctorName = event.doctorName ?? event.doctor_name;
+      let patientName = event.patientName ?? event.patient_name;
+      let clinicName = event.clinicName ?? event.clinic_name;
+
+      // Try caches if names not in event
+      if (!doctorName && doctorId) {
+        doctorName = doctorCache.current.get(String(doctorId));
+      }
+      if (!patientName && patientId) {
+        patientName = patientCache.current.get(String(patientId));
+      }
+      if (!clinicName && clinicId) {
+        clinicName = clinicCache.current.get(String(clinicId));
+      }
+
+      // If still missing names after cache check, fetch full appointment details
+      const needsEnrichment = !doctorName || !patientName;
       let full = null;
       if (needsEnrichment) {
         try {
           full = await fetchAppointmentById(apptId);
+          if (full) {
+            // Update caches with fetched data
+            if (full.doctorId && full.doctorName) {
+              doctorCache.current.set(String(full.doctorId), full.doctorName);
+            }
+            if (full.patientId && full.patientName) {
+              patientCache.current.set(String(full.patientId), full.patientName);
+            }
+            if (full.clinicId && full.clinicName) {
+              clinicCache.current.set(String(full.clinicId), full.clinicName);
+            }
+          }
         } catch (e) {
           console.warn("[StaffDashboard] enrichment failed for", apptId, e);
         }
       }
 
-      // build a normalized object that prefers event fields then full fetch
-      const doctorName = event.doctorName ?? event.doctor_name ?? full?.doctorName ?? full?.doctor_name ?? null;
-      const patientName = event.patientName ?? event.patient_name ?? full?.patientName ?? full?.patient_name ?? null;
-      const clinicName = event.clinicName ?? event.clinic_name ?? full?.clinicName ?? full?.clinic_name ?? null;
+      // Final fallback to fetched data
+      doctorName = doctorName ?? full?.doctorName ?? full?.doctor_name ?? "Unknown Doctor";
+      patientName = patientName ?? full?.patientName ?? full?.patient_name ?? "Unknown Patient";
+      clinicName = clinicName ?? full?.clinicName ?? full?.clinic_name ?? staffClinicName ?? "Unknown Clinic";
 
       // Update appointment lists using enriched names
       if (status === "CHECKED-IN" || status === "CHECKED IN") {
@@ -1529,19 +1572,26 @@ export default function StaffDashboard() {
     }
   }
 
+  // Load doctors first, then other data - ensures caches are ready for WebSocket events
   useEffect(() => {
-    fetchAppointments()
-    fetchCompletedAppointments()
-    fetchDoctors()
+    const loadInitialData = async () => {
+      await fetchDoctors() // Wait for doctors to load first
+      fetchAppointments()
+      fetchCompletedAppointments()
+    }
+    loadInitialData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Refetch when clinic context resolves/changes to avoid stale initial data
   useEffect(() => {
     if (staffClinicId || staffClinicName) {
-      fetchAppointments()
-      fetchCompletedAppointments()
-      fetchDoctors()
+      const reloadData = async () => {
+        await fetchDoctors() // Wait for doctors to load first
+        fetchAppointments()
+        fetchCompletedAppointments()
+      }
+      reloadData()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [staffClinicId, staffClinicName])
@@ -1577,7 +1627,23 @@ export default function StaffDashboard() {
         const rawStatus = update?.status ?? ""
         const status = normalizeStatus(rawStatus)
         const updateClinicId = String(update?.clinicId ?? update?.clinic_id ?? "").trim()
+        
+        // Fetch full details if needed
         const fullDetails = await fetchAppointmentById(apptId);
+        
+        // Update caches with fetched data to help future events
+        if (fullDetails) {
+          if (fullDetails.doctorId && (fullDetails.doctorName || fullDetails.doctor_name)) {
+            doctorCache.current.set(String(fullDetails.doctorId), fullDetails.doctorName || fullDetails.doctor_name);
+          }
+          if (fullDetails.patientId && (fullDetails.patientName || fullDetails.patient_name)) {
+            patientCache.current.set(String(fullDetails.patientId), fullDetails.patientName || fullDetails.patient_name);
+          }
+          if (fullDetails.clinicId && (fullDetails.clinicName || fullDetails.clinic_name)) {
+            clinicCache.current.set(String(fullDetails.clinicId), fullDetails.clinicName || fullDetails.clinic_name);
+          }
+        }
+        
         console.log(fullDetails)
         // Ignore events for other clinics when we have clinic context
         if (staffClinicId && updateClinicId && updateClinicId !== String(staffClinicId)) return

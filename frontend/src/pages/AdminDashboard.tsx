@@ -3,7 +3,7 @@
 import { Link } from "react-router-dom"
 import { PageLayout } from "@/components/page-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, Calendar, Shield } from "lucide-react"
+import { Users, Calendar, Shield, BarChart3, Database } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 
 export default function AdminDashboard() {
@@ -24,7 +24,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Feature Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {/* User Account Management Card */}
           <Link to="/admin/user-management" className="block">
             <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-blue-500">
@@ -94,6 +94,41 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           </Link>
+
+          {/* System Monitoring Card */}
+          <Link to="/admin/system-monitoring" className="block">
+            <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-purple-500">
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="bg-purple-100 p-3 rounded-lg">
+                    <BarChart3 className="w-8 h-8 text-purple-600" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-2xl">System Monitoring</CardTitle>
+                    <CardDescription className="text-base mt-1">
+                      Monitor system usage and queue statistics
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-gray-600">
+                  <li className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-purple-600 rounded-full"></span>
+                    View appointment statistics and cancellations
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-purple-600 rounded-full"></span>
+                    Monitor all clinic queues in real-time
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-purple-600 rounded-full"></span>
+                    Backup and restore system data
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
 
         {/* Quick Stats */}
@@ -124,6 +159,13 @@ export default function AdminDashboard() {
                 >
                   <div className="font-medium text-gray-900">Configure Schedules</div>
                   <div className="text-sm text-gray-500">Set up doctor availability</div>
+                </Link>
+                <Link
+                  to="/admin/system-monitoring"
+                  className="block w-full text-left px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="font-medium text-gray-900">System Monitoring</div>
+                  <div className="text-sm text-gray-500">View system stats and queues</div>
                 </Link>
               </div>
             </CardContent>
