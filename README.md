@@ -2,10 +2,6 @@
 
 A comprehensive healthcare appointment and clinic management system built with Spring Boot and React, featuring real-time updates, queue management, and multi-role access control. It supports three user group.
 
-- **Patients**: Book appointments, check-in, view treatment notes
-- **Staff** (Nurses/Receptionists): Manage appointments, handle queues, create treatment notes
-- **Administrators**: Configure clinics, manage users, oversee system operations
-
 ---
 ## 🎯 Features by Role
 
@@ -13,7 +9,7 @@ A comprehensive healthcare appointment and clinic management system built with S
 
 #### Appointment Management
 - **Book Appointments**: Browse & book from available timeslots across GP and specialist clinics
-- **Appointment History**: View past, upcoming, and completed appointments
+- **View Appointments**: View past, upcoming, and completed appointments
 
 #### Queue & Check-in
 - **Self Check-in**: Check-in for appointment 2hours before starting time 
