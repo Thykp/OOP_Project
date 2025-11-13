@@ -154,7 +154,7 @@ public class TimeSlotService {
         // LocalDate today = LocalDate.now();
         LocalDate today = LocalDate.of(2025, 11, 13); // MOCK: fixed demo date
         // LocalTime currentTime = LocalTime.now();
-        LocalTime currentTime = LocalTime.of(13, 0, 0); // MOCK: fixed demo time
+        LocalTime currentTime = LocalTime.of(12, 0, 0); // MOCK: fixed demo time (12:00 PM to allow booking from 1:00 PM onwards)
         LocalDate end = today.plusWeeks(8);
         List<AvailableDateSlotsDto> result = new ArrayList<>();
 
