@@ -12,28 +12,26 @@ A comprehensive healthcare appointment and clinic management system built with S
 - **View Appointments**: View past, upcoming, and completed appointments
 
 #### Queue & Check-in
-- **Self Check-in**: Check-in for appointment 2hours before starting time 
+- **Self Check-in**: Check-in for appointment 2hours before start time 
 - **Real-time Queue Position**: View current position in clinic queue
 - **Receive notification** : Receive notification 3 positions away & current turn 
 
 #### Treatment Notes Access
 - **View Treatment Notes**: Access completed treatment notes from appointments
-- **Medical History**: Review past diagnoses, medications, and doctor notes
 
 ---
-
 ### 👨‍⚕️ Staff Features (Nurse/Receptionist)
 
 #### Appointment Management
-- **View All Appointments**: Filter by status, date, and clinic
+- **View All Appointments**: View all upcoming & completed appointment
 - **Appointment Actions**:
   - Mark as "Completed" (NURSE)
   - Add walk In (RECEPTIONIST)
   - Cancel & reschedule/ indicate No show for appointments (RECEPTIONIST)
 
 #### Queue Management
-- **Queue Dashboard**: View all checked-in patients in real-time
-- **Queue Position Management**: Process queue and track and manage patient flow
+- **Queue Dashboard**: View all checked-in patients
+- **Queue Position Management**: Process queue, track and manage patient flow
 
 #### Treatment Notes Creation 
 - **Create Treatment Notes**: Add treatment notes after appointment completed (NURSE)
