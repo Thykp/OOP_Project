@@ -76,8 +76,7 @@ public class StaffReport {
     @PrePersist
     protected void onCreate() {
         // Store in Singapore timezone (GMT+8)
-        // generatedAt = OffsetDateTime.now(ZoneOffset.of("+08:00"));
-        generatedAt = OffsetDateTime.of(2025, 11, 13, 13, 0, 0, 0, ZoneOffset.of("+08:00")); // MOCK: Singapore time
+        generatedAt = OffsetDateTime.now(ZoneOffset.of("+08:00"));
     }
 
     // Getters and Setters
