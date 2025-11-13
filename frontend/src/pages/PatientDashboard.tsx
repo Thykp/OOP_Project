@@ -318,6 +318,10 @@ export default function PatientDashboard() {
     }
 
     const isEligibleForCheckIn = (appointment: Appointment): boolean => {
+        // Exclude appointments that are already checked in or in other non-scheduled states
+        const normalizedStatus = (appointment.status || "").toUpperCase().replace(/[_\s-]/g, "");
+        if (normalizedStatus !== "SCHEDULED") return false;
+        
         const now = currentNow()
         const appointmentDateTime = toDateTime(appointment.booking_date as any, appointment.start_time as any)
         // Use LOCAL date for "today" comparison to avoid UTC shift
@@ -767,6 +771,7 @@ export default function PatientDashboard() {
                         clinic_name: clinic?.clinicName || clinic?.name || fetched?.clinic_name || '',
                         doctor_name: doctor?.doctorName || fetched?.doctor_name || '',
                         clinic_type: clinicType || fetched?.clinic_type || '',
+                        status: status,  // Use the status from the websocket event
                     };
                     console.log(enriched)
 
@@ -805,7 +810,8 @@ export default function PatientDashboard() {
                     const enriched = {
                         ...appointment,
                         clinic_address: clinic?.address || 'Address not available',
-                        clinic_type: clinicType || appointment.clinic_type || ''
+                        clinic_type: clinicType || appointment.clinic_type || '',
+                        status: status,  // Ensure status from websocket event is preserved
                     };
 
                     setAppointments(prev => {
@@ -816,6 +822,8 @@ export default function PatientDashboard() {
                         return [enriched, ...prev];
                     });
                 }
+                // Return early since we've already updated the appointment
+                return;
             }
 
             // Handle cancellation/no-show FIRST before other status updates
@@ -843,11 +851,7 @@ export default function PatientDashboard() {
                     setQueueNumber(null);
                     setCurrentNumber(null);
                 }
-                toast({
-                    variant: "destructive",
-                    title: "Appointment cancelled",
-                    description: "One of your appointments was cancelled.",
-                });
+         
                 return;
             }
 
