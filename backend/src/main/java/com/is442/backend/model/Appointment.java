@@ -70,16 +70,13 @@ public class Appointment {
 
     @PrePersist
     protected void onCreate() {
-        // createdAt = LocalDateTime.now();
-        // updatedAt = LocalDateTime.now();
-        createdAt = LocalDateTime.of(2025, 11, 13, 13, 0, 0); // MOCK
-        updatedAt = createdAt; // MOCK
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
     }
 
     @PreUpdate
     protected void onUpdate() {
-        // updatedAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.of(2025, 11, 13, 13, 0, 0); // MOCK
+        updatedAt = LocalDateTime.now();
     }
 
     public UUID getAppointmentId() {

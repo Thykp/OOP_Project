@@ -99,9 +99,7 @@ export default function PatientDashboard() {
         currentNumber: null,
     })
 
-    // Mock current time for demo
-    // const currentNow = () => new Date() // real current time
-    const currentNow = () => new Date(2025, 10, 13, 13, 0, 0) // MOCK: 13 Nov 2025 1:00 PM local
+    const currentNow = () => new Date()
 
     // --- normalization helpers ---
     const toDateString = (booking_date: any): string => {
@@ -245,16 +243,14 @@ export default function PatientDashboard() {
             clinic_name: clinic_name ?? "",
             clinic_type: event.type ?? event.clinic_type ?? "",
             clinic_address: "",
-            // created_at: event.createdAt ?? event.created_at ?? new Date().toISOString(),
-            created_at: event.createdAt ?? event.created_at ?? currentNow().toISOString(), // MOCK
+            created_at: event.createdAt ?? event.created_at ?? currentNow().toISOString(),
             doctor_id,
             doctor_name: doctor_name ?? "",
             end_time: end_time ?? "",
             patient_id: evtPatientId,
             start_time: start_time ?? "",
             status,
-            // updated_at: event.updatedAt ?? event.updated_at ?? new Date().toISOString(),
-            updated_at: event.updatedAt ?? event.updated_at ?? currentNow().toISOString(), // MOCK
+            updated_at: event.updatedAt ?? event.updated_at ?? currentNow().toISOString(),
         }
 
         return { appointment, needsFetch }
@@ -292,16 +288,14 @@ export default function PatientDashboard() {
                 clinic_name: data.clinicName ?? data.clinic_name ?? "",
                 clinic_type: data.clinicType ?? data.clinic_type ?? "",
                 clinic_address: data.clinicAddress ?? "",
-                // created_at: data.createdAt ?? data.created_at ?? new Date().toISOString(),
-                created_at: data.createdAt ?? data.created_at ?? currentNow().toISOString(), // MOCK
+                created_at: data.createdAt ?? data.created_at ?? currentNow().toISOString(),
                 doctor_id: data.doctorId ?? data.doctor_id ?? "",
                 doctor_name: data.doctorName ?? data.doctor_name ?? "",
                 end_time: data.endTime ?? data.end_time ?? "",
                 patient_id: data.patientId ?? data.patient_id ?? "",
                 start_time: data.startTime ?? data.start_time ?? "",
                 status: (data.status ?? "").toUpperCase(),
-                // updated_at: data.updatedAt ?? data.updated_at ?? new Date().toISOString(),
-                updated_at: data.updatedAt ?? data.updated_at ?? currentNow().toISOString(), // MOCK
+                updated_at: data.updatedAt ?? data.updated_at ?? currentNow().toISOString(),
             }
         } catch (e) {
             console.warn("Failed to fetch appointment by id:", id, e)

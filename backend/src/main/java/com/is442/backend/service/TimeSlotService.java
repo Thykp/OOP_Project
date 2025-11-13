@@ -151,10 +151,8 @@ public class TimeSlotService {
     }
 
     public List<AvailableDateSlotsDto> getAvailableDatesWithSlots(String speciality, String clinicId, List<String> doctorIds) {
-        // LocalDate today = LocalDate.now();
-        LocalDate today = LocalDate.of(2025, 11, 13); // MOCK: fixed demo date
-        // LocalTime currentTime = LocalTime.now();
-        LocalTime currentTime = LocalTime.of(12, 0, 0); // MOCK: fixed demo time (12:00 PM to allow booking from 1:00 PM onwards)
+        LocalDate today = LocalDate.now();
+        LocalTime currentTime = LocalTime.now();
         LocalDate end = today.plusWeeks(8);
         List<AvailableDateSlotsDto> result = new ArrayList<>();
 

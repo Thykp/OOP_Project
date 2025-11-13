@@ -60,8 +60,7 @@ public class AppointmentService {
      */
     private void validateAdvanceNotice(Appointment appointment) {
         LocalDateTime appointmentDateTime = LocalDateTime.of(appointment.getBookingDate(), appointment.getStartTime());
-        // LocalDateTime now = LocalDateTime.now();
-        LocalDateTime now = LocalDateTime.of(2025, 11, 13, 13, 0, 0); // MOCK: fixed demo time (comment out to use real now)
+        LocalDateTime now = LocalDateTime.now();
         LocalDateTime minimumTime = now.plusHours(24);
 
         if (appointmentDateTime.isBefore(minimumTime)) {
@@ -279,8 +278,7 @@ public class AppointmentService {
 
     @Transactional(readOnly = true)
     public List<AppointmentResponse> getUpcomingAppointments(String patientId) {
-        // LocalDate today = LocalDate.now();
-        LocalDate today = LocalDate.of(2025, 11, 13); // MOCK: fixed demo date (comment out to use real today)
+        LocalDate today = LocalDate.now();
         return appointmentRepository.findUpcomingAppointmentsByPatient(patientId, today).stream()
                 .map(appointment -> {
                     Optional<Doctor> docOpt = doctorRepository.findByDoctorId(appointment.getDoctorId());
@@ -311,8 +309,7 @@ public class AppointmentService {
 
     @Transactional(readOnly = true)
     public List<AppointmentResponse> getUpcomingAppointments() {
-        // LocalDate today = LocalDate.now();
-        LocalDate today = LocalDate.of(2025, 11, 13); // MOCK: fixed demo date (comment out to use real today)
+        LocalDate today = LocalDate.now();
         return appointmentRepository.findUpcomingAppointments(today).stream()
                 .map(appointment -> {
                     Optional<Doctor> docOpt = doctorRepository.findByDoctorId(appointment.getDoctorId());
@@ -622,16 +619,12 @@ public class AppointmentService {
             return;
         }
 
-    // LocalDate today = LocalDate.now();
-    LocalDate today = LocalDate.of(2025, 11, 13); // MOCK: fixed demo date
-    // LocalTime now = LocalTime.now();
-    LocalTime now = LocalTime.of(13, 0, 0); // MOCK: fixed demo time
+    LocalDate today = LocalDate.now();
+    LocalTime now = LocalTime.now();
     // end_time can be null for walk-in appointments but has some issues, we put an
     // estimated end time first
-    // LocalTime endTime = LocalTime.now().plusHours(1);
-    LocalTime endTime = now.plusHours(1); // MOCK: derive from fixed demo time
-    // LocalDateTime createdAt = LocalDateTime.now();
-    LocalDateTime createdAt = LocalDateTime.of(2025, 11, 13, 13, 0, 0); // MOCK: fixed demo timestamp
+    LocalTime endTime = LocalTime.now().plusHours(1);
+    LocalDateTime createdAt = LocalDateTime.now();
 
         // Use native SQL INSERT to bypass Hibernate's entity management
         // This allows us to manually set the UUID without conflicts with

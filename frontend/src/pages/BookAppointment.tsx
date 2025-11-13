@@ -28,10 +28,7 @@ import { PageLayout } from "../components/page-layout";
 
 const clinicTypes = ["General Practice", "Specialist Clinic"];
 
-// MOCK time for testing - matches backend mock time
-// const REAL_NOW = new Date();
-const MOCK_NOW = new Date(2025, 10, 13, 12, 0, 0); // MOCK: 13 Nov 2025 12:00 PM local (matches backend mock time)
-const nowTime = () => MOCK_NOW;
+const nowTime = () => new Date();
 
 export default function AppointmentBooking() {
   const [selectedDoctors, setSelectedDoctors] = useState<string[]>([]);

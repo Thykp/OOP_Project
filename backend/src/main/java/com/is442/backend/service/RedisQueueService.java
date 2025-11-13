@@ -16,6 +16,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.*;
 
@@ -154,8 +155,7 @@ public class RedisQueueService {
         meta.put("phone", user.getPhone());
         meta.put("email", user.getEmail());
         meta.put("name", user.getFirstName() + " " + user.getLastName());
-    // meta.put("createdAt", Instant.now().toString());
-    meta.put("createdAt", "2025-11-13T13:00:00Z"); // MOCK: fixed demo instant
+    meta.put("createdAt", Instant.now().toString());
 
         // 3) Validate and fetch doctor information if provided
         if (doctorId != null && !doctorId.trim().isEmpty()) {
