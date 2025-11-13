@@ -28,6 +28,11 @@ import { PageLayout } from "../components/page-layout";
 
 const clinicTypes = ["General Practice", "Specialist Clinic"];
 
+// MOCK time for testing - matches backend mock time
+// const REAL_NOW = new Date();
+const MOCK_NOW = new Date(2025, 10, 13, 12, 0, 0); // MOCK: 13 Nov 2025 12:00 PM local (matches backend mock time)
+const nowTime = () => MOCK_NOW;
+
 export default function AppointmentBooking() {
   const [selectedDoctors, setSelectedDoctors] = useState<string[]>([]);
   const [selectedClinicType, setSelectedClinicType] = useState<string>("");
@@ -308,7 +313,7 @@ export default function AppointmentBooking() {
         const data = await res.json();
         setAvailableDatesWithSlots(data);
 
-        const now = new Date();
+        const now = nowTime(); // Use mock time to match backend
         const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
         function parseTimeToMinutes(timeStr: string): number {
@@ -394,8 +399,8 @@ export default function AppointmentBooking() {
     return matches;
   });
 
-  const today = new Date();
-  const maxDate = new Date();
+  const today = nowTime(); // Use mock time to match backend
+  const maxDate = new Date(today);
   maxDate.setDate(today.getDate() + 7 * 8); // up to 8 weeks ahead
 
   const selectedDaySlotsDetailed = availableDatesWithSlots.filter((d) => {
@@ -886,7 +891,7 @@ export default function AppointmentBooking() {
               ) : (
                 <Card className="p-4 bg-card">
                   {(() => {
-                    const now = new Date();
+                    const now = nowTime(); // Use mock time to match backend
                     const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
                     function parseTimeToMinutes(timeStr: string): number {
