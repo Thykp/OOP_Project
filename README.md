@@ -74,7 +74,7 @@ A comprehensive clinic management system built with Spring Boot and React, featu
 9. View treatment notes
 
 ### Staff Journey
-1. login
+1. Login
 2. View dashboard with today's appointments
 3. Monitor check-ins and queue
 4. Call next patient from queue
