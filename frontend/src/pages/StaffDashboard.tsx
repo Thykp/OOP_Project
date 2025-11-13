@@ -28,9 +28,9 @@ import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/context/auth-context"
 import { connectSocket, disconnectSocket, fetchQueueState, subscribeToAppointmentStatus, subscribeToQueueState, subscribeToSlots, subscribeToTreatmentNotes } from "@/lib/socket"
 import { cn } from "@/lib/utils"
-import { AlertTriangle, Calendar as CalendarIcon, CheckCircle, CheckCircle2, Clock, FileText, User, UserPlus } from "lucide-react"
+import { AlertTriangle, Calendar as CalendarIcon, CheckCircle, CheckCircle2, Clock, FileText, User, UserPlus, BarChart3 } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, Link } from "react-router-dom"
 
 
 import {
@@ -231,20 +231,6 @@ export default function StaffDashboard() {
       console.warn("loadPatientsIntoCache failed", e)
     }
   }
-  const getPatientNameById = (id?: string) => {
-    if (!id) return ""
-    return patientCache.current.get(String(id)) ?? ""
-  }
-
-  function resolvePatientName(evtAppt: any, update: any) {
-    let name = evtAppt.patient_name || update.patientName || update.patient_name || "";
-    if (!name && evtAppt.patient_id) {
-      name = patientCache.current.get(String(evtAppt.patient_id)) || "";
-    }
-    // Optionally check other lists or async fetch here
-    return name || "Unknown";
-  }
-
   function normalizeDate(val: any) {
     if (Array.isArray(val) && val.length >= 3) {
       const [year, month, day] = val;
@@ -2041,6 +2027,18 @@ export default function StaffDashboard() {
                 <p className="text-sm text-gray-600">
                   {staffClinicName || "Clinic"} • Manage appointments and patient care
                 </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  asChild
+                  variant="outline"
+                  className="gap-2"
+                >
+                  <Link to="/staff/reports">
+                    <BarChart3 className="w-4 h-4" />
+                    View Reports
+                  </Link>
+                </Button>
               </div>
             </div>
           </div>

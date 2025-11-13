@@ -12,6 +12,7 @@ import BookAppointment from "./pages/BookAppointment";
 import ClinicOperatingHours from './pages/ClinicOperatingHours'
 import DoctorTimeSlotManagement from './pages/DoctorTimeSlotManagement'
 import DoctorManagement from './pages/DoctorManagement'
+import StaffReports from './pages/StaffReports'
 
 function App() {
   return (
@@ -27,6 +28,16 @@ function App() {
         <Route path="/viewappointment" element={
           <RoleProtectedRoute role={["ROLE_STAFF"]}>
             <StaffDashboard />
+          </RoleProtectedRoute>
+        } />
+        <Route path="/staff/dashboard" element={
+          <RoleProtectedRoute role={["ROLE_STAFF"]}>
+            <StaffDashboard />
+          </RoleProtectedRoute>
+        } />
+        <Route path="/staff/reports" element={
+          <RoleProtectedRoute role={["ROLE_STAFF"]}>
+            <StaffReports />
           </RoleProtectedRoute>
         } />
 
