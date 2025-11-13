@@ -13,24 +13,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
 import Loader from "@/components/Loader"
@@ -321,7 +321,7 @@ export default function PatientDashboard() {
         // Exclude appointments that are already checked in or in other non-scheduled states
         const normalizedStatus = (appointment.status || "").toUpperCase().replace(/[_\s-]/g, "");
         if (normalizedStatus !== "SCHEDULED") return false;
-        
+
         const now = currentNow()
         const appointmentDateTime = toDateTime(appointment.booking_date as any, appointment.start_time as any)
         // Use LOCAL date for "today" comparison to avoid UTC shift
@@ -795,7 +795,7 @@ export default function PatientDashboard() {
 
                     let clinic = gpClinics.find((c: { clinicId: string }) => c.clinicId === appointment.clinic_id);
                     let clinicType = "";
-                    
+
                     if (clinic) {
                         clinicType = "General Practice";
                     } else {
@@ -829,7 +829,7 @@ export default function PatientDashboard() {
             // Handle cancellation/no-show FIRST before other status updates
             if (status === "CANCELLED" || status === "NO_SHOW") {
                 console.log('[socket CANCEL] Removing appointment:', apptId);
-                
+
                 setAppointments(prev => {
                     console.log('[socket CANCEL] Prev appointments in state:', prev.map(a => a.appointment_id));
                     const filtered = prev.filter(a => {
@@ -840,9 +840,9 @@ export default function PatientDashboard() {
                     console.log('[socket CANCEL] After filter:', filtered.map(a => a.appointment_id));
                     return filtered;
                 });
-                
+
                 setPastAppointments(prev => prev.filter(a => a.appointment_id !== apptId));
-                
+
                 // Handle check-in UI if this was the checked-in appointment
                 if (checkedInAppointmentId === apptId) {
                     setIsCheckedIn(false);
@@ -851,7 +851,7 @@ export default function PatientDashboard() {
                     setQueueNumber(null);
                     setCurrentNumber(null);
                 }
-         
+
                 return;
             }
 
@@ -863,7 +863,100 @@ export default function PatientDashboard() {
             ));
 
             if (status === "COMPLETED") {
-                try { fetchPastAppointments(); } catch (e) { }
+                if (needsFetch) {
+                    const fetched = await fetchAppointmentById(apptId);
+
+                    // Fetch GP and Specialist clinics for address enrichment
+                    const [gpClinicsRes, specialistClinicsRes, gpDoctorsRes] = await Promise.all([
+                        fetch(`${API_BASE}/api/clinics/gp?limit=100`),
+                        fetch(`${API_BASE}/api/clinics/specialist?limit=100`),
+                        fetch(`${API_BASE}/api/doctors`),           // change endpoint as relevant!
+                    ]);
+
+                    const gpClinics = gpClinicsRes.ok ? await gpClinicsRes.json() : [];
+                    const specialistClinics = specialistClinicsRes.ok ? await specialistClinicsRes.json() : [];
+                    const doctors = gpDoctorsRes.ok ? await gpDoctorsRes.json() : [];
+
+
+                    let clinic = gpClinics.find((c: { clinicId: string | undefined }) => c.clinicId === fetched?.clinic_id);
+                    let clinicType = ""; // "GP" | "Specialist" | "Unknown"
+
+                    if (clinic) {
+                        clinicType = "General Practice";
+                    } else {
+                        clinic = specialistClinics.find((c: { ihpClinicId: string | undefined }) => c.ihpClinicId === fetched?.clinic_id);
+                        if (clinic) {
+                            console.log(clinic)
+                            clinicType = "Specialist";
+                        } else {
+                            clinicType = "Unknown";
+                        }
+                    }
+
+
+                    let doctor = doctors.find((d: { doctorId: string | undefined }) => d.doctorId === fetched?.doctor_id);
+                    const enriched = {
+                        ...fetched,
+                        clinic_address: clinic?.address || 'Address not available',
+                        clinic_name: clinic?.clinicName || clinic?.name || fetched?.clinic_name || '',
+                        doctor_name: doctor?.doctorName || fetched?.doctor_name || '',
+                        clinic_type: clinicType || fetched?.clinic_type || '',
+                        status: status,  // Use the status from the websocket event
+                    };
+                    console.log(enriched)
+                    setAppointments(prev => prev.filter(a => a.appointment_id !== apptId))
+
+
+                    setPastAppointments(prev => {
+                        const exists = prev.some(a => a.appointment_id === apptId);
+                        const enrichedAppointment = enriched as Appointment;
+                        if (exists) {
+                            return prev.map(a => a.appointment_id === apptId ? ({ ...a, ...enrichedAppointment } as Appointment) : a);
+                        }
+                        return [enrichedAppointment, ...prev];
+                    });
+                } else {
+                    // Enrich clinic (for upserted "appointment" object)
+                    const [gpClinicsRes, specialistClinicsRes] = await Promise.all([
+                        fetch(`${API_BASE}/api/clinics/gp?limit=100`),
+                        fetch(`${API_BASE}/api/clinics/specialist?limit=100`)
+                    ]);
+
+                    const gpClinics = gpClinicsRes.ok ? await gpClinicsRes.json() : [];
+                    const specialistClinics = specialistClinicsRes.ok ? await specialistClinicsRes.json() : [];
+
+                    let clinic = gpClinics.find((c: { clinicId: string }) => c.clinicId === appointment.clinic_id);
+                    let clinicType = "";
+
+                    if (clinic) {
+                        clinicType = "General Practice";
+                    } else {
+                        clinic = specialistClinics.find((c: { ihpClinicId: string }) => c.ihpClinicId === appointment.clinic_id);
+                        if (clinic) {
+                            clinicType = "Specialist";
+                        } else {
+                            clinicType = "Unknown";
+                        }
+                    }
+
+                    const enriched = {
+                        ...appointment,
+                        clinic_address: clinic?.address || 'Address not available',
+                        clinic_type: clinicType || appointment.clinic_type || '',
+                        status: status,  // Ensure status from websocket event is preserved
+                    };
+                    setAppointments(prev => prev.filter(a => a.appointment_id !== apptId))
+
+                    setPastAppointments(prev => {
+                        const exists = prev.some(a => a.appointment_id === apptId);
+                        if (exists) {
+                            return prev.map(a => a.appointment_id === apptId ? { ...a, ...enriched } : a);
+                        }
+                        return [enriched, ...prev];
+                    });
+                }
+                // Return early since we've already updated the appointment
+                return;
             }
         };
 
