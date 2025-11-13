@@ -37,6 +37,7 @@ interface SystemStats {
         totalWaiting: number
         clinicQueues: Array<{
             clinicId: string
+            clinicName?: string
             nowServing: number
             totalWaiting: number
         }>
@@ -45,6 +46,7 @@ interface SystemStats {
 
 interface QueueState {
     clinicId: string
+    clinicName?: string
     nowServing: number
     totalWaiting: number
     queueItems: Array<{
@@ -383,7 +385,7 @@ export default function SystemMonitoring() {
                                                             key={clinic.clinicId}
                                                             className="flex justify-between items-center p-2 bg-gray-50 rounded"
                                                         >
-                                                            <span className="font-medium">{clinic.clinicId}</span>
+                                                            <span className="font-medium">{clinic.clinicName || clinic.clinicId}</span>
                                                             <span className="text-sm text-gray-600">
                                                                 Waiting: {clinic.totalWaiting} | Serving: {clinic.nowServing}
                                                             </span>
@@ -416,7 +418,7 @@ export default function SystemMonitoring() {
                                 {queueStates.map((queue) => (
                                     <Card key={queue.clinicId}>
                                         <CardHeader>
-                                            <CardTitle>Clinic: {queue.clinicId}</CardTitle>
+                                            <CardTitle>Clinic: {queue.clinicName || queue.clinicId}</CardTitle>
                                             <CardDescription>
                                                 Now Serving: {queue.nowServing} | Total Waiting: {queue.totalWaiting}
                                             </CardDescription>

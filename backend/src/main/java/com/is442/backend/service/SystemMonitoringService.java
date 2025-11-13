@@ -5,7 +5,6 @@ import com.is442.backend.model.Appointment;
 import com.is442.backend.repository.AppointmentRepository;
 import com.is442.backend.repository.GpClinicRepository;
 import com.is442.backend.repository.SpecialistClinicRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 
@@ -21,7 +20,6 @@ public class SystemMonitoringService {
     private final GpClinicRepository gpClinicRepository;
     private final SpecialistClinicRepository specialistClinicRepository;
 
-    @Autowired
     public SystemMonitoringService(
             AppointmentRepository appointmentRepository,
             RedisQueueService redisQueueService,
@@ -124,6 +122,39 @@ public class SystemMonitoringService {
     }
 
     /**
+     * Helper method to get clinic name by clinic ID.
+     * Tries to find in GP clinics first, then specialist clinics.
+     */
+    private String getClinicName(String clinicId) {
+        if (clinicId == null || clinicId.trim().isEmpty()) {
+            return clinicId;
+        }
+
+        try {
+            // Try GP clinic first
+            if (gpClinicRepository != null) {
+                var gpClinic = gpClinicRepository.findByClinicId(clinicId);
+                if (gpClinic.isPresent()) {
+                    return gpClinic.get().getClinicName();
+                }
+            }
+
+            // Try specialist clinic
+            if (specialistClinicRepository != null) {
+                var specialistClinic = specialistClinicRepository.findByIhpClinicId(clinicId);
+                if (specialistClinic.isPresent()) {
+                    return specialistClinic.get().getClinicName();
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error looking up clinic name for ID " + clinicId + ": " + e.getMessage());
+        }
+
+        // Return clinic ID if name not found
+        return clinicId;
+    }
+
+    /**
      * Get queue statistics for all active clinics.
      */
     public Map<String, Object> getQueueStatistics() {
@@ -141,7 +172,7 @@ public class SystemMonitoringService {
 
             // Get all clinic IDs from Redis
             Set<String> clinicIds = redisQueueService.listClinics();
-            
+
             if (clinicIds == null) {
                 clinicIds = new HashSet<>();
             }
@@ -164,6 +195,7 @@ public class SystemMonitoringService {
 
                         Map<String, Object> clinicStat = new LinkedHashMap<>();
                         clinicStat.put("clinicId", clinicId);
+                        clinicStat.put("clinicName", getClinicName(clinicId));
                         clinicStat.put("nowServing", status.getNowServing());
                         clinicStat.put("totalWaiting", status.getTotalWaiting());
                         clinicQueueStats.add(clinicStat);
@@ -205,7 +237,7 @@ public class SystemMonitoringService {
 
             // Get all clinic IDs from Redis
             Set<String> clinicIds = redisQueueService.listClinics();
-            
+
             if (clinicIds == null) {
                 clinicIds = new HashSet<>();
             }
@@ -222,8 +254,10 @@ public class SystemMonitoringService {
                         continue;
                     }
 
+                    String actualClinicId = state.getClinicId() != null ? state.getClinicId() : clinicId;
                     Map<String, Object> queueState = new LinkedHashMap<>();
-                    queueState.put("clinicId", state.getClinicId() != null ? state.getClinicId() : clinicId);
+                    queueState.put("clinicId", actualClinicId);
+                    queueState.put("clinicName", getClinicName(actualClinicId));
                     queueState.put("nowServing", state.getNowServing());
                     queueState.put("totalWaiting", state.getTotalWaiting());
 
@@ -233,7 +267,8 @@ public class SystemMonitoringService {
                         for (var item : state.getQueueItems()) {
                             if (item != null) {
                                 Map<String, Object> itemMap = new LinkedHashMap<>();
-                                itemMap.put("appointmentId", item.getAppointmentId() != null ? item.getAppointmentId() : "");
+                                itemMap.put("appointmentId",
+                                        item.getAppointmentId() != null ? item.getAppointmentId() : "");
                                 itemMap.put("patientId", item.getPatientId() != null ? item.getPatientId() : "");
                                 itemMap.put("patientName", item.getPatientName() != null ? item.getPatientName() : "");
                                 itemMap.put("email", item.getEmail() != null ? item.getEmail() : "");
@@ -242,7 +277,8 @@ public class SystemMonitoringService {
                                 itemMap.put("queueNumber", item.getQueueNumber());
                                 itemMap.put("doctorId", item.getDoctorId() != null ? item.getDoctorId() : "");
                                 itemMap.put("doctorName", item.getDoctorName() != null ? item.getDoctorName() : "");
-                                itemMap.put("doctorSpeciality", item.getDoctorSpeciality() != null ? item.getDoctorSpeciality() : "");
+                                itemMap.put("doctorSpeciality",
+                                        item.getDoctorSpeciality() != null ? item.getDoctorSpeciality() : "");
                                 itemMap.put("createdAt", item.getCreatedAt() != null ? item.getCreatedAt() : "");
                                 queueItemsList.add(itemMap);
                             }
@@ -336,8 +372,9 @@ public class SystemMonitoringService {
             // 2. Clearing existing data (if needed)
             // 3. Restoring appointments
             // 4. Restoring queue states to Redis
-            // 
-            // For now, we'll just return a success message indicating the backup was received.
+            //
+            // For now, we'll just return a success message indicating the backup was
+            // received.
             // Actual restore implementation would depend on your specific requirements.
 
             result.put("status", "success");
@@ -351,4 +388,3 @@ public class SystemMonitoringService {
         }
     }
 }
-
