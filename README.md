@@ -1,6 +1,6 @@
 # SingHealth Clinic Management System
 
-A comprehensive healthcare appointment and clinic management system built with Spring Boot and React, featuring real-time updates, queue management, and multi-role access control. It supports three user group.
+A comprehensive clinic management system built with Spring Boot and React, featuring real-time updates, queue management, and multi-role access control. It supports three user group.
 
 ---
 ## 🎯 Features by Role
@@ -64,17 +64,17 @@ A comprehensive healthcare appointment and clinic management system built with S
 
 ### Patient Journey
 1. Sign up with email and login
-2. Browse available clinics and doctors
+2. Browse & select from available clinics and doctors
 3. Select date and time slot
 4. Book appointment
 5. Receive confirmation
 6. Check-in 2 hours before appointment day
-7. Wait in queue (receive notification when called)
+7. Wait in queue (receive notification when called & 3 queue away)
 8. Complete appointment
 9. View treatment notes
 
 ### Staff Journey
-1. Sign up with clinic assignment and login
+1. login
 2. View dashboard with today's appointments
 3. Monitor check-ins and queue
 4. Call next patient from queue
@@ -84,13 +84,14 @@ A comprehensive healthcare appointment and clinic management system built with S
 8. Cancel/reschedule or mark No-show (RECEPTIONIST)
 
 ### Admin Journey
-1. Access admin dashboard
-2. Add new doctors to system
-3. Create time slots for doctors
-4. Configure clinic operating hours
-5. Manage user accounts and roles
-6. Monitor system activity
-7. Generate backup and restore data
+1. Login
+2. Access admin dashboard
+3. Add new doctors to system
+4. Create time slots for doctors
+5. Configure clinic operating hours
+6. Manage user accounts and roles
+7. Monitor system activity
+8. Generate backup and restore data
 
 ---
 
@@ -106,18 +107,15 @@ Use the following accounts to test different user roles:
 ### Staff Account (Nurse) - AFFINITY MEDICAL CLINIC
 - **Email**: `gerald.chee.2023@scis.smu.edu.sg`
 - **Password**: `Password1!`
-- **Access**: Mark appointments completed, create treatment notes
 
 ### Staff Account (Receptionist) - AFFINITY MEDICAL CLINIC
 - **Email**: `geraldchee2002@gmail.com`
 - **Password**: `Password1!`
-- **Access**: Add walk-ins, cancel/reschedule appointments, mark no-shows
 
 ### Administrator Account
 **If you wish to use your own Patient & Staff account, you may create it using this Administrator Account.**
 - **Email**: `janiee.lim17@gmail.com`
 - **Password**: `Password1!`
-- **Access**: Full system access, user management, clinic configuration
 
 ---
 
