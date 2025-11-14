@@ -10,6 +10,7 @@ A comprehensive clinic management system built with Spring Boot and React, featu
 #### Appointment Management
 - **Book Appointments**: Browse & book from available timeslots across GP and specialist clinics
 - **View Appointments**: View past, upcoming, and completed appointments
+- **Rechedule/Cancel Appointment**: Reschedule or Cancel appointment up to 24 hours before the scheduled time
 
 #### Queue & Check-in
 - **Self Check-in**: Check-in for appointment 2hours before start time 
@@ -27,6 +28,7 @@ A comprehensive clinic management system built with Spring Boot and React, featu
 - **Appointment Actions**:
   - Mark as "Completed" (NURSE)
   - Add walk In (RECEPTIONIST)
+  - Check in for Patient (RECEPTIONIST)
   - Cancel & reschedule/ indicate No show for appointments (RECEPTIONIST)
 
 #### Queue Management
@@ -48,6 +50,7 @@ A comprehensive clinic management system built with Spring Boot and React, featu
 
 #### Clinic Configuration
 - Configure clinic operating hours
+- Manage Appointment Timeslot
 
 #### Doctor Management
 - **Doctor Profiles**:
@@ -63,12 +66,12 @@ A comprehensive clinic management system built with Spring Boot and React, featu
 ## 📱 User Workflows
 
 ### Patient Journey
-1. Sign up with email and login
+1. Login
 2. Browse & select from available clinics and doctors
 3. Select date and time slot
 4. Book appointment
 5. Receive confirmation
-6. Check-in 2 hours before appointment day
+6. Check-in 2 hours before appointment time
 7. Wait in queue (receive notification when called & 3 queue away)
 8. Complete appointment
 9. View treatment notes
