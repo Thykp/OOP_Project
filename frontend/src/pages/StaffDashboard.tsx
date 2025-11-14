@@ -1041,6 +1041,11 @@ export default function StaffDashboard() {
         // const now = new Date()
         const now = nowTime()
         const currentMinutes = now.getHours() * 60 + now.getMinutes()
+        
+        // Set up today for date comparison (normalize to start of day)
+        const today = new Date(now)
+        today.setHours(0, 0, 0, 0)
+        
         function parseTimeToMinutes(timeStr: string): number {
           const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i)
           if (!match) return 0
@@ -1055,8 +1060,16 @@ export default function StaffDashboard() {
         const filtered = (data || [])
           .map((entry: any) => {
             const dateObj = new Date(entry.date)
+            dateObj.setHours(0, 0, 0, 0)
             let timeSlots = entry.timeSlots || []
-            if (dateObj.toDateString() === now.toDateString()) {
+            
+            // Exclude dates that are before today
+            if (dateObj < today) {
+              return { ...entry, timeSlots: [] }
+            }
+            
+            // For today, filter past slots
+            if (dateObj.getTime() === today.getTime()) {
               timeSlots = timeSlots.filter((slot: any) => {
                 const start = (slot.startTime || slot.start_time || "").substring(0, 5)
                 return parseTimeToMinutes(start) > currentMinutes
@@ -1069,10 +1082,7 @@ export default function StaffDashboard() {
         setWalkInAvailableDates(filtered)
         setWalkInHighlightedDates(filtered.map((d: any) => new Date(d.date)))
 
-        // const today = new Date()
-        const today = new Date(nowTime())
-        today.setHours(0, 0, 0, 0)
-        // const maxDate = new Date()
+        // Calculate max date (8 weeks from today)
         const maxDate = new Date(today)
         maxDate.setDate(today.getDate() + 7 * 8)
         const allDates: Date[] = []
