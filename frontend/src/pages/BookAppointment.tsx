@@ -312,6 +312,10 @@ export default function AppointmentBooking() {
 
         const now = nowTime(); // Use mock time to match backend
         const currentMinutes = now.getHours() * 60 + now.getMinutes();
+        
+        // Set up today for date comparison (normalize to start of day)
+        const today = new Date(now);
+        today.setHours(0, 0, 0, 0);
 
         function parseTimeToMinutes(timeStr: string): number {
           const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
@@ -326,16 +330,29 @@ export default function AppointmentBooking() {
 
         const filteredAvailableDates = data.filter((d: any) => {
           const dateObj = new Date(d.date);
-          if (dateObj.toDateString() !== today.toDateString()) return true;
-          // today — keep only future slots
-          return d.timeSlots.some((slot: any) => {
-            const start = slot.startTime || slot.split?.("-")?.[0];
-            return start && parseTimeToMinutes(start) > currentMinutes;
-          });
+          dateObj.setHours(0, 0, 0, 0);
+          
+          // Exclude dates that are before today
+          if (dateObj < today) return false;
+          
+          // For today, keep only future slots
+          if (dateObj.getTime() === today.getTime()) {
+            return d.timeSlots.some((slot: any) => {
+              const start = slot.startTime || slot.split?.("-")?.[0];
+              return start && parseTimeToMinutes(start) > currentMinutes;
+            });
+          }
+          
+          // Future dates are okay
+          return true;
         });
 
         setHighlightedDates(filteredAvailableDates.map((d: any) => new Date(d.date)));
 
+        // Calculate max date (8 weeks from today)
+        const maxDate = new Date(today);
+        maxDate.setDate(today.getDate() + 7 * 8);
+        
         const allDates: Date[] = [];
         for (let d = new Date(today); d <= maxDate; d.setDate(d.getDate() + 1)) {
           allDates.push(new Date(d));
