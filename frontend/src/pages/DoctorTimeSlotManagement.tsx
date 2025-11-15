@@ -207,7 +207,7 @@ export default function AdminClinicConfig() {
 
   if (error && !loading) {
     return (
-      <PageLayout>
+      <PageLayout variant="dashboard">
         <div className="container mx-auto max-w-7xl px-4 py-8">
           <div className="text-center py-12">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Error Loading Page</h2>
@@ -222,7 +222,7 @@ export default function AdminClinicConfig() {
   }
 
   return (
-    <PageLayout>
+    <PageLayout variant="dashboard">
       <div className="container mx-auto max-w-7xl px-4 py-8">
         <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between">
 

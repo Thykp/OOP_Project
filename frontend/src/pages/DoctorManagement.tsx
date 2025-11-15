@@ -250,7 +250,7 @@ export default function DoctorManagement() {
 
   if (loading) {
     return (
-      <PageLayout>
+      <PageLayout variant="dashboard">
         <div className="container mx-auto max-w-7xl px-4 py-8">
           <div className="text-center py-12">
             <p className="text-gray-600">Loading doctors...</p>
@@ -261,7 +261,7 @@ export default function DoctorManagement() {
   }
 
   return (
-    <PageLayout>
+    <PageLayout variant="dashboard">
       <div className="container mx-auto max-w-7xl px-4 py-8">
         <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between">
           <div>

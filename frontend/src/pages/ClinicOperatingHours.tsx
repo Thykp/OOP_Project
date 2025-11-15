@@ -227,7 +227,7 @@ export default function ClinicOperatingHours() {
     };
 
     return (
-        <PageLayout>
+        <PageLayout variant="dashboard">
             <div className="container mx-auto max-w-7xl px-4 py-8">
                 <div className="mb-8">
                     <Link to="/admin/clinic-config" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">

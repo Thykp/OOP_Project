@@ -18,6 +18,9 @@ import com.is442.backend.model.User;
 import com.is442.backend.repository.PatientRepository;
 import com.is442.backend.repository.UserRepository;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+
 @Service
 public class UserService {
 
@@ -26,6 +29,9 @@ public class UserService {
 
     @Autowired
     private PatientRepository patientRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public <T extends User> T registerUser(T user) {
         return userRepository.save(user);
@@ -81,6 +87,7 @@ public class UserService {
     }
 
     // Update Patient Details
+    @Transactional
     public PatientResponse updatePatient(UUID id, PatientRequest patientRequest) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found!"));
@@ -104,7 +111,15 @@ public class UserService {
 
         // Fields for Patients only
         if (patientRequest.getPhone() != null) {
-            patient.setPhone(patientRequest.getPhone());
+            patient.setPhone(patientRequest.getPhone()); // Sets Patient's phone field
+            
+            
+            entityManager.createQuery(
+                "UPDATE User u SET u.phone = :phone WHERE u.supabaseUserId = :id"
+            )
+            .setParameter("phone", patientRequest.getPhone())
+            .setParameter("id", id)
+            .executeUpdate();
         }
 
         if (patientRequest.getDateOfBirth() != null) {
@@ -116,6 +131,8 @@ public class UserService {
         }
 
         Patient updatedPatient = userRepository.save(patient);
+        // Force flush to ensure changes are persisted immediately
+        userRepository.flush();
         return new PatientResponse(updatedPatient);
     }
 

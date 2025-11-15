@@ -3,14 +3,14 @@
 import { Link } from "react-router-dom"
 import { PageLayout } from "@/components/page-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, Calendar, Shield, BarChart3, Database } from "lucide-react"
+import { Users, Calendar, Shield, BarChart3 } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 
 export default function AdminDashboard() {
   const { user } = useAuth()
 
   return (
-    <PageLayout>
+    <PageLayout variant="dashboard">
       <div className="container mx-auto max-w-7xl px-4 py-8">
         {/* Header */}
         <div className="mb-8">

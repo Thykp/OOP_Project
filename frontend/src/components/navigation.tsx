@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
@@ -19,11 +19,36 @@ export function Navigation({ variant = "landing" }: NavigationProps) {
   const navigate = useNavigate()
   const { user, isLoading, signOut } = useAuth()
 
-  const navLinks = [
+  // Navigation links - only shown on landing page, never on dashboards
+  const navLinks = variant === "landing" ? [
     { href: "#features", label: "Features" },
     { href: "#about", label: "About" },
     { href: "#contact", label: "Contact" },
-  ]
+  ] : []
+
+  // Handle smooth scroll to section
+  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (href.startsWith("#")) {
+      e.preventDefault()
+      const element = document.querySelector(href)
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "start" })
+      }
+    }
+  }
+
+  // Get dashboard URL based on user role
+  const getDashboardUrl = () => {
+    if (!user || isLoading) return "/"
+    const userRole = user.user_metadata?.role
+    if (userRole === "ROLE_ADMIN") {
+      return "/admin/dashboard"
+    } else if (userRole === "ROLE_STAFF") {
+      return "/viewappointment"
+    } else {
+      return "/dashboard"
+    }
+  }
 
   const handleLogout = async () => {
     await signOut()
@@ -35,7 +60,7 @@ export function Navigation({ variant = "landing" }: NavigationProps) {
     <header className="border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
         {/* Logo */}
-        <Link to="/" className="flex items-center space-x-2">
+        <Link to={getDashboardUrl()} className="flex items-center space-x-2">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
             <Calendar className="w-5 h-5 text-white" />
           </div>
@@ -46,9 +71,14 @@ export function Navigation({ variant = "landing" }: NavigationProps) {
         {variant === "landing" && (
           <nav className="hidden md:flex items-center space-x-6">
             {navLinks.map((link) => (
-              <Link key={link.href} to={link.href} className="text-gray-600 hover:text-blue-600 transition-colors">
+              <a
+                key={link.href}
+                href={link.href}
+                onClick={(e) => handleNavClick(e, link.href)}
+                className="text-gray-600 hover:text-blue-600 transition-colors cursor-pointer"
+              >
                 {link.label}
-              </Link>
+              </a>
             ))}
           </nav>
         )}
@@ -102,23 +132,26 @@ export function Navigation({ variant = "landing" }: NavigationProps) {
             </SheetTrigger>
             <SheetContent side="right" className="w-[300px] sm:w-[400px]">
               <div className="flex flex-col space-y-6 mt-6">
-                <div className="flex items-center space-x-2">
+                <Link to={getDashboardUrl()} className="flex items-center space-x-2" onClick={() => setIsOpen(false)}>
                   <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                     <Calendar className="w-5 h-5 text-white" />
                   </div>
                   <span className="text-xl font-semibold text-gray-900">SingHealth Clinic</span>
-                </div>
+                </Link>
 
                 <nav className="flex flex-col space-y-4">
                   {navLinks.map((link) => (
-                    <Link
+                    <a
                       key={link.href}
-                      to={link.href}
-                      className="text-gray-600 hover:text-blue-600 transition-colors text-lg"
-                      onClick={() => setIsOpen(false)}
+                      href={link.href}
+                      onClick={(e) => {
+                        handleNavClick(e, link.href)
+                        setIsOpen(false)
+                      }}
+                      className="text-gray-600 hover:text-blue-600 transition-colors text-lg cursor-pointer"
                     >
                       {link.label}
-                    </Link>
+                    </a>
                   ))}
                 </nav>
 

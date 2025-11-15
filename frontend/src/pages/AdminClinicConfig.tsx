@@ -7,7 +7,7 @@ import { Users, Clock, ArrowLeft, UserPlus } from "lucide-react"
 
 export default function ClinicConfigMenu() {
   return (
-    <PageLayout>
+    <PageLayout variant="dashboard">
       <div className="container mx-auto max-w-7xl px-4 py-8">
         <div className="mb-8">
           <Link to="/admin/dashboard" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">
