@@ -10,7 +10,7 @@ export default function AdminDashboard() {
   const { user } = useAuth()
 
   return (
-    <PageLayout>
+    <PageLayout variant="dashboard">
       <div className="container mx-auto max-w-7xl px-4 py-8">
         {/* Header */}
         <div className="mb-8">

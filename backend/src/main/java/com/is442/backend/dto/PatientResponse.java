@@ -26,7 +26,33 @@ public class PatientResponse extends UserResponse {
         super(patient); 
         
         // Set patient-specific fields
-        this.phone = patient.getPhone();
+        // Note: Patient has its own phone field (in patient table), but User base class also has phone (in users table)
+        // Patient.getPhone() returns Patient's phone field. If it's null, we should check User's phone.
+        // However, since Patient overrides getPhone(), we need to access User's phone differently.
+        // For now, use Patient's phone field. If it's null, the phone might be in User's table.
+        String patientPhone = patient.getPhone();
+        
+        // If Patient's phone is null/empty, try to get from User's phone field using reflection
+        if (patientPhone == null || patientPhone.trim().isEmpty()) {
+            try {
+                // Access User's phone field directly since Patient extends User
+                // Use reflection to get the User's phone field value
+                java.lang.reflect.Field userPhoneField = com.is442.backend.model.User.class.getDeclaredField("phone");
+                userPhoneField.setAccessible(true);
+                Object userPhoneValue = userPhoneField.get(patient);
+                if (userPhoneValue != null && !userPhoneValue.toString().trim().isEmpty()) {
+                    this.phone = userPhoneValue.toString();
+                } else {
+                    this.phone = patientPhone; // null or empty
+                }
+            } catch (Exception e) {
+                // If reflection fails, just use Patient's phone (which is null)
+                this.phone = patientPhone;
+            }
+        } else {
+            this.phone = patientPhone;
+        }
+        
         this.dateOfBirth = patient.getDateOfBirth();
         this.gender = patient.getGender();
     }

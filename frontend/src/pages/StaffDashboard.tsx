@@ -2086,7 +2086,7 @@ export default function StaffDashboard() {
   }
 
   return (
-    <PageLayout>
+    <PageLayout variant="dashboard">
       <div className="min-h-[calc(100vh-8rem)] pb-8">
         {/* Heading */}
         <section className="py-6 px-4 bg-gradient-to-r from-green-50 to-blue-50 border-b">

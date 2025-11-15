@@ -36,7 +36,17 @@ public class AuthController {
                     patient.setStatus("ACTIVE");
 
                     // specific patient details
-                    patient.setPhone(dto.getPhone());
+                    // Set phone in both Patient table and User table (both have phone fields)
+                    patient.setPhone(dto.getPhone()); // Sets Patient's phone field
+                    // Also set User's phone field using reflection
+                    try {
+                        java.lang.reflect.Field userPhoneField = com.is442.backend.model.User.class.getDeclaredField("phone");
+                        userPhoneField.setAccessible(true);
+                        userPhoneField.set(patient, dto.getPhone());
+                    } catch (Exception e) {
+                        // If reflection fails, at least Patient's phone is set
+                        System.err.println("Warning: Could not set User's phone field during signup: " + e.getMessage());
+                    }
                     patient.setGender(dto.getGender());
                     patient.setDateOfBirth(dto.getDateOfBirth());
 
