@@ -54,7 +54,7 @@ public class AppointmentService {
 
     /**
      * Checks if an appointment is at least 24 hours away from now
-     * 
+     *
      * @param appointment The appointment to check
      * @throws RuntimeException if the appointment is less than 24 hours away
      */
@@ -580,7 +580,7 @@ public class AppointmentService {
      * Creates a walk-in appointment asynchronously in the background.
      * This method is called when a patient checks in without a pre-existing
      * appointment.
-     * 
+     *
      * @param appointmentId the UUID of the appointment (already generated)
      * @param patientId     the patient's UUID
      * @param clinicId      the clinic identifier
@@ -611,7 +611,7 @@ public class AppointmentService {
      * manually set UUIDs.
      */
     private void createWalkInAppointmentWithDoctor(UUID appointmentId, String patientId, String clinicId,
-            String doctorId) {
+                                                   String doctorId) {
         // Check if appointment already exists (might have been created in another
         // transaction)
         if (appointmentRepository.findById(appointmentId).isPresent()) {
@@ -619,12 +619,12 @@ public class AppointmentService {
             return;
         }
 
-    LocalDate today = LocalDate.now();
-    LocalTime now = LocalTime.now();
-    // end_time can be null for walk-in appointments but has some issues, we put an
-    // estimated end time first
-    LocalTime endTime = LocalTime.now().plusHours(1);
-    LocalDateTime createdAt = LocalDateTime.now();
+        LocalDate today = LocalDate.now();
+        LocalTime now = LocalTime.now();
+        // end_time can be null for walk-in appointments but has some issues, we put an
+        // estimated end time first
+        LocalTime endTime = LocalTime.now().plusHours(1);
+        LocalDateTime createdAt = LocalDateTime.now();
 
         // Use native SQL INSERT to bypass Hibernate's entity management
         // This allows us to manually set the UUID without conflicts with
@@ -667,23 +667,23 @@ public class AppointmentService {
                 logger.warn("Failed to resolve doctor/clinic names for walk-in publish: {}", e.getMessage());
             }
             // Broadcast new walk-in as SCHEDULED so dashboards update
-           try {
-                    messagingTemplate.convertAndSend("/topic/appointments/status", java.util.Map.ofEntries(
-                            java.util.Map.entry("appointmentId", appointmentId.toString()),
-                            java.util.Map.entry("status", "SCHEDULED"),
-                            java.util.Map.entry("clinicId", clinicId),
-                            java.util.Map.entry("clinicName", clinicName),
-                            java.util.Map.entry("patientId", patientId),
-                            java.util.Map.entry("doctorId", doctorId),
-                            java.util.Map.entry("doctorName", doctorName),
-                            java.util.Map.entry("bookingDate", today.toString()),
-                            java.util.Map.entry("startTime", now.toString()),
-                            java.util.Map.entry("endTime", endTime.toString()),
-                            java.util.Map.entry("createdAt", createdAt.toString()),
-                            java.util.Map.entry("type", "WALK_IN")));
-                } catch (Exception e2) {
-                    logger.warn("Failed to publish walk-in status: {}", e2.getMessage());
-                }
+            try {
+                messagingTemplate.convertAndSend("/topic/appointments/status", java.util.Map.ofEntries(
+                        java.util.Map.entry("appointmentId", appointmentId.toString()),
+                        java.util.Map.entry("status", "SCHEDULED"),
+                        java.util.Map.entry("clinicId", clinicId),
+                        java.util.Map.entry("clinicName", clinicName),
+                        java.util.Map.entry("patientId", patientId),
+                        java.util.Map.entry("doctorId", doctorId),
+                        java.util.Map.entry("doctorName", doctorName),
+                        java.util.Map.entry("bookingDate", today.toString()),
+                        java.util.Map.entry("startTime", now.toString()),
+                        java.util.Map.entry("endTime", endTime.toString()),
+                        java.util.Map.entry("createdAt", createdAt.toString()),
+                        java.util.Map.entry("type", "WALK_IN")));
+            } catch (Exception e2) {
+                logger.warn("Failed to publish walk-in status: {}", e2.getMessage());
+            }
         } catch (Exception e) {
             // Check if it's a duplicate key error (appointment was created in another
             // transaction)
@@ -702,7 +702,7 @@ public class AppointmentService {
     /**
      * Updates the status of an existing appointment to "CHECKED-IN" asynchronously.
      * This is called when a patient with a booked appointment checks in.
-     * 
+     *
      * @param appointmentId the UUID of the appointment
      */
     @Async("appointmentTaskExecutor")
@@ -744,7 +744,7 @@ public class AppointmentService {
      * Updates the doctor_id field of an existing appointment.
      * Returns true if the update was successful, false if the appointment doesn't
      * exist.
-     * 
+     *
      * @param appointmentId the UUID of the appointment
      * @param doctorId      the doctor ID to assign
      * @return true if update was successful, false if appointment not found

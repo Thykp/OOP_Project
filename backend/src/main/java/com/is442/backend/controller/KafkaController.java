@@ -11,7 +11,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class KafkaController {
     @Autowired(required = false)
     private KafkaQueueEventProducer producer;
-    @ConditionalOnProperty(name = "kafka.enabled", havingValue = "true")   // 👈 add this
+
+    @ConditionalOnProperty(name = "kafka.enabled", havingValue = "true")
 
 
     @GetMapping("/test-kafka")

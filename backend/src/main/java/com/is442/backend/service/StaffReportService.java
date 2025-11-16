@@ -160,7 +160,7 @@ public class StaffReportService {
 
                 Duration duration = Duration.between(appointmentStart, completedAt);
                 long minutes = duration.toMinutes();
-                
+
                 if (minutes >= 0) { // Only count positive waiting times
                     totalMinutes += minutes;
                     count++;
@@ -226,13 +226,13 @@ public class StaffReportService {
                 contentStream.setNonStrokingColor(darkGray);
                 contentStream.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD), bodyFontSize);
                 contentStream.newLineAtOffset(margin, yPosition);
-                
+
                 // Get clinic name if available
                 Optional<Doctor> doctorOpt = doctorRepository.findByClinicId(clinicId).stream().findFirst();
                 String clinicName = doctorOpt.map(Doctor::getClinicName)
                         .filter(name -> name != null && !name.isBlank())
                         .orElse(clinicId != null ? clinicId : "Unknown Clinic");
-                
+
                 contentStream.showText("Clinic: " + (clinicName != null ? clinicName : "Unknown Clinic"));
                 contentStream.endText();
 
@@ -253,7 +253,7 @@ public class StaffReportService {
                 float cardY = yPosition - cardHeight;
 
                 // Card 1: Patients Seen (Green)
-                drawMetricCard(contentStream, margin, cardY, cardWidth, cardHeight, greenColor, 
+                drawMetricCard(contentStream, margin, cardY, cardWidth, cardHeight, greenColor,
                         "Patients Seen", String.valueOf(patientsSeen), patientsSeen, 50, bodyFontSize, largeFontSize);
 
                 // Card 2: Average Waiting Time (Orange)
@@ -270,13 +270,13 @@ public class StaffReportService {
                     }
                 }
                 drawMetricCard(contentStream, margin + cardWidth + 10, cardY, cardWidth, cardHeight, orangeColor,
-                        "Avg Waiting Time", waitingTimeStr, (int)Math.min(waitingMinutes, 60), 60, bodyFontSize, largeFontSize);
+                        "Avg Waiting Time", waitingTimeStr, (int) Math.min(waitingMinutes, 60), 60, bodyFontSize, largeFontSize);
 
                 // Card 3: No-Show Rate (Red)
                 double noShowValue = noShowRate != null ? noShowRate.doubleValue() : 0;
                 String noShowRateStr = String.format("%.1f%%", noShowValue);
                 drawMetricCard(contentStream, margin + 2 * (cardWidth + 10), cardY, cardWidth, cardHeight, redColor,
-                        "No-Show Rate", noShowRateStr, (int)noShowValue, 100, bodyFontSize, largeFontSize);
+                        "No-Show Rate", noShowRateStr, (int) noShowValue, 100, bodyFontSize, largeFontSize);
 
                 yPosition = cardY - 40;
 

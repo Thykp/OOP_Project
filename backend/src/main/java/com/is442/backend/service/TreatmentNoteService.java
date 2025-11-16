@@ -22,22 +22,22 @@ import com.is442.backend.repository.UserRepository;
 
 @Service
 public class TreatmentNoteService {
-    
+
     @Autowired
     private TreatmentNoteRepository treatmentNoteRepository;
-    
+
     @Autowired
     private AppointmentRepository appointmentRepository;
-    
+
     @Autowired
     private DoctorRepository doctorRepository;
-    
+
     @Autowired(required = false)
     private UserRepository userRepository;
 
     @Autowired(required = false)
     private SimpMessagingTemplate messagingTemplate;
-    
+
     /**
      * Create a treatment note for a completed appointment
      */
@@ -47,16 +47,16 @@ public class TreatmentNoteService {
         UUID appointmentId = UUID.fromString(request.getAppointmentId());
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new RuntimeException("Appointment not found with ID: " + request.getAppointmentId()));
-        
+
         // Validate appointment is completed
         if (!"COMPLETED".equals(appointment.getStatus())) {
             throw new RuntimeException("Treatment notes can only be added to completed appointments");
         }
-        
+
         // Get doctor information
         Doctor doctor = doctorRepository.findByDoctorId(appointment.getDoctorId())
                 .orElseThrow(() -> new RuntimeException("Doctor not found with ID: " + appointment.getDoctorId()));
-        
+
         // Create treatment note (patient_id, doctor_id, clinic_id come from appointment)
         TreatmentNote note = new TreatmentNote(
                 appointmentId,
@@ -64,7 +64,7 @@ public class TreatmentNoteService {
                 request.getNotes(),
                 createdBy
         );
-        
+
         TreatmentNote saved = treatmentNoteRepository.save(note);
         TreatmentNoteResponse response = toResponse(saved, appointment, doctor);
         // Broadcast new/updated treatment note (minimal payload for clients)
@@ -84,7 +84,7 @@ public class TreatmentNoteService {
         }
         return response;
     }
-    
+
     /**
      * Get all treatment notes for an appointment
      */
@@ -94,14 +94,14 @@ public class TreatmentNoteService {
                 .map(note -> {
                     Appointment appointment = appointmentRepository.findById(note.getAppointmentId())
                             .orElse(null);
-                    Doctor doctor = appointment != null 
+                    Doctor doctor = appointment != null
                             ? doctorRepository.findByDoctorId(appointment.getDoctorId()).orElse(null)
                             : null;
                     return toResponse(note, appointment, doctor);
                 })
                 .collect(Collectors.toList());
     }
-    
+
     /**
      * Get all treatment notes for a patient
      */
@@ -111,14 +111,14 @@ public class TreatmentNoteService {
                 .map(note -> {
                     Appointment appointment = appointmentRepository.findById(note.getAppointmentId())
                             .orElse(null);
-                    Doctor doctor = appointment != null 
+                    Doctor doctor = appointment != null
                             ? doctorRepository.findByDoctorId(appointment.getDoctorId()).orElse(null)
                             : null;
                     return toResponse(note, appointment, doctor);
                 })
                 .collect(Collectors.toList());
     }
-    
+
     /**
      * Get latest treatment note for an appointment
      */
@@ -127,14 +127,14 @@ public class TreatmentNoteService {
                 .map(note -> {
                     Appointment appointment = appointmentRepository.findById(note.getAppointmentId())
                             .orElse(null);
-                    Doctor doctor = appointment != null 
+                    Doctor doctor = appointment != null
                             ? doctorRepository.findByDoctorId(appointment.getDoctorId()).orElse(null)
                             : null;
                     return toResponse(note, appointment, doctor);
                 })
                 .orElse(null);
     }
-    
+
     /**
      * Update a treatment note
      */
@@ -142,25 +142,25 @@ public class TreatmentNoteService {
     public TreatmentNoteResponse updateTreatmentNote(Long noteId, TreatmentNoteRequest request) {
         TreatmentNote note = treatmentNoteRepository.findById(noteId)
                 .orElseThrow(() -> new RuntimeException("Treatment note not found with ID: " + noteId));
-        
+
         // Validate appointment is completed (not NO_SHOW)
         Appointment appointment = appointmentRepository.findById(note.getAppointmentId())
                 .orElseThrow(() -> new RuntimeException("Appointment not found"));
-        
+
         if (!"COMPLETED".equals(appointment.getStatus())) {
             throw new RuntimeException("Treatment notes can only be updated for completed appointments");
         }
-        
+
         if (request.getNoteType() != null && !request.getNoteType().isBlank()) {
             note.setNoteType(request.getNoteType());
         }
-        
+
         if (request.getNotes() != null && !request.getNotes().isBlank()) {
             note.setNotes(request.getNotes());
         }
-        
+
         TreatmentNote updated = treatmentNoteRepository.save(note);
-        Doctor doctor = appointment != null 
+        Doctor doctor = appointment != null
                 ? doctorRepository.findByDoctorId(appointment.getDoctorId()).orElse(null)
                 : null;
         TreatmentNoteResponse response = toResponse(updated, appointment, doctor);
@@ -181,7 +181,7 @@ public class TreatmentNoteService {
         }
         return response;
     }
-    
+
     /**
      * Delete a treatment note
      */
@@ -192,7 +192,7 @@ public class TreatmentNoteService {
         }
         treatmentNoteRepository.deleteById(noteId);
     }
-    
+
     /**
      * Convert TreatmentNote entity to TreatmentNoteResponse DTO
      * Gets patient_id, doctor_id, clinic_id from the appointment
@@ -201,20 +201,20 @@ public class TreatmentNoteService {
         TreatmentNoteResponse response = new TreatmentNoteResponse();
         response.setId(note.getId());
         response.setAppointmentId(note.getAppointmentId());
-        
+
         // Get patient_id, doctor_id, clinic_id from appointment
         if (appointment != null) {
             response.setPatientId(UUID.fromString(appointment.getPatientId()));
             response.setDoctorId(appointment.getDoctorId());
             response.setClinicId(appointment.getClinicId());
         }
-        
+
         response.setDoctorName(doctor != null ? doctor.getDoctorName() : "Unknown Doctor");
         response.setClinicName(doctor != null ? doctor.getClinicName() : "Unknown Clinic");
         response.setNoteType(note.getNoteType());
         response.setNotes(note.getNotes());
         response.setCreatedBy(note.getCreatedBy());
-        
+
         // Try to get creator name from user repository if available
         if (userRepository != null) {
             try {
@@ -227,10 +227,10 @@ public class TreatmentNoteService {
                 // If createdBy is not a UUID or user not found, leave as null
             }
         }
-        
+
         response.setCreatedAt(note.getCreatedAt());
         response.setUpdatedAt(note.getUpdatedAt());
-        
+
         return response;
     }
 }

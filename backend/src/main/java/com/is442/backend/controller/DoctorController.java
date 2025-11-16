@@ -1,4 +1,5 @@
 package com.is442.backend.controller;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -25,7 +26,7 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/doctors")
 @CrossOrigin(origins = "*")
 public class DoctorController {
-     private final DoctorService doctorService;
+    private final DoctorService doctorService;
 
     public DoctorController(DoctorService doctorService) {
         this.doctorService = doctorService;

@@ -15,23 +15,40 @@ public class PatientResponse extends UserResponse {
     private String gender;
 
     // Getters and setters
-    public String getPhone() { return phone; }
-    public void setPhone(String phone) { this.phone = phone; }
-    public String getDateOfBirth() { return dateOfBirth; }
-    public void setDateOfBirth(String dateOfBirth) { this.dateOfBirth = dateOfBirth; }
-    public String getGender() { return gender; }
-    public void setGender(String gender) { this.gender = gender; }
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getDateOfBirth() {
+        return dateOfBirth;
+    }
+
+    public void setDateOfBirth(String dateOfBirth) {
+        this.dateOfBirth = dateOfBirth;
+    }
+
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
 
     public PatientResponse(Patient patient) {
-        super(patient); 
-        
+        super(patient);
+
         // Set patient-specific fields
         // Note: Patient has its own phone field (in patient table), but User base class also has phone (in users table)
         // Patient.getPhone() returns Patient's phone field. If it's null, we should check User's phone.
         // However, since Patient overrides getPhone(), we need to access User's phone differently.
         // For now, use Patient's phone field. If it's null, the phone might be in User's table.
         String patientPhone = patient.getPhone();
-        
+
         // If Patient's phone is null/empty, try to get from User's phone field using reflection
         if (patientPhone == null || patientPhone.trim().isEmpty()) {
             try {
@@ -52,7 +69,7 @@ public class PatientResponse extends UserResponse {
         } else {
             this.phone = patientPhone;
         }
-        
+
         this.dateOfBirth = patient.getDateOfBirth();
         this.gender = patient.getGender();
     }

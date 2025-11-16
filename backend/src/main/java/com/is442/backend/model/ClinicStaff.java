@@ -1,4 +1,5 @@
 package com.is442.backend.model;
+
 import java.util.UUID;
 
 import jakarta.persistence.Column;
@@ -19,7 +20,7 @@ public class ClinicStaff extends User {
     private String clinicId; // new column for stable reference
 
     @Column(name = "position")
-    private String position; 
+    private String position;
 
     public ClinicStaff() {
         super();
@@ -42,9 +43,13 @@ public class ClinicStaff extends User {
         this.clinicName = clinicName;
     }
 
-    public String getClinicId() { return clinicId; }
+    public String getClinicId() {
+        return clinicId;
+    }
 
-    public void setClinicId(String clinicId) { this.clinicId = clinicId; }
+    public void setClinicId(String clinicId) {
+        this.clinicId = clinicId;
+    }
 
     public String getPosition() {
         return position;
@@ -55,13 +60,4 @@ public class ClinicStaff extends User {
     }
 
 
-
-
-
-
-
-
-
-
-    
 }

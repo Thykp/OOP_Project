@@ -46,9 +46,9 @@ public class SupabaseStorageService {
 
     /**
      * Upload a PDF file to Supabase storage bucket
-     * 
-     * @param pdfBytes PDF file content as byte array
-     * @param clinicId Clinic ID for path organization
+     *
+     * @param pdfBytes   PDF file content as byte array
+     * @param clinicId   Clinic ID for path organization
      * @param reportDate Report date for path organization
      * @return File path in the bucket (e.g., "reports/{clinicId}/{date}/report_{timestamp}.pdf")
      * @throws RuntimeException if upload fails
@@ -66,7 +66,7 @@ public class SupabaseStorageService {
         if (reportDate == null) {
             throw new IllegalArgumentException("Report date cannot be null");
         }
-        
+
         try {
             // Generate file path: reports/{clinicId}/{YYYY-MM-DD}/report_{timestamp}.pdf
             String dateStr = reportDate.format(DATE_FORMATTER);
@@ -85,7 +85,7 @@ public class SupabaseStorageService {
             };
 
             String uploadUrl = String.format("/object/%s/%s", BUCKET_NAME, filePath);
-            
+
             webClient.post()
                     .uri(uploadUrl)
                     .contentType(MediaType.APPLICATION_PDF)
@@ -106,7 +106,7 @@ public class SupabaseStorageService {
 
     /**
      * Download a PDF file from Supabase storage bucket
-     * 
+     *
      * @param filePath File path in the bucket
      * @return PDF file content as byte array
      * @throws RuntimeException if download fails
@@ -134,7 +134,7 @@ public class SupabaseStorageService {
 
     /**
      * Delete a PDF file from Supabase storage bucket
-     * 
+     *
      * @param filePath File path in the bucket
      * @throws RuntimeException if deletion fails
      */

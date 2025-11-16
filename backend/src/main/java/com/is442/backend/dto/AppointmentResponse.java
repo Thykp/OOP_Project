@@ -2,6 +2,7 @@ package com.is442.backend.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.is442.backend.model.Appointment;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -89,7 +90,7 @@ public class AppointmentResponse {
     }
 
     public AppointmentResponse(Appointment appointment, String docName, String clinicName, String patientName,
-            String clinicType) {
+                               String clinicType) {
         this.appointmentId = appointment.getAppointmentId();
         this.patientId = appointment.getPatientId();
         this.patientName = patientName;

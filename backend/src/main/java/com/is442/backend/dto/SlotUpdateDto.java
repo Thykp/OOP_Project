@@ -22,7 +22,8 @@ public class SlotUpdateDto {
     @JsonProperty("action")
     private String action; // e.g., REMOVE
 
-    public SlotUpdateDto() {}
+    public SlotUpdateDto() {
+    }
 
     public SlotUpdateDto(String clinicId, String doctorId, String bookingDate, String startTime, String endTime, String action) {
         this.clinicId = clinicId;
@@ -33,16 +34,51 @@ public class SlotUpdateDto {
         this.action = action;
     }
 
-    public String getClinicId() { return clinicId; }
-    public void setClinicId(String clinicId) { this.clinicId = clinicId; }
-    public String getDoctorId() { return doctorId; }
-    public void setDoctorId(String doctorId) { this.doctorId = doctorId; }
-    public String getBookingDate() { return bookingDate; }
-    public void setBookingDate(String bookingDate) { this.bookingDate = bookingDate; }
-    public String getStartTime() { return startTime; }
-    public void setStartTime(String startTime) { this.startTime = startTime; }
-    public String getEndTime() { return endTime; }
-    public void setEndTime(String endTime) { this.endTime = endTime; }
-    public String getAction() { return action; }
-    public void setAction(String action) { this.action = action; }
+    public String getClinicId() {
+        return clinicId;
+    }
+
+    public void setClinicId(String clinicId) {
+        this.clinicId = clinicId;
+    }
+
+    public String getDoctorId() {
+        return doctorId;
+    }
+
+    public void setDoctorId(String doctorId) {
+        this.doctorId = doctorId;
+    }
+
+    public String getBookingDate() {
+        return bookingDate;
+    }
+
+    public void setBookingDate(String bookingDate) {
+        this.bookingDate = bookingDate;
+    }
+
+    public String getStartTime() {
+        return startTime;
+    }
+
+    public void setStartTime(String startTime) {
+        this.startTime = startTime;
+    }
+
+    public String getEndTime() {
+        return endTime;
+    }
+
+    public void setEndTime(String endTime) {
+        this.endTime = endTime;
+    }
+
+    public String getAction() {
+        return action;
+    }
+
+    public void setAction(String action) {
+        this.action = action;
+    }
 }

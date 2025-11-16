@@ -15,7 +15,7 @@ public class QueueStreamController {
         this.sse = sse;
     }
 
-    // Frontend subscribes: GET /api/stream/queues/{clinicId}
+    // Frontend subscribes to SSE: GET /api/stream/queues/{clinicId}
     @GetMapping(value = "/queues/{clinicId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> clinicStream(@PathVariable String clinicId) {
         return sse.streamClinic(clinicId);

@@ -8,4 +8,5 @@ public record QueueEvent(
         Integer position,   // null when not applicable
         Long queueNumber,
         Long ts
-) {}
+) {
+}

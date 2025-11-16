@@ -2,6 +2,7 @@ package com.is442.backend.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
+
 import java.time.*;
 import java.util.UUID;
 
@@ -57,7 +58,7 @@ public class Appointment {
     }
 
     public Appointment(String patientId, String doctorId, String clinicId,
-            LocalDate bookingDate, LocalTime startTime, LocalTime endTime) {
+                       LocalDate bookingDate, LocalTime startTime, LocalTime endTime) {
         this.patientId = patientId;
         this.doctorId = doctorId;
         this.clinicId = clinicId;

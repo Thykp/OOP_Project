@@ -1,4 +1,5 @@
 package com.is442.backend.model;
+
 import java.time.LocalTime;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -14,38 +15,39 @@ import jakarta.persistence.Table;
 @Table(name = "time_slot")
 
 public class TimeSlot {
-    
+
     @Id
     @JsonProperty("id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    
+
     @Column(name = "id")
     private Long id;
 
     @JsonProperty("doctor_id")
     private String doctorId;
-    
+
     @JsonProperty("doctor_name")
     private String doctorName;
-    
+
     @JsonProperty("day_of_week")
     private String dayOfWeek;
-    
+
     @JsonProperty("start_time")
     private LocalTime startTime;
-    
+
     @JsonProperty("end_time")
     private LocalTime endTime;
-    
+
     // @JsonProperty("available")
     // private boolean isAvailable;
 
 
-    public TimeSlot() {}
+    public TimeSlot() {
+    }
 
-    public TimeSlot(Long id, String doctorId, String doctorName, String dayOfWeek, 
+    public TimeSlot(Long id, String doctorId, String doctorName, String dayOfWeek,
                     LocalTime startTime, LocalTime endTime) {
-        this.id=id;
+        this.id = id;
         this.doctorId = doctorId;
         this.doctorName = doctorName;
         this.dayOfWeek = dayOfWeek;
@@ -63,7 +65,7 @@ public class TimeSlot {
     }
 
     // Getters and Setters
-     public Long getTimeSlotId() {
+    public Long getTimeSlotId() {
         return id;
     }
 
@@ -112,5 +114,5 @@ public class TimeSlot {
         this.endTime = endTime;
     }
 
-  
+
 }

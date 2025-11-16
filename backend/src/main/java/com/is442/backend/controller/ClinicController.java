@@ -42,7 +42,7 @@ public class ClinicController {
     // Update GP operating hours
     @PatchMapping("/gp/{id}/operatingHour")
     public ResponseEntity<GpClinicDto> updateGPOperatingHours(@PathVariable int id,
-            @RequestBody GpClinicDto req) {
+                                                              @RequestBody GpClinicDto req) {
         try {
             clinicService.updateGPClinicOperatingHours(id, req);
             return ResponseEntity.ok().build();

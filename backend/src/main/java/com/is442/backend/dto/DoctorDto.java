@@ -1,8 +1,8 @@
 package com.is442.backend.dto;
 
 public class DoctorDto {
-    
-    private String doctorId; 
+
+    private String doctorId;
     private String doctorName;
     private String clinicName;
     private String clinicAddress;
@@ -10,21 +10,21 @@ public class DoctorDto {
     private String clinicId;
 
 
-    public DoctorDto(String doctorId, String doctorName,String clinicId, String clinicName, String clinicAddress, String speciality) {
+    public DoctorDto(String doctorId, String doctorName, String clinicId, String clinicName, String clinicAddress, String speciality) {
         this.doctorId = doctorId;
         this.doctorName = doctorName;
-        this.clinicId=clinicId;
+        this.clinicId = clinicId;
         this.clinicName = clinicName;
         this.clinicAddress = clinicAddress;
         this.speciality = speciality;
     }
-    
-    public String getClinicId(){
+
+    public String getClinicId() {
         return this.clinicId;
     }
 
-    public void setClinicId(String clinicId){
-        this.clinicId=clinicId;
+    public void setClinicId(String clinicId) {
+        this.clinicId = clinicId;
     }
 
 
@@ -68,7 +68,7 @@ public class DoctorDto {
         this.speciality = speciality;
     }
 
-    
+
     public String toString() {
         return "DoctorDto{" +
                 "doctorId='" + doctorId + '\'' +

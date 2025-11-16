@@ -1,6 +1,7 @@
 package com.is442.backend.dto;
 
 import java.time.LocalTime;
+
 import com.fasterxml.jackson.annotation.JsonFormat;
 
 public class TimeSlotDto {
@@ -8,17 +9,17 @@ public class TimeSlotDto {
     private String doctorId;
     private String doctorName;
     private String dayOfWeek;
-    
+
     @JsonFormat(pattern = "HH:mm:ss")
     private LocalTime startTime;
-    
+
     @JsonFormat(pattern = "HH:mm:ss")
     private LocalTime endTime;
     private boolean isAvailable;
 
-    public TimeSlotDto(Long id, String doctorId, String doctorName, String dayOfWeek, 
-                    LocalTime startTime, LocalTime endTime, boolean isAvailable) {
-        this.id=id;
+    public TimeSlotDto(Long id, String doctorId, String doctorName, String dayOfWeek,
+                       LocalTime startTime, LocalTime endTime, boolean isAvailable) {
+        this.id = id;
         this.doctorId = doctorId;
         this.doctorName = doctorName;
         this.dayOfWeek = dayOfWeek;
@@ -85,5 +86,4 @@ public class TimeSlotDto {
     }
 
 
-    
 }

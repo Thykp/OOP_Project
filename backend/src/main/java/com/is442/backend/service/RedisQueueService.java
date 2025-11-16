@@ -68,8 +68,8 @@ public class RedisQueueService {
     private final ObjectMapper objectMapper = new ObjectMapper(); // For JSON serialization
 
     public RedisQueueService(StringRedisTemplate strTpl,
-            RedisTemplate<String, Object> jsonTpl,
-            DefaultRedisScript<List<Object>> dequeueScript) {
+                             RedisTemplate<String, Object> jsonTpl,
+                             DefaultRedisScript<List<Object>> dequeueScript) {
         this.strTpl = strTpl;
         this.jsonTpl = jsonTpl;
         this.dequeueScript = dequeueScript;
@@ -83,7 +83,7 @@ public class RedisQueueService {
 
     /**
      * Check a patient into a clinic queue. Returns (position, queueNumber).
-     * 
+     *
      * @param clinicId            the clinic identifier
      * @param appointmentId       the appointment identifier (can be auto-generated)
      * @param patientId           the patient identifier
@@ -95,7 +95,7 @@ public class RedisQueueService {
      * @throws RuntimeException         if user or appointment validation fails
      */
     public CheckinResult checkIn(String clinicId, String appointmentId, String patientId, boolean validateAppointment,
-            String doctorId) {
+                                 String doctorId) {
         // Validate non-null and non-empty
         validateNonEmpty(clinicId, "clinicId");
         validateNonEmpty(patientId, "patientId");
@@ -155,7 +155,7 @@ public class RedisQueueService {
         meta.put("phone", user.getPhone());
         meta.put("email", user.getEmail());
         meta.put("name", user.getFirstName() + " " + user.getLastName());
-    meta.put("createdAt", Instant.now().toString());
+        meta.put("createdAt", Instant.now().toString());
 
         // 3) Validate and fetch doctor information if provided
         if (doctorId != null && !doctorId.trim().isEmpty()) {
@@ -203,7 +203,7 @@ public class RedisQueueService {
     /**
      * Check a patient into a clinic queue. Returns (position, queueNumber).
      * Convenience method that validates appointments by default.
-     * 
+     *
      * @throws IllegalArgumentException if any parameter is invalid
      * @throws RuntimeException         if user or appointment validation fails
      */
@@ -216,7 +216,7 @@ public class RedisQueueService {
      * Lua returns: [ appointmentId, nowServing, k1, v1, k2, v2, ... ]
      * We parse hash fields to obtain patientId and (redundantly) seq ->
      * queueNumber.
-     * 
+     *
      * @param clinicId the clinic identifier
      * @param doctorId optional doctor ID to assign to the appointment
      * @throws IllegalArgumentException if clinicId is invalid
@@ -317,7 +317,7 @@ public class RedisQueueService {
     /**
      * Atomically dequeue the next patient via Lua.
      * Convenience method without doctorId parameter.
-     * 
+     *
      * @throws IllegalArgumentException if clinicId is invalid
      */
     public CallNextResult callNext(String clinicId) {
@@ -330,7 +330,7 @@ public class RedisQueueService {
      * nowServing),
      * and we expose the stable ticket via getQueueNumber(appointmentId) when needed
      * by controller.
-     * 
+     *
      * @throws IllegalArgumentException if appointmentId is invalid
      */
     public PositionSnapshot getCurrentPosition(String appointmentId) {
@@ -367,7 +367,9 @@ public class RedisQueueService {
         strTpl.opsForValue().set(kNowServing(clinicId), "0");
     }
 
-    /** Aggregate status for a clinic queue. */
+    /**
+     * Aggregate status for a clinic queue.
+     */
     public QueueStatus getQueueStatus(String clinicId) {
         validateNonEmpty(clinicId, "clinicId");
         Long waiting = strTpl.opsForZSet().zCard(kQueue(clinicId));
@@ -378,7 +380,7 @@ public class RedisQueueService {
     /**
      * Returns the complete queue state for a clinic, including all queue items with
      * their details.
-     * 
+     *
      * @param clinicId the clinic identifier
      * @return QueueStateDto containing clinic status and list of all queue items
      * @throws IllegalArgumentException if clinicId is invalid
@@ -421,7 +423,7 @@ public class RedisQueueService {
     /**
      * Broadcasts complete queue state to SSE subscribers.
      * This is called after queue-changing operations to keep frontend in sync.
-     * 
+     *
      * @param clinicId the clinic identifier
      */
     private void broadcastQueueStateUpdate(String clinicId) {
@@ -464,7 +466,7 @@ public class RedisQueueService {
             // Serialize to JSON and broadcast
             String json = objectMapper.writeValueAsString(eventPayload);
             queueSseService.publishToClinic(clinicId, json);
-            System.out.println("[RedisQueueService] Broadcasted queue state update for clinic: " + clinicId 
+            System.out.println("[RedisQueueService] Broadcasted queue state update for clinic: " + clinicId
                     + ", nowServing: " + state.getNowServing() + ", totalWaiting: " + state.getTotalWaiting());
 
         } catch (Exception e) {
@@ -474,7 +476,9 @@ public class RedisQueueService {
         }
     }
 
-    /** Stable ticket number for an appointment (seq stored in the hash). */
+    /**
+     * Stable ticket number for an appointment (seq stored in the hash).
+     */
     public long getQueueNumber(String appointmentId) {
         validateNonEmpty(appointmentId, "appointmentId");
 
@@ -490,13 +494,17 @@ public class RedisQueueService {
         return parseLongSafe(seq, 0L);
     }
 
-    /** List all clinics that have registered activity. */
+    /**
+     * List all clinics that have registered activity.
+     */
     public Set<String> listClinics() {
         Set<String> clinics = strTpl.opsForSet().members(KEY_CLINICS);
         return (clinics == null) ? Set.of() : clinics;
     }
 
-    /** Get doctorId from appointment metadata. */
+    /**
+     * Get doctorId from appointment metadata.
+     */
     public String getDoctorIdFromAppointment(String appointmentId) {
         if (appointmentId == null || appointmentId.trim().isEmpty()) {
             return null;
@@ -507,7 +515,7 @@ public class RedisQueueService {
 
     /**
      * Moves an appointment to the top of the queue by updating its ZSET score.
-     * 
+     *
      * @param appointmentId the appointment identifier to fast-track
      * @return the new position (should be 1 if successful)
      * @throws IllegalArgumentException if appointmentId is invalid
@@ -579,7 +587,7 @@ public class RedisQueueService {
      * This removes the appointment from the ZSET (queue) and deletes the
      * appointment hash.
      * Asynchronously updates the appointment status to "NO_SHOW" in the database.
-     * 
+     *
      * @param appointmentId the appointment identifier to remove from queue
      * @return the clinicId of the removed appointment
      * @throws IllegalArgumentException if appointmentId is invalid
@@ -709,7 +717,7 @@ public class RedisQueueService {
 
     /**
      * Validates that a string is not null and not empty (after trimming).
-     * 
+     *
      * @param value     the value to validate
      * @param fieldName the name of the field for error messages
      * @throws IllegalArgumentException if value is null or empty
@@ -728,7 +736,7 @@ public class RedisQueueService {
      * Includes: name, email, phone, appointment_id, queue number, clinicId,
      * doctorId, and message
      * content.
-     * 
+     *
      * @param eventType     the type of event ("N3_AWAY" or "NOW_SERVING")
      * @param meta          patient metadata from Redis hash
      * @param appointmentId the appointment ID
@@ -737,7 +745,7 @@ public class RedisQueueService {
      * @return JSON string payload
      */
     private String buildNotificationPayload(String eventType, Map<Object, Object> meta, String appointmentId,
-            String clinicId, String doctorId) {
+                                            String clinicId, String doctorId) {
         // Extract patient information from metadata
         String name = getStringFromMeta(meta, "name", "Patient");
         String email = getStringFromMeta(meta, "email", "");
@@ -863,7 +871,7 @@ public class RedisQueueService {
      * Sends NOW_SERVING notification to a patient who is being called.
      * Uses patient fields from the dequeued data (retrieved from Redis hash before
      * deletion).
-     * 
+     *
      * @param clinicId      the clinic ID
      * @param appointmentId the appointment ID
      * @param patientId     the patient ID
@@ -872,7 +880,7 @@ public class RedisQueueService {
      * @param doctorId      the doctor ID (can be null)
      */
     private void sendNowServingNotification(String clinicId, String appointmentId, String patientId,
-            Map<String, String> patientFields, String doctorId) {
+                                            Map<String, String> patientFields, String doctorId) {
         if (notificationEventProducer == null) {
             return;
         }

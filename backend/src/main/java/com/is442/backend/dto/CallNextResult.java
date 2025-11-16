@@ -1,9 +1,9 @@
 package com.is442.backend.dto;
 
 /**
- * @param position     0 when being served
- * @param nowServing   the clinic-wide ticket number being served (from Redis)
- * @param queueNumber  the dequeued patient's own ticket (seq)
+ * @param position    0 when being served
+ * @param nowServing  the clinic-wide ticket number being served (from Redis)
+ * @param queueNumber the dequeued patient's own ticket (seq)
  */
 public record CallNextResult(
         String clinicId,

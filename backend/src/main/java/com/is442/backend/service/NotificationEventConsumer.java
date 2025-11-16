@@ -11,20 +11,20 @@ import org.springframework.stereotype.Service;
 public class NotificationEventConsumer {
 
     @KafkaListener(
-        topics = "notification-events",
-        groupId = "notification-loggers",
-        containerFactory = "kafkaListenerContainerFactory",
-        autoStartup = "true"
+            topics = "notification-events",
+            groupId = "notification-loggers",
+            containerFactory = "kafkaListenerContainerFactory",
+            autoStartup = "true"
     )
     public void onMessage(
-        String payload,
-        @Header(value = KafkaHeaders.RECEIVED_TOPIC, required = false) String topic,
-        @Header(value = KafkaHeaders.RECEIVED_PARTITION, required = false) Integer partition,
-        @Header(value = KafkaHeaders.OFFSET, required = false) Long offset
+            String payload,
+            @Header(value = KafkaHeaders.RECEIVED_TOPIC, required = false) String topic,
+            @Header(value = KafkaHeaders.RECEIVED_PARTITION, required = false) Integer partition,
+            @Header(value = KafkaHeaders.OFFSET, required = false) Long offset
     ) {
         System.out.printf(
-            "[NotificationEventConsumer] topic=%s partition=%s offset=%s payload=%s%n",
-            topic, partition, offset, payload
+                "[NotificationEventConsumer] topic=%s partition=%s offset=%s payload=%s%n",
+                topic, partition, offset, payload
         );
     }
 }

@@ -31,7 +31,7 @@ public class RedisQueueController {
     private AppointmentService appointmentService;
 
     public RedisQueueController(RedisQueueService redisQueueService,
-            @Nullable KafkaQueueEventProducer events) {
+                                @Nullable KafkaQueueEventProducer events) {
         this.redisQueueService = redisQueueService;
         this.events = events;
     }
@@ -73,8 +73,8 @@ public class RedisQueueController {
             String doctorId = (doctorIdObj != null
                     && !String.valueOf(doctorIdObj).equals("null")
                     && !String.valueOf(doctorIdObj).toString().trim().isEmpty())
-                            ? String.valueOf(doctorIdObj)
-                            : null;
+                    ? String.valueOf(doctorIdObj)
+                    : null;
 
             // Service computes both
             // Only validate appointment if it was provided by the user (not auto-generated)
@@ -124,8 +124,8 @@ public class RedisQueueController {
             // Publish real-time event (keeps same payload shape)
             if (events != null) {
                 events.publishQueueEvent(new QueueEvent(
-                        "POSITION_CHANGED", clinicId, appointmentId, patientId,
-                        result.position(), result.queueNumber(), System.currentTimeMillis()),
+                                "POSITION_CHANGED", clinicId, appointmentId, patientId,
+                                result.position(), result.queueNumber(), System.currentTimeMillis()),
                         doctorId); // Pass doctorId for Kafka headers
             }
 
@@ -173,8 +173,8 @@ public class RedisQueueController {
             String doctorId = (doctorIdObj != null
                     && !String.valueOf(doctorIdObj).equals("null")
                     && !String.valueOf(doctorIdObj).toString().trim().isEmpty())
-                            ? String.valueOf(doctorIdObj)
-                            : null;
+                    ? String.valueOf(doctorIdObj)
+                    : null;
 
             CallNextResult result = redisQueueService.callNext(clinicId, doctorId);
 
@@ -217,13 +217,13 @@ public class RedisQueueController {
             // Publish event using the actual nowServing ticket number
             if (events != null) {
                 events.publishQueueEvent(new QueueEvent(
-                        "NOW_SERVING",
-                        clinicId,
-                        result.appointmentId(),
-                        result.patientId(),
-                        (int) result.nowServing(),
-                        result.queueNumber(),
-                        System.currentTimeMillis()),
+                                "NOW_SERVING",
+                                clinicId,
+                                result.appointmentId(),
+                                result.patientId(),
+                                (int) result.nowServing(),
+                                result.queueNumber(),
+                                System.currentTimeMillis()),
                         finalDoctorId); // Pass doctorId for Kafka headers
             }
 

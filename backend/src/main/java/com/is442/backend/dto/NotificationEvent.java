@@ -8,4 +8,5 @@ public record NotificationEvent(
         String channel,     // "EMAIL" | "SMS" | "PUSH"
         String payload,     // JSON/text content
         Long ts
-) {}
+) {
+}

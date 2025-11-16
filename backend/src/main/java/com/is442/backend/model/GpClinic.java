@@ -60,7 +60,8 @@ public class GpClinic extends Clinic {
     public void setClinicId(String clinicId) {
         this.clinicId = clinicId;
     }
-        public String getOpeningHours() {
+
+    public String getOpeningHours() {
         return openingHours;
     }
 

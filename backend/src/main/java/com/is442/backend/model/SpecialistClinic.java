@@ -1,4 +1,3 @@
-
 package com.is442.backend.model;
 
 
@@ -62,72 +61,162 @@ public class SpecialistClinic extends Clinic {
     @Column(name = "speciality")
     private String speciality;
 
-    public SpecialistClinic() {}
+    public SpecialistClinic() {
+    }
 
     public SpecialistClinic(Integer sn, String clinicName, String address, String telephoneNum,
                             String ihpClinicId, String region, String area, String speciality) {
-        super(clinicName, address, telephoneNum); 
+        super(clinicName, address, telephoneNum);
         this.sn = sn;
         this.ihpClinicId = ihpClinicId;
         this.region = region;
         this.area = area;
         this.speciality = speciality;
     }
-    
-    
 
-    public Integer getSn() { return sn; }
-    public void setSn(Integer sn) { this.sn = sn; }
 
-    public String getIhpClinicId() { return ihpClinicId; }
-    public void setIhpClinicId(String ihpClinicId) { this.ihpClinicId = ihpClinicId; }
+    public Integer getSn() {
+        return sn;
+    }
 
-    public String getRegion() { return region; }
-    public void setRegion(String region) { this.region = region; }
+    public void setSn(Integer sn) {
+        this.sn = sn;
+    }
 
-    public String getArea() { return area; }
-    public void setArea(String area) { this.area = area; }
+    public String getIhpClinicId() {
+        return ihpClinicId;
+    }
 
-    public String getMonToFriAm() { return monToFriAm; }
-    public void setMonToFriAm(String monToFriAm) { this.monToFriAm = monToFriAm; }
+    public void setIhpClinicId(String ihpClinicId) {
+        this.ihpClinicId = ihpClinicId;
+    }
 
-    public String getMonToFriPm() { return monToFriPm; }
-    public void setMonToFriPm(String monToFriPm) { this.monToFriPm = monToFriPm; }
+    public String getRegion() {
+        return region;
+    }
 
-    public String getMonToFriNight() { return monToFriNight; }
-    public void setMonToFriNight(String monToFriNight) { this.monToFriNight = monToFriNight; }
+    public void setRegion(String region) {
+        this.region = region;
+    }
 
-    public String getSatAm() { return satAm; }
-    public void setSatAm(String satAm) { this.satAm = satAm; }
+    public String getArea() {
+        return area;
+    }
 
-    public String getSatPm() { return satPm; }
-    public void setSatPm(String satPm) { this.satPm = satPm; }
+    public void setArea(String area) {
+        this.area = area;
+    }
 
-    public String getSatNight() { return satNight; }
-    public void setSatNight(String satNight) { this.satNight = satNight; }
+    public String getMonToFriAm() {
+        return monToFriAm;
+    }
 
-    public String getSunAm() { return sunAm; }
-    public void setSunAm(String sunAm) { this.sunAm = sunAm; }
+    public void setMonToFriAm(String monToFriAm) {
+        this.monToFriAm = monToFriAm;
+    }
 
-    public String getSunPm() { return sunPm; }
-    public void setSunPm(String sunPm) { this.sunPm = sunPm; }
+    public String getMonToFriPm() {
+        return monToFriPm;
+    }
 
-    public String getSunNight() { return sunNight; }
-    public void setSunNight(String sunNight) { this.sunNight = sunNight; }
+    public void setMonToFriPm(String monToFriPm) {
+        this.monToFriPm = monToFriPm;
+    }
 
-    public String getPublicHolidayAm() { return publicHolidayAm; }
-    public void setPublicHolidayAm(String publicHolidayAm) { this.publicHolidayAm = publicHolidayAm; }
+    public String getMonToFriNight() {
+        return monToFriNight;
+    }
 
-    public String getPublicHolidayPm() { return publicHolidayPm; }
-    public void setPublicHolidayPm(String publicHolidayPm) { this.publicHolidayPm = publicHolidayPm; }
+    public void setMonToFriNight(String monToFriNight) {
+        this.monToFriNight = monToFriNight;
+    }
 
-    public String getPublicHolidayNight() { return publicHolidayNight; }
-    public void setPublicHolidayNight(String publicHolidayNight) { this.publicHolidayNight = publicHolidayNight; }
+    public String getSatAm() {
+        return satAm;
+    }
 
-    public String getRemarks() { return remarks; }
-    public void setRemarks(String remarks) { this.remarks = remarks; }
+    public void setSatAm(String satAm) {
+        this.satAm = satAm;
+    }
 
-    public String getSpeciality() { return speciality; }
-    public void setSpeciality(String speciality) { this.speciality = speciality; }
- 
+    public String getSatPm() {
+        return satPm;
+    }
+
+    public void setSatPm(String satPm) {
+        this.satPm = satPm;
+    }
+
+    public String getSatNight() {
+        return satNight;
+    }
+
+    public void setSatNight(String satNight) {
+        this.satNight = satNight;
+    }
+
+    public String getSunAm() {
+        return sunAm;
+    }
+
+    public void setSunAm(String sunAm) {
+        this.sunAm = sunAm;
+    }
+
+    public String getSunPm() {
+        return sunPm;
+    }
+
+    public void setSunPm(String sunPm) {
+        this.sunPm = sunPm;
+    }
+
+    public String getSunNight() {
+        return sunNight;
+    }
+
+    public void setSunNight(String sunNight) {
+        this.sunNight = sunNight;
+    }
+
+    public String getPublicHolidayAm() {
+        return publicHolidayAm;
+    }
+
+    public void setPublicHolidayAm(String publicHolidayAm) {
+        this.publicHolidayAm = publicHolidayAm;
+    }
+
+    public String getPublicHolidayPm() {
+        return publicHolidayPm;
+    }
+
+    public void setPublicHolidayPm(String publicHolidayPm) {
+        this.publicHolidayPm = publicHolidayPm;
+    }
+
+    public String getPublicHolidayNight() {
+        return publicHolidayNight;
+    }
+
+    public void setPublicHolidayNight(String publicHolidayNight) {
+        this.publicHolidayNight = publicHolidayNight;
+    }
+
+    public String getRemarks() {
+        return remarks;
+    }
+
+    public void setRemarks(String remarks) {
+        this.remarks = remarks;
+    }
+
+    public String getSpeciality() {
+        return speciality;
+    }
+
+    public void setSpeciality(String speciality) {
+        this.speciality = speciality;
+    }
+
 }

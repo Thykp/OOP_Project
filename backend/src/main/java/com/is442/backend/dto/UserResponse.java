@@ -3,6 +3,7 @@ package com.is442.backend.dto;
 import com.is442.backend.model.User;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.UUID;
 
 public class UserResponse {
@@ -67,13 +68,14 @@ public class UserResponse {
         this.role = role;
     }
 
-        public String getStatus() {
+    public String getStatus() {
         return status;
     }
 
     public void setStatus(String status) {
         this.status = status;
     }
+
     public UserResponse(User user) {
         this.supabaseUserId = user.getSupabaseUserId();
         this.email = user.getEmail();

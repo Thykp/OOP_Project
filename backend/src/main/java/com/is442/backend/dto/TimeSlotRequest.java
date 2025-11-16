@@ -7,7 +7,8 @@ public class TimeSlotRequest {
     private String startTime; // Accept as string "HH:mm" or "HH:mm:ss"
     private String endTime;   // Accept as string "HH:mm" or "HH:mm:ss"
 
-    public TimeSlotRequest() {}
+    public TimeSlotRequest() {
+    }
 
     public TimeSlotRequest(String doctorId, String doctorName, String dayOfWeek, String startTime, String endTime) {
         this.doctorId = doctorId;
