@@ -12,19 +12,19 @@ import java.util.UUID;
 
 @Repository
 public interface TreatmentNoteRepository extends JpaRepository<TreatmentNote, Long> {
-    
+
     List<TreatmentNote> findByAppointmentId(UUID appointmentId);
-    
+
     // Query by patient through appointment join
     @Query("SELECT tn FROM TreatmentNote tn JOIN Appointment a ON tn.appointmentId = a.appointmentId WHERE a.patientId = :patientId")
     List<TreatmentNote> findByPatientId(@Param("patientId") String patientId);
-    
+
     // Query by doctor through appointment join
     @Query("SELECT tn FROM TreatmentNote tn JOIN Appointment a ON tn.appointmentId = a.appointmentId WHERE a.doctorId = :doctorId")
     List<TreatmentNote> findByDoctorId(@Param("doctorId") String doctorId);
-    
+
     Optional<TreatmentNote> findFirstByAppointmentIdOrderByCreatedAtDesc(UUID appointmentId);
-    
+
     List<TreatmentNote> findByAppointmentIdOrderByCreatedAtDesc(UUID appointmentId);
 }
 

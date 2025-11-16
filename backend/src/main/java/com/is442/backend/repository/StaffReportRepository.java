@@ -10,9 +10,9 @@ import java.util.Optional;
 
 @Repository
 public interface StaffReportRepository extends JpaRepository<StaffReport, Long> {
-    
+
     Optional<StaffReport> findByClinicIdAndReportDate(String clinicId, LocalDate reportDate);
-    
+
     List<StaffReport> findByClinicIdOrderByReportDateDesc(String clinicId);
 }
 

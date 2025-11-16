@@ -15,12 +15,12 @@ public class Doctor {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @JsonIgnore 
+    @JsonIgnore
     private Long id;
 
     @Column(name = "doctor_id")
-    private String doctorId; 
-    
+    private String doctorId;
+
     @Column(name = "doctor_name")
     private String doctorName;
 
@@ -39,32 +39,33 @@ public class Doctor {
 
     private String speciality;
 
-    public Doctor() {}
+    public Doctor() {
+    }
 
     public Doctor(String doctorId, String doctorName, String clinicId, String clinicName, String clinicAddress, String speciality) {
         this.doctorId = doctorId;
         this.doctorName = doctorName;
         this.clinicId = clinicId;
         this.clinicName = clinicName;
-        this.clinicAddress=clinicAddress;
+        this.clinicAddress = clinicAddress;
         this.speciality = speciality;
     }
 
 
-    public String getDoctorId(){
+    public String getDoctorId() {
         return this.doctorId;
     }
 
-    public void setDoctorId(String doctorId){
+    public void setDoctorId(String doctorId) {
         this.doctorId = doctorId;
     }
 
 
-    public String getClinicId(){
+    public String getClinicId() {
         return this.clinicId;
     }
 
-    public void setClinicId(String clinicId){
+    public void setClinicId(String clinicId) {
         this.clinicId = clinicId;
     }
 
@@ -77,11 +78,11 @@ public class Doctor {
         this.doctorName = doctorName;
     }
 
-    public String getClinicAddress() { 
+    public String getClinicAddress() {
         return clinicAddress;
     }
 
-    public void setClinicAddress(String clinicAddress) { 
+    public void setClinicAddress(String clinicAddress) {
         this.clinicAddress = clinicAddress;
     }
 

@@ -61,9 +61,9 @@ public class ClinicService {
     private SpecialistClinicDto toDto(SpecialistClinic s) {
         return new SpecialistClinicDto(
                 s.getSn(), s.getIhpClinicId(), s.getRegion(), s.getArea(),
-                s.getClinicName(), s.getAddress(), s.getTelephoneNum(), s.getSpeciality(), 
+                s.getClinicName(), s.getAddress(), s.getTelephoneNum(), s.getSpeciality(),
                 s.getMonToFriAm(), s.getMonToFriPm(), s.getMonToFriNight(), s.getSatAm(), s.getSatPm(),
-                s.getSatNight(),s.getSunAm(),s.getSunPm(),s.getSunNight(),s.getPublicHolidayAm(),s.getPublicHolidayPm(),s.getPublicHolidayNight());
+                s.getSatNight(), s.getSunAm(), s.getSunPm(), s.getSunNight(), s.getPublicHolidayAm(), s.getPublicHolidayPm(), s.getPublicHolidayNight());
     }
 
     // update GP operating hours
@@ -85,42 +85,42 @@ public class ClinicService {
     public void updateSpecialistClinicOperatingHours(int s_n, SpecialistClinicDto operatingHours) {
         SpecialistClinic clinic = spRepo.findById(s_n)
                 .orElseThrow(() -> new RuntimeException("Clinic not found!"));
-       if (operatingHours.getMonToFriAm() != null) {
-        clinic.setMonToFriAm(operatingHours.getMonToFriAm());
-    }
-    if (operatingHours.getMonToFriPm() != null) {
-        clinic.setMonToFriPm(operatingHours.getMonToFriPm());
-    }
-    if (operatingHours.getMonToFriNight() != null) {
-        clinic.setMonToFriNight(operatingHours.getMonToFriNight());
-    }
-    if (operatingHours.getSatAm() != null) {
-        clinic.setSatAm(operatingHours.getSatAm());
-    }
-    if (operatingHours.getSatPm() != null) {
-        clinic.setSatPm(operatingHours.getSatPm());
-    }
-    if (operatingHours.getSatNight() != null) {
-        clinic.setSatNight(operatingHours.getSatNight());
-    }
-    if (operatingHours.getSunAm() != null) {
-        clinic.setSunAm(operatingHours.getSunAm());
-    }
-    if (operatingHours.getSunPm() != null) {
-        clinic.setSunPm(operatingHours.getSunPm());
-    }
-    if (operatingHours.getSunNight() != null) {
-        clinic.setSunNight(operatingHours.getSunNight());
-    }
-    if (operatingHours.getPublicHolidayAm() != null) {
-        clinic.setPublicHolidayAm(operatingHours.getPublicHolidayAm());
-    }
-    if (operatingHours.getPublicHolidayPm() != null) {
-        clinic.setPublicHolidayPm(operatingHours.getPublicHolidayPm());
-    }
-    if (operatingHours.getPublicHolidayNight() != null) {
-        clinic.setPublicHolidayNight(operatingHours.getPublicHolidayNight());
-    }
+        if (operatingHours.getMonToFriAm() != null) {
+            clinic.setMonToFriAm(operatingHours.getMonToFriAm());
+        }
+        if (operatingHours.getMonToFriPm() != null) {
+            clinic.setMonToFriPm(operatingHours.getMonToFriPm());
+        }
+        if (operatingHours.getMonToFriNight() != null) {
+            clinic.setMonToFriNight(operatingHours.getMonToFriNight());
+        }
+        if (operatingHours.getSatAm() != null) {
+            clinic.setSatAm(operatingHours.getSatAm());
+        }
+        if (operatingHours.getSatPm() != null) {
+            clinic.setSatPm(operatingHours.getSatPm());
+        }
+        if (operatingHours.getSatNight() != null) {
+            clinic.setSatNight(operatingHours.getSatNight());
+        }
+        if (operatingHours.getSunAm() != null) {
+            clinic.setSunAm(operatingHours.getSunAm());
+        }
+        if (operatingHours.getSunPm() != null) {
+            clinic.setSunPm(operatingHours.getSunPm());
+        }
+        if (operatingHours.getSunNight() != null) {
+            clinic.setSunNight(operatingHours.getSunNight());
+        }
+        if (operatingHours.getPublicHolidayAm() != null) {
+            clinic.setPublicHolidayAm(operatingHours.getPublicHolidayAm());
+        }
+        if (operatingHours.getPublicHolidayPm() != null) {
+            clinic.setPublicHolidayPm(operatingHours.getPublicHolidayPm());
+        }
+        if (operatingHours.getPublicHolidayNight() != null) {
+            clinic.setPublicHolidayNight(operatingHours.getPublicHolidayNight());
+        }
         spRepo.save(clinic);
     }
 

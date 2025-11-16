@@ -55,7 +55,7 @@ public class UserService {
         }
         return new PatientResponse((Patient) user);
     }
-    
+
 
     // Get All Patients
     @Transactional(readOnly = true)
@@ -112,14 +112,14 @@ public class UserService {
         // Fields for Patients only
         if (patientRequest.getPhone() != null) {
             patient.setPhone(patientRequest.getPhone()); // Sets Patient's phone field
-            
-            
+
+
             entityManager.createQuery(
-                "UPDATE User u SET u.phone = :phone WHERE u.supabaseUserId = :id"
-            )
-            .setParameter("phone", patientRequest.getPhone())
-            .setParameter("id", id)
-            .executeUpdate();
+                            "UPDATE User u SET u.phone = :phone WHERE u.supabaseUserId = :id"
+                    )
+                    .setParameter("phone", patientRequest.getPhone())
+                    .setParameter("id", id)
+                    .executeUpdate();
         }
 
         if (patientRequest.getDateOfBirth() != null) {

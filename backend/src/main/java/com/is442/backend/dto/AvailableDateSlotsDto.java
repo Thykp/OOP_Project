@@ -11,7 +11,8 @@ public class AvailableDateSlotsDto {
     private String clinicName;
     private List<TimeSlotDto> timeSlots;
 
-    public AvailableDateSlotsDto() {}
+    public AvailableDateSlotsDto() {
+    }
 
     public AvailableDateSlotsDto(LocalDate date, String doctorId, String doctorName, String clinicId, String clinicName, List<TimeSlotDto> timeSlots) {
         this.date = date;

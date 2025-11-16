@@ -17,7 +17,7 @@ public class GpClinicDto {
     }
 
     public GpClinicDto(Integer sn, String clinicId, String pcn, String clinicName, String address, String telephoneNum,
-            String openingHours, String closingHours) {
+                       String openingHours, String closingHours) {
         this.sn = sn;
         this.clinicId = clinicId;
         this.pcn = pcn;

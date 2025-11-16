@@ -101,10 +101,14 @@ public abstract class User {
         this.role = role;
     }
 
-    public String getPhone() {return phone;}
+    public String getPhone() {
+        return phone;
+    }
 
-    public void setPhone(String phone) {this.phone = phone;}
-    
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
     public String getStatus() {
         return status;
     }

@@ -20,7 +20,7 @@ public class PlantUmlDiagramGenerator {
 
     private static final String DEFAULT_OUTPUT_DIR = "scripts/out";
     private static final String DEFAULT_OUTPUT_FILE = "class-diagram.puml";
-    
+
     private Set<Class<?>> processedClasses = new HashSet<>();
     private Map<String, ClassInfo> classInfoMap = new HashMap<>();
     private StringBuilder pumlBuilder = new StringBuilder();
@@ -36,7 +36,7 @@ public class PlantUmlDiagramGenerator {
                 ensureOutputDirectory();
                 outputPath = DEFAULT_OUTPUT_DIR + "/" + DEFAULT_OUTPUT_FILE;
             }
-            
+
             PlantUmlDiagramGenerator generator = new PlantUmlDiagramGenerator();
             generator.generateDiagram(outputPath);
             System.out.println("✓ PlantUML diagram generated successfully: " + outputPath);
@@ -47,7 +47,7 @@ public class PlantUmlDiagramGenerator {
             System.exit(1);
         }
     }
-    
+
     /**
      * Ensures the output directory exists.
      */
@@ -70,12 +70,12 @@ public class PlantUmlDiagramGenerator {
         if (outputDir != null && !outputDir.exists()) {
             outputDir.mkdirs();
         }
-        
+
         // Scan all backend classes using the scanner utility
         System.out.println("Scanning backend classes...");
         List<Class<?>> backendClasses = BackendClassScanner.scanBackendClasses();
         System.out.println("Found " + backendClasses.size() + " classes");
-        
+
         // Process each class
         for (Class<?> clazz : backendClasses) {
             try {
@@ -84,7 +84,7 @@ public class PlantUmlDiagramGenerator {
                 System.err.println("Warning: Error processing class " + clazz.getName() + ": " + e.getMessage());
             }
         }
-        
+
         // Generate PlantUML output
         generatePlantUml(outputPath);
     }
@@ -93,36 +93,36 @@ public class PlantUmlDiagramGenerator {
         if (processedClasses.contains(clazz) || clazz == null || clazz == Object.class) {
             return;
         }
-        
+
         processedClasses.add(clazz);
         ClassInfo info = new ClassInfo();
         info.name = clazz.getSimpleName();
         info.fullName = clazz.getName();
-        
+
         // Skip classes with empty or whitespace-only names (can happen with anonymous/synthetic classes)
         if (info.name == null || info.name.trim().isEmpty()) {
             return;
         }
-        
+
         info.isAbstract = Modifier.isAbstract(clazz.getModifiers());
         info.isEntity = clazz.isAnnotationPresent(jakarta.persistence.Entity.class);
         info.isMappedSuperclass = clazz.isAnnotationPresent(jakarta.persistence.MappedSuperclass.class);
-        
+
         // Get superclass
         if (clazz.getSuperclass() != null && !clazz.getSuperclass().equals(Object.class)) {
             info.superClass = clazz.getSuperclass();
             processClass(clazz.getSuperclass()); // Process parent class
         }
-        
+
         // Get interfaces
         for (Class<?> iface : clazz.getInterfaces()) {
             info.interfaces.add(iface);
         }
-        
+
         // Get fields
         for (Field field : clazz.getDeclaredFields()) {
-            if (!Modifier.isStatic(field.getModifiers()) && 
-                !field.isAnnotationPresent(jakarta.persistence.Transient.class)) {
+            if (!Modifier.isStatic(field.getModifiers()) &&
+                    !field.isAnnotationPresent(jakarta.persistence.Transient.class)) {
                 FieldInfo fieldInfo = new FieldInfo();
                 fieldInfo.name = field.getName();
                 fieldInfo.type = getTypeName(field.getType(), field.getGenericType());
@@ -131,26 +131,26 @@ public class PlantUmlDiagramGenerator {
                 info.fields.add(fieldInfo);
             }
         }
-        
+
         // Get key methods (getters, setters, constructors)
         for (Method method : clazz.getDeclaredMethods()) {
             if (!Modifier.isStatic(method.getModifiers())) {
                 String methodName = method.getName();
-                if (methodName.startsWith("get") || methodName.startsWith("set") || 
-                    methodName.equals("toString") || methodName.equals("equals") ||
-                    methodName.equals("hashCode")) {
+                if (methodName.startsWith("get") || methodName.startsWith("set") ||
+                        methodName.equals("toString") || methodName.equals("equals") ||
+                        methodName.equals("hashCode")) {
                     MethodInfo methodInfo = new MethodInfo();
                     methodInfo.name = methodName;
                     methodInfo.returnType = getTypeName(method.getReturnType(), method.getGenericReturnType());
                     methodInfo.visibility = getVisibility(method.getModifiers());
                     methodInfo.parameters = Arrays.stream(method.getParameterTypes())
-                        .map(c -> getTypeName(c, null))
-                        .collect(Collectors.toList());
+                            .map(c -> getTypeName(c, null))
+                            .collect(Collectors.toList());
                     info.methods.add(methodInfo);
                 }
             }
         }
-        
+
         classInfoMap.put(info.name, info);
     }
 
@@ -166,8 +166,8 @@ public class PlantUmlDiagramGenerator {
             ParameterizedType pt = (ParameterizedType) genericType;
             String baseName = ((Class<?>) pt.getRawType()).getSimpleName();
             String args = Arrays.stream(pt.getActualTypeArguments())
-                .map(t -> t instanceof Class ? ((Class<?>) t).getSimpleName() : t.getTypeName().substring(t.getTypeName().lastIndexOf('.') + 1))
-                .collect(Collectors.joining(", "));
+                    .map(t -> t instanceof Class ? ((Class<?>) t).getSimpleName() : t.getTypeName().substring(t.getTypeName().lastIndexOf('.') + 1))
+                    .collect(Collectors.joining(", "));
             return baseName + "<" + args + ">";
         }
         // Return simple name for backend classes
@@ -189,19 +189,19 @@ public class PlantUmlDiagramGenerator {
         pumlBuilder.append("!theme plain\n");
         pumlBuilder.append("skinparam classAttributeIconSize 0\n");
         pumlBuilder.append("title OOP Project - Class Diagram\n\n");
-        
+
         // Generate classes
         for (ClassInfo info : classInfoMap.values()) {
             generateClassPuml(info);
         }
-        
+
         // Generate relationships
         for (ClassInfo info : classInfoMap.values()) {
             generateRelationshipsPuml(info);
         }
-        
+
         pumlBuilder.append("@enduml\n");
-        
+
         // Write to file
         try (FileWriter writer = new FileWriter(outputPath)) {
             writer.write(pumlBuilder.toString());
@@ -210,7 +210,7 @@ public class PlantUmlDiagramGenerator {
 
     private void generateClassPuml(ClassInfo info) {
         pumlBuilder.append("class ").append(info.name);
-        
+
         if (info.isAbstract) {
             pumlBuilder.append(" <<abstract>>");
         } else if (info.isEntity) {
@@ -218,9 +218,9 @@ public class PlantUmlDiagramGenerator {
         } else if (info.isMappedSuperclass) {
             pumlBuilder.append(" <<MappedSuperclass>>");
         }
-        
+
         pumlBuilder.append(" {\n");
-        
+
         // Add fields
         for (FieldInfo field : info.fields) {
             pumlBuilder.append("  ").append(field.visibility).append(" ");
@@ -229,12 +229,12 @@ public class PlantUmlDiagramGenerator {
             }
             pumlBuilder.append(field.type).append(" ").append(field.name).append("\n");
         }
-        
+
         // Add separator if both fields and methods exist
         if (!info.fields.isEmpty() && !info.methods.isEmpty()) {
             pumlBuilder.append("  --\n");
         }
-        
+
         // Add methods (limit to key ones to keep diagram readable)
         int methodCount = 0;
         for (MethodInfo method : info.methods) {
@@ -250,7 +250,7 @@ public class PlantUmlDiagramGenerator {
                 pumlBuilder.append(")\n");
             }
         }
-        
+
         pumlBuilder.append("}\n\n");
     }
 
@@ -258,24 +258,24 @@ public class PlantUmlDiagramGenerator {
         // Inheritance relationship
         if (info.superClass != null && classInfoMap.containsKey(info.superClass.getSimpleName())) {
             pumlBuilder.append(info.superClass.getSimpleName())
-                      .append(" <|-- ")
-                      .append(info.name)
-                      .append(" : extends\n");
+                    .append(" <|-- ")
+                    .append(info.name)
+                    .append(" : extends\n");
         }
-        
+
         // Association relationships (based on field types)
         for (FieldInfo field : info.fields) {
             String fieldType = field.type;
             // Remove generics for matching
             String simpleType = fieldType.contains("<") ? fieldType.substring(0, fieldType.indexOf("<")) : fieldType;
-            
+
             if (classInfoMap.containsKey(simpleType) && !simpleType.equals(info.name)) {
                 pumlBuilder.append(info.name)
-                          .append(" --> ")
-                          .append(simpleType)
-                          .append(" : ")
-                          .append(field.name)
-                          .append("\n");
+                        .append(" --> ")
+                        .append(simpleType)
+                        .append(" : ")
+                        .append(field.name)
+                        .append("\n");
             }
         }
     }

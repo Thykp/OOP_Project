@@ -81,7 +81,7 @@ public class UserController {
     // Update Patient details
     @PatchMapping("/patient/{id}")
     public ResponseEntity<PatientResponse> updatePatient(@PathVariable UUID id,
-            @RequestBody PatientRequest patientRequest) {
+                                                         @RequestBody PatientRequest patientRequest) {
         try {
             PatientResponse updatedPatient = userService.updatePatient(id, patientRequest);
             return ResponseEntity.ok(updatedPatient);
@@ -93,7 +93,7 @@ public class UserController {
     // Update Patient details
     @PatchMapping("/staff/{id}")
     public ResponseEntity<StaffResponse> updateStaff(@PathVariable UUID id,
-            @RequestBody StaffRequest staffRequest) {
+                                                     @RequestBody StaffRequest staffRequest) {
         try {
             StaffResponse updatedStaff = userService.updateStaff(id, staffRequest);
             return ResponseEntity.ok(updatedStaff);

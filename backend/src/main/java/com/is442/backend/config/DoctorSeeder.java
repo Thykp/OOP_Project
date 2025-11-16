@@ -1,4 +1,5 @@
 package com.is442.backend.config;
+
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -60,7 +61,7 @@ public class DoctorSeeder implements CommandLineRunner {
             return;
         }
 
-        resetTables(); 
+        resetTables();
 
         generateDoctorsForClinics("gp_clinic", false);
         generateDoctorsForClinics("specialist_clinic", true);
@@ -68,45 +69,47 @@ public class DoctorSeeder implements CommandLineRunner {
         System.out.println(" DoctorSeeder completed successfully!");
     }
 
-private boolean isAlreadySeeded() {
+    private boolean isAlreadySeeded() {
         try {
             List<Map<String, Object>> doctors = supabaseClient.get()
                     .uri("/doctor?select=id&limit=1") // only need to check one row
                     .retrieve()
-                    .bodyToFlux(new ParameterizedTypeReference<Map<String, Object>>() {})
+                    .bodyToFlux(new ParameterizedTypeReference<Map<String, Object>>() {
+                    })
                     .collectList()
                     .block();
 
             return doctors != null && !doctors.isEmpty();
         } catch (Exception e) {
             System.err.println(" Failed to check doctor table: " + e.getMessage());
-            return false; 
+            return false;
         }
     }
 
-private void resetTables() {
-    try {
-        supabaseClient.post()
-                .uri("/rpc/reset_seed_tables") 
-                .retrieve()
-                .bodyToMono(String.class)
-                .block();
+    private void resetTables() {
+        try {
+            supabaseClient.post()
+                    .uri("/rpc/reset_seed_tables")
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
 
-        System.out.println("Truncated doctor & time_slot tables (IDs reset to 1)");
-    } catch (Exception e) {
-        System.err.println("Failed to truncate tables via RPC: " + e.getMessage());
+            System.out.println("Truncated doctor & time_slot tables (IDs reset to 1)");
+        } catch (Exception e) {
+            System.err.println("Failed to truncate tables via RPC: " + e.getMessage());
+        }
     }
-}
 
     private void generateDoctorsForClinics(String table, boolean isSpecialist) {
-     System.out.println("Fetching clinics from table: " + table); // ADD THIS
+        System.out.println("Fetching clinics from table: " + table); // ADD THIS
 
         List<Map<String, Object>> clinics;
         try {
             clinics = supabaseClient.get()
                     .uri("/" + table)
                     .retrieve()
-                    .bodyToFlux(new ParameterizedTypeReference<Map<String, Object>>() {})
+                    .bodyToFlux(new ParameterizedTypeReference<Map<String, Object>>() {
+                    })
                     .collectList()
                     .block();
         } catch (Exception e) {
@@ -131,10 +134,10 @@ private void resetTables() {
 
             if (!isSpecialist) {
                 createDoctorsAndSlots(
-                    // if is GP default to start 9am end 5pm
+                        // if is GP default to start 9am end 5pm
                         clinic, clinicName, clinicAddress, speciality,
                         LocalTime.of(9, 0), LocalTime.of(17, 0),
-                        List.of("MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY","SUNDAY"),
+                        List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"),
                         rand,
                         false
                 );
@@ -145,7 +148,7 @@ private void resetTables() {
             System.out.printf("Created 4 doctors for clinic: %s%n", clinicName);
         }
     }
-    
+
 
     private void generateSpecialistDoctors(Map<String, Object> clinic, String clinicName,
                                            String clinicAddress, String speciality, Random rand) {
@@ -164,12 +167,12 @@ private void resetTables() {
         for (String day : DAY_ORDER) {
             LocalTime open = null, close = null;
             String[] cols;
-            if (List.of("MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY").contains(day)) {
-                cols = new String[]{"mon_to_fri_am","mon_to_fri_pm","mon_to_fri_night"};
+            if (List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY").contains(day)) {
+                cols = new String[]{"mon_to_fri_am", "mon_to_fri_pm", "mon_to_fri_night"};
             } else if (day.equals("SATURDAY")) {
-                cols = new String[]{"sat_am","sat_pm","sat_night"};
+                cols = new String[]{"sat_am", "sat_pm", "sat_night"};
             } else {
-                cols = new String[]{"sun_am","sun_pm","sun_night"};
+                cols = new String[]{"sun_am", "sun_pm", "sun_night"};
             }
 
             for (String col : cols) {
@@ -182,7 +185,7 @@ private void resetTables() {
                 }
             }
 
-            if (open == null || close == null) continue; 
+            if (open == null || close == null) continue;
 
             for (Doctor doctor : doctors) {
                 generateSlotsForDoctor(doctor, open, close, day);
@@ -231,35 +234,35 @@ private void resetTables() {
 
     private String generateDoctorName(Random rand) {
 
-    String[] first = {
-        "Alex","Benjamin","Chloe","Darren","Emily","Farah","Gabriel","Hui Ling","Ivan","Jessica",
-        "Marcus","Natalie","Ryan","Samantha","Tze Wei","Ashley","Bryan","Caitlyn","Daniel","Ethan",
-        "Fiona","Grace","Hannah","Isabelle","Jared","Kayla","Lucas","Megan","Nicholas","Olivia",
-        "Patrick","Qi En","Rachel","Samuel","Tracy","Umairah","Valerie","William","Xin Yi","Yong Jie",
-        "Zara","Abigail","Brandon","Clarissa","Dominic","Elaine","Felix","Gavin","Hazel","Irfan",
-        "Jolene","Kenneth","Lydia","Michelle","Noah","Oscar","Priscilla","Qian Hui","Rebecca","Sean",
-        "Tiffany","Victor","Wen Hao","Ying Ying","Zhi Wei"
-    };
+        String[] first = {
+                "Alex", "Benjamin", "Chloe", "Darren", "Emily", "Farah", "Gabriel", "Hui Ling", "Ivan", "Jessica",
+                "Marcus", "Natalie", "Ryan", "Samantha", "Tze Wei", "Ashley", "Bryan", "Caitlyn", "Daniel", "Ethan",
+                "Fiona", "Grace", "Hannah", "Isabelle", "Jared", "Kayla", "Lucas", "Megan", "Nicholas", "Olivia",
+                "Patrick", "Qi En", "Rachel", "Samuel", "Tracy", "Umairah", "Valerie", "William", "Xin Yi", "Yong Jie",
+                "Zara", "Abigail", "Brandon", "Clarissa", "Dominic", "Elaine", "Felix", "Gavin", "Hazel", "Irfan",
+                "Jolene", "Kenneth", "Lydia", "Michelle", "Noah", "Oscar", "Priscilla", "Qian Hui", "Rebecca", "Sean",
+                "Tiffany", "Victor", "Wen Hao", "Ying Ying", "Zhi Wei"
+        };
 
-    String[] last = {
-        "Tan","Lim","Ng","Lee","Chong","Wong","Cheong","Toh","Sim","Low","Seah","Phua","Chan","Goh",
-        "Teo","Pang","Chua","Ong","Ho","Koh","Foo","Loh","Ang","Liew","Quek","Ngoh","Toh","Seet",
-        "Yap","Chee","Mak","Peh","Tanaka","Chen","Wang","Liu","Zhang","Yeo","Heng","Soh"
-    };
+        String[] last = {
+                "Tan", "Lim", "Ng", "Lee", "Chong", "Wong", "Cheong", "Toh", "Sim", "Low", "Seah", "Phua", "Chan", "Goh",
+                "Teo", "Pang", "Chua", "Ong", "Ho", "Koh", "Foo", "Loh", "Ang", "Liew", "Quek", "Ngoh", "Toh", "Seet",
+                "Yap", "Chee", "Mak", "Peh", "Tanaka", "Chen", "Wang", "Liu", "Zhang", "Yeo", "Heng", "Soh"
+        };
 
-    String fullName;
-    int maxTries = 100;
-    int tries = 0;
+        String fullName;
+        int maxTries = 100;
+        int tries = 0;
 
-    do {
-        String candidate = "Dr " + first[rand.nextInt(first.length)] + " " + last[rand.nextInt(last.length)];
-        fullName = candidate;
-        tries++;
-    } while (usedDoctorNames.contains(fullName) && tries < maxTries);
+        do {
+            String candidate = "Dr " + first[rand.nextInt(first.length)] + " " + last[rand.nextInt(last.length)];
+            fullName = candidate;
+            tries++;
+        } while (usedDoctorNames.contains(fullName) && tries < maxTries);
 
-    usedDoctorNames.add(fullName);
-    return fullName;
-}
+        usedDoctorNames.add(fullName);
+        return fullName;
+    }
 
 
     private void postDoctor(Doctor doctor) {
@@ -284,17 +287,17 @@ private void resetTables() {
         while (slotStart.isBefore(end)) {
             LocalTime slotEnd = slotStart.plusMinutes(SLOT_MINUTES);
             if (slotEnd.isAfter(end)) break;
-            
 
-        // Prepare payload with start/end as strings to avoid serialization issues
-        Map<String, Object> slotPayload = new HashMap<>();
-        slotPayload.put("doctor_id", doctor.getDoctorId());
-        slotPayload.put("doctor_name", doctor.getDoctorName());
-        slotPayload.put("day_of_week", dayOfWeek);
-        slotPayload.put("start_time", slotStart.format(DateTimeFormatter.ofPattern("HH:mm:ss")));
-        slotPayload.put("end_time", slotEnd.format(DateTimeFormatter.ofPattern("HH:mm:ss")));
 
-        try {
+            // Prepare payload with start/end as strings to avoid serialization issues
+            Map<String, Object> slotPayload = new HashMap<>();
+            slotPayload.put("doctor_id", doctor.getDoctorId());
+            slotPayload.put("doctor_name", doctor.getDoctorName());
+            slotPayload.put("day_of_week", dayOfWeek);
+            slotPayload.put("start_time", slotStart.format(DateTimeFormatter.ofPattern("HH:mm:ss")));
+            slotPayload.put("end_time", slotEnd.format(DateTimeFormatter.ofPattern("HH:mm:ss")));
+
+            try {
                 String resp = supabaseClient.post()
                         .uri("/time_slot")
                         .header("Prefer", "return=representation")
@@ -321,16 +324,16 @@ private void resetTables() {
                         System.err.println("Failed to parse insert response: " + ex.getMessage());
                     }
                 }
-        } catch (Exception e) {
-        System.err.println("Failed to insert slot for "
-            + doctor.getDoctorId() + " on " + dayOfWeek
-            + " at " + slotStart);
-        // If it's an HTTP error, print the response body (useful for Supabase errors)
-        if (e instanceof org.springframework.web.reactive.function.client.WebClientResponseException w) {
-            System.err.println("Response body: " + w.getResponseBodyAsString());
-        }
-        e.printStackTrace();
-        }
+            } catch (Exception e) {
+                System.err.println("Failed to insert slot for "
+                        + doctor.getDoctorId() + " on " + dayOfWeek
+                        + " at " + slotStart);
+                // If it's an HTTP error, print the response body (useful for Supabase errors)
+                if (e instanceof org.springframework.web.reactive.function.client.WebClientResponseException w) {
+                    System.err.println("Response body: " + w.getResponseBodyAsString());
+                }
+                e.printStackTrace();
+            }
 
             slotStart = slotEnd;
         }
@@ -343,7 +346,9 @@ private void resetTables() {
             String s = parts[0].replace(":", "").trim();
             if (s.length() == 3) s = "0" + s;
             return LocalTime.parse(s, DateTimeFormatter.ofPattern("HHmm"));
-        } catch (Exception e) { return def; }
+        } catch (Exception e) {
+            return def;
+        }
     }
 
     private LocalTime parseEnd(String str, LocalTime def) {
@@ -353,6 +358,8 @@ private void resetTables() {
             String e = parts[1].replace(":", "").trim();
             if (e.length() == 3) e = "0" + e;
             return LocalTime.parse(e, DateTimeFormatter.ofPattern("HHmm"));
-        } catch (Exception ex) { return def; }
+        } catch (Exception ex) {
+            return def;
+        }
     }
 }

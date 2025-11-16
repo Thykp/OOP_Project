@@ -14,10 +14,10 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/treatment-notes")
 public class TreatmentNoteController {
-    
+
     @Autowired
     private TreatmentNoteService treatmentNoteService;
-    
+
     /**
      * Create a treatment note for a completed appointment
      * POST /api/treatment-notes
@@ -30,7 +30,7 @@ public class TreatmentNoteController {
             if (userId == null || userId.isBlank()) {
                 return ResponseEntity.badRequest().body("User ID is required in X-User-Id header");
             }
-            
+
             TreatmentNoteResponse created = treatmentNoteService.createTreatmentNote(request, userId);
             return ResponseEntity.status(HttpStatus.CREATED).body(created);
         } catch (RuntimeException e) {
@@ -40,7 +40,7 @@ public class TreatmentNoteController {
                     .body("Error creating treatment note: " + e.getMessage());
         }
     }
-    
+
     /**
      * Get all treatment notes for an appointment
      * GET /api/treatment-notes/appointment/{appointmentId}
@@ -58,7 +58,7 @@ public class TreatmentNoteController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
-    
+
     /**
      * Get all treatment notes for a patient
      * GET /api/treatment-notes/patient/{patientId}
@@ -76,7 +76,7 @@ public class TreatmentNoteController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
-    
+
     /**
      * Get latest treatment note for an appointment
      * GET /api/treatment-notes/appointment/{appointmentId}/latest
@@ -97,7 +97,7 @@ public class TreatmentNoteController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
-    
+
     /**
      * Update a treatment note
      * PUT /api/treatment-notes/{noteId}
@@ -116,7 +116,7 @@ public class TreatmentNoteController {
                     .body("Error updating treatment note: " + e.getMessage());
         }
     }
-    
+
     /**
      * Delete a treatment note
      * DELETE /api/treatment-notes/{noteId}

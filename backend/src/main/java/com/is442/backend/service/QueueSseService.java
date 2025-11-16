@@ -3,6 +3,7 @@ package com.is442.backend.service;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -28,7 +29,6 @@ public class QueueSseService {
     }
 
     public Flux<ServerSentEvent<String>> streamClinic(String clinicId) {
-        // Keep-alive heartbeat so connections don’t time out on proxies
         Flux<ServerSentEvent<String>> heartbeat = Flux.interval(Duration.ofSeconds(15))
                 .map(i -> ServerSentEvent.<String>builder()
                         .event("heartbeat")

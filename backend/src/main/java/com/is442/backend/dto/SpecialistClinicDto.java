@@ -26,52 +26,50 @@ public class SpecialistClinicDto {
     public SpecialistClinicDto() {
     }
 
-public SpecialistClinicDto(
-        Integer sn,
-        String ihpClinicId,
-        String region,
-        String area,
-        String clinicName,
-        String address,
-        String telephoneNum,
-        String speciality,
-        String monToFriAm,
-        String monToFriPm,
-        String monToFriNight,
-        String satAm,
-        String satPm,
-        String satNight,
-        String sunAm,
-        String sunPm,
-        String sunNight,
-        String publicHolidayAm,
-        String publicHolidayPm,
-        String publicHolidayNight
-) {
-    this.sn = sn;
-    this.ihpClinicId = ihpClinicId;
-    this.region = region;
-    this.area = area;
-    this.clinicName = clinicName;
-    this.address = address;
-    this.telephoneNum = telephoneNum;
-    this.speciality = speciality;
-    this.monToFriAm = monToFriAm;
-    this.monToFriPm = monToFriPm;
-    this.monToFriNight = monToFriNight;
-    this.satAm = satAm;
-    this.satPm = satPm;
-    this.satNight = satNight;
-    this.sunAm = sunAm;
-    this.sunPm = sunPm;
-    this.sunNight = sunNight;
-    this.publicHolidayAm = publicHolidayAm;
-    this.publicHolidayPm = publicHolidayPm;
-    this.publicHolidayNight = publicHolidayNight;
-}
+    public SpecialistClinicDto(
+            Integer sn,
+            String ihpClinicId,
+            String region,
+            String area,
+            String clinicName,
+            String address,
+            String telephoneNum,
+            String speciality,
+            String monToFriAm,
+            String monToFriPm,
+            String monToFriNight,
+            String satAm,
+            String satPm,
+            String satNight,
+            String sunAm,
+            String sunPm,
+            String sunNight,
+            String publicHolidayAm,
+            String publicHolidayPm,
+            String publicHolidayNight
+    ) {
+        this.sn = sn;
+        this.ihpClinicId = ihpClinicId;
+        this.region = region;
+        this.area = area;
+        this.clinicName = clinicName;
+        this.address = address;
+        this.telephoneNum = telephoneNum;
+        this.speciality = speciality;
+        this.monToFriAm = monToFriAm;
+        this.monToFriPm = monToFriPm;
+        this.monToFriNight = monToFriNight;
+        this.satAm = satAm;
+        this.satPm = satPm;
+        this.satNight = satNight;
+        this.sunAm = sunAm;
+        this.sunPm = sunPm;
+        this.sunNight = sunNight;
+        this.publicHolidayAm = publicHolidayAm;
+        this.publicHolidayPm = publicHolidayPm;
+        this.publicHolidayNight = publicHolidayNight;
+    }
 
-
-    
 
     public Integer getSn() {
         return sn;

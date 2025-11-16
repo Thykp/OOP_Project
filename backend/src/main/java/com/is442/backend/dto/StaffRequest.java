@@ -17,12 +17,15 @@ public class StaffRequest extends UserRequest {
     public String getClinicName() {
         return clinicName;
     }
+
     public void setClinicName(String clinicName) {
         this.clinicName = clinicName;
     }
+
     public String getPosition() {
         return position;
     }
+
     public void setPosition(String position) {
         this.position = position;
     }

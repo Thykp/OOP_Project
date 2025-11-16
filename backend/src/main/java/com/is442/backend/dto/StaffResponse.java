@@ -15,12 +15,29 @@ public class StaffResponse extends UserResponse {
     private String position;
 
     // Getters and setters
-    public String getClinicName() { return clinicName; }
-    public void setClinicName(String clinicName) { this.clinicName = clinicName; }
-    public String getClinicId() { return clinicId; }
-    public void setClinicId(String clinicId) { this.clinicId = clinicId; }
-    public String getPosition() { return position; }
-    public void setPosition(String position) { this.position = position; }
+    public String getClinicName() {
+        return clinicName;
+    }
+
+    public void setClinicName(String clinicName) {
+        this.clinicName = clinicName;
+    }
+
+    public String getClinicId() {
+        return clinicId;
+    }
+
+    public void setClinicId(String clinicId) {
+        this.clinicId = clinicId;
+    }
+
+    public String getPosition() {
+        return position;
+    }
+
+    public void setPosition(String position) {
+        this.position = position;
+    }
 
     public StaffResponse(ClinicStaff staff) {
         super(staff);

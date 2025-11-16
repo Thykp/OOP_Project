@@ -9,5 +9,6 @@ import java.util.Optional;
 
 public interface GpClinicRepository extends JpaRepository<GpClinic, Integer> {
     Page<GpClinic> findAll(Pageable pageable);
+
     Optional<GpClinic> findByClinicId(String clinicId);
 }

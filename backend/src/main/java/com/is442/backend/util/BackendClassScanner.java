@@ -22,7 +22,7 @@ public class BackendClassScanner {
     /**
      * Scans and returns all classes in the backend package.
      * Tries multiple strategies to find classes.
-     * 
+     *
      * @return List of all discovered classes
      */
     public static List<Class<?>> scanBackendClasses() {

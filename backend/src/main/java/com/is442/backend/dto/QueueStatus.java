@@ -11,8 +11,16 @@ public class QueueStatus {
         this.totalWaiting = totalWaiting;
     }
 
-    public String getClinicId() { return clinicId; }
-    public long getNowServing() { return nowServing; }
-    public int getTotalWaiting() { return totalWaiting; }
+    public String getClinicId() {
+        return clinicId;
+    }
+
+    public long getNowServing() {
+        return nowServing;
+    }
+
+    public int getTotalWaiting() {
+        return totalWaiting;
+    }
 }
 

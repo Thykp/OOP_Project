@@ -3,25 +3,26 @@ package com.is442.backend.dto;
 import jakarta.validation.constraints.NotBlank;
 
 public class DoctorRequest {
-    
+
     @NotBlank(message = "Doctor ID is required")
     private String doctorId;
-    
+
     @NotBlank(message = "Doctor name is required")
     private String doctorName;
-    
+
     @NotBlank(message = "Clinic ID is required")
     private String clinicId;
-    
+
     @NotBlank(message = "Clinic name is required")
     private String clinicName;
-    
+
     private String clinicAddress;
-    
+
     @NotBlank(message = "Speciality is required")
     private String speciality;
 
-    public DoctorRequest() {}
+    public DoctorRequest() {
+    }
 
     public DoctorRequest(String doctorId, String doctorName, String clinicId, String clinicName, String clinicAddress, String speciality) {
         this.doctorId = doctorId;

@@ -34,11 +34,11 @@ public class SecurityConfig {
         CorsConfiguration cfg = new CorsConfiguration();
 
         cfg.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:5174"));
-        cfg.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
+        cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("*"));
         cfg.setExposedHeaders(List.of("Content-Type"));
-    // Allow cookies/credentials from the frontend origin (needed for SockJS handshake with credentials)
-    cfg.setAllowCredentials(true);
+        // Allow cookies/credentials from the frontend origin (needed for SockJS handshake with credentials)
+        cfg.setAllowCredentials(true);
         cfg.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

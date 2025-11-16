@@ -21,10 +21,10 @@ public class SupabaseConfig {
                 .baseUrl(supabaseUrl + "/rest/v1")
                 .defaultHeader("apikey", supabaseKey)
                 .defaultHeader("Authorization", "Bearer " + supabaseKey)
-                .defaultHeader("Prefer", "return=minimal")  
+                .defaultHeader("Prefer", "return=minimal")
 
                 .build();
-                
+
     }
-    
+
 }

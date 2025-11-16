@@ -1,4 +1,5 @@
 package com.is442.backend.service;
+
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -43,10 +44,10 @@ public class TimeSlotService {
         try {
             // Handle various formats: "11:00", "11:00:00", "11:00 AM"
             timeStr = timeStr.trim();
-            
+
             // Remove AM/PM if present (assuming 24-hour format in DB)
             timeStr = timeStr.replaceAll("(?i)\\s*(AM|PM)\\s*$", "");
-            
+
             if (timeStr.length() == 5) {
                 // "11:00" format
                 return LocalTime.parse(timeStr, DateTimeFormatter.ofPattern("HH:mm"));
@@ -92,13 +93,13 @@ public class TimeSlotService {
     private boolean isSameSlot(Appointment app, TimeSlot slot) {
         boolean startMatch = timesMatchIgnoreSeconds(app.getStartTime(), slot.getStartTime());
         boolean endMatch = timesMatchIgnoreSeconds(app.getEndTime(), slot.getEndTime());
-        
+
         // Debug logging (remove after testing)
         if (startMatch && endMatch) {
-            System.out.println("MATCHED SLOT - Appointment: " + app.getStartTime() + "-" + app.getEndTime() 
-                + " | Slot: " + slot.getStartTime() + "-" + slot.getEndTime());
+            System.out.println("MATCHED SLOT - Appointment: " + app.getStartTime() + "-" + app.getEndTime()
+                    + " | Slot: " + slot.getStartTime() + "-" + slot.getEndTime());
         }
-        
+
         return startMatch && endMatch;
     }
 
@@ -212,7 +213,7 @@ public class TimeSlotService {
                                 System.out.println("  -> FILTERED OUT (BOOKED): " + slot.getStartTime() + "-" + slot.getEndTime() + " for " + doctor.getDoctorName());
                                 return false;
                             }
-                            
+
                             // Filter out past time slots for today
                             if (currentDate.equals(today)) {
                                 LocalTime slotStartTime = slot.getStartTime();
@@ -222,11 +223,11 @@ public class TimeSlotService {
                                     return false;
                                 }
                             }
-                            
+
                             return true;
                         })
                         .collect(Collectors.toList());
-                
+
                 System.out.println("  -> Available after filtering: " + available.size());
 
                 if (!available.isEmpty()) {

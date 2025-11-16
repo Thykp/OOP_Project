@@ -1,16 +1,17 @@
 package com.is442.backend.model;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.PrimaryKeyJoinColumn;
 import jakarta.persistence.Table;
-import java.util.UUID;
 
+import java.util.UUID;
 
 
 @Entity
 @Table(name = "patient")
 @PrimaryKeyJoinColumn(name = "supabase_user_id")
-public class Patient extends User{
+public class Patient extends User {
     @Column(name = "phone")
     private String phone;
 
@@ -57,5 +58,4 @@ public class Patient extends User{
     }
 
 
-    
 }

@@ -90,9 +90,13 @@ public class SignupRequest {
         this.clinicName = clinicName;
     }
 
-    public String getClinicId() { return clinicId; }
+    public String getClinicId() {
+        return clinicId;
+    }
 
-    public void setClinicId(String clinicId) { this.clinicId = clinicId; }
+    public void setClinicId(String clinicId) {
+        this.clinicId = clinicId;
+    }
 
     public String getPosition() {
         return position;

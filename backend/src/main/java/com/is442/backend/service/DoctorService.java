@@ -1,4 +1,5 @@
 package com.is442.backend.service;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -43,12 +44,12 @@ public class DoctorService {
         }
 
         Doctor doctor = new Doctor(
-            request.getDoctorId(),
-            request.getDoctorName(),
-            request.getClinicId(),
-            request.getClinicName(),
-            request.getClinicAddress() != null ? request.getClinicAddress() : "",
-            request.getSpeciality()
+                request.getDoctorId(),
+                request.getDoctorName(),
+                request.getClinicId(),
+                request.getClinicName(),
+                request.getClinicAddress() != null ? request.getClinicAddress() : "",
+                request.getSpeciality()
         );
 
         Doctor saved = doctorRepository.save(doctor);
@@ -86,7 +87,7 @@ public class DoctorService {
     public void deleteDoctor(String doctorId) {
         Doctor doctor = doctorRepository.findByDoctorId(doctorId)
                 .orElseThrow(() -> new RuntimeException("Doctor not found with ID: " + doctorId));
-        
+
         doctorRepository.delete(doctor);
     }
 
@@ -98,21 +99,14 @@ public class DoctorService {
 
     private DoctorDto toDto(Doctor doctor) {
         return new DoctorDto(
-            doctor.getDoctorId(),
-            doctor.getDoctorName(),
-            doctor.getClinicId(),
-            doctor.getClinicName(),
-            doctor.getClinicAddress(),
-            doctor.getSpeciality()
+                doctor.getDoctorId(),
+                doctor.getDoctorName(),
+                doctor.getClinicId(),
+                doctor.getClinicName(),
+                doctor.getClinicAddress(),
+                doctor.getSpeciality()
         );
     }
 
 
-
-
-
-
-
-
-    
 }

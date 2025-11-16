@@ -2,6 +2,7 @@ package com.is442.backend.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -59,9 +60,9 @@ public class StaffReport {
     }
 
     public StaffReport(String clinicId, LocalDate reportDate, Integer patientsSeen,
-                      BigDecimal averageWaitingTimeMinutes, BigDecimal noShowRate,
-                      Integer totalAppointments, Integer noShowCount, String pdfFilePath,
-                      String generatedBy) {
+                       BigDecimal averageWaitingTimeMinutes, BigDecimal noShowRate,
+                       Integer totalAppointments, Integer noShowCount, String pdfFilePath,
+                       String generatedBy) {
         this.clinicId = clinicId;
         this.reportDate = reportDate;
         this.patientsSeen = patientsSeen;

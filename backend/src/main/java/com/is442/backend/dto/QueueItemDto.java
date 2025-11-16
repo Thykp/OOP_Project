@@ -19,8 +19,8 @@ public class QueueItemDto {
     private final String createdAt;
 
     public QueueItemDto(String appointmentId, String patientId, String patientName, String email, String phone,
-            int position, long queueNumber, String doctorId, String doctorName, String doctorSpeciality,
-            String createdAt) {
+                        int position, long queueNumber, String doctorId, String doctorName, String doctorSpeciality,
+                        String createdAt) {
         this.appointmentId = appointmentId;
         this.patientId = patientId;
         this.patientName = patientName;

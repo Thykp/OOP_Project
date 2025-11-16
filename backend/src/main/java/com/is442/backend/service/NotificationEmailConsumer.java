@@ -83,17 +83,17 @@ public class NotificationEmailConsumer {
 
     /**
      * Build Appendix A style email:
-     *
+     * <p>
      * Subject: Appointment & Queue Update – SingHealth Clinic
      * Dear [Patient Name],
      * Thank you for booking your appointment at [Clinic Name].
-     *  • Doctor: [Doctor Name]
-     *  • Date & Time: [Appointment Date & Time]
-     *  • Queue Number: [Queue Number]
+     * • Doctor: [Doctor Name]
+     * • Date & Time: [Appointment Date & Time]
+     * • Queue Number: [Queue Number]
      * ...
      * Queue Update Notifications:
-     *  • "You are currently 3 patients away..."  (N3_AWAY)
-     *  • "It’s your turn. Kindly enter..."      (NOW_SERVING)
+     * • "You are currently 3 patients away..."  (N3_AWAY)
+     * • "It’s your turn. Kindly enter..."      (NOW_SERVING)
      */
     private String buildTemplateBody(NotificationEvent evt, JsonNode payload) {
         JsonNode patientNode = payload.path("patient");
@@ -150,17 +150,17 @@ public class NotificationEmailConsumer {
         // Final body (Appendix A style)
         return String.format(
                 "Dear %s,%n%n" +
-                "Thank you for booking your appointment at %s.%n%n" +
-                "• Doctor: %s%n" +
-                "• Date & Time: %s%n" +
-                "• Queue Number: %s%n%n" +
-                "We will notify you again when your turn is approaching. " +
-                "Please be present at the clinic when your queue number is called.%n%n" +
-                "Queue Update Notifications:%n" +
-                "• %s%n%n" +
-                "We look forward to serving you.%n%n" +
-                "Warm regards,%n" +
-                "SingHealth Clinic Team%n",
+                        "Thank you for booking your appointment at %s.%n%n" +
+                        "• Doctor: %s%n" +
+                        "• Date & Time: %s%n" +
+                        "• Queue Number: %s%n%n" +
+                        "We will notify you again when your turn is approaching. " +
+                        "Please be present at the clinic when your queue number is called.%n%n" +
+                        "Queue Update Notifications:%n" +
+                        "• %s%n%n" +
+                        "We look forward to serving you.%n%n" +
+                        "Warm regards,%n" +
+                        "SingHealth Clinic Team%n",
                 patientName,
                 clinicName,
                 doctorName,
